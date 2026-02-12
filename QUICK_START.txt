@@ -1,0 +1,7 @@
+# Quick Start Guide
+
+1. Terminal öffnen
+2. cd "H:\Desktop\Claude Test Web App\hr-management-system"
+3. npm run dev
+4. Browser öffnen: http://localhost:3000
+5. Login: admin / Admin123!

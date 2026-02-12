@@ -1,0 +1,407 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// USER & AUTHENTICATION
+// ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  username      String    @unique
+  email         String?   @unique
+  passwordHash  String
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  auditLogs            AuditLog[]
+  notifications        Notification[]
+  documentsUploaded    Document[]         @relation("DocumentUploader")
+  clothingOrdersCreated ClothingOrder[]  @relation("ClothingOrderCreator")
+  vacationsCreated     Vacation[]         @relation("VacationCreator")
+
+  @@map("users")
+}
+
+// ============================================================================
+// DEPARTMENT
+// ============================================================================
+
+model Department {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  employees Employee[]
+
+  @@map("departments")
+}
+
+// ============================================================================
+// EMPLOYEE & CUSTOM FIELDS
+// ============================================================================
+
+model Employee {
+  id                String    @id @default(cuid())
+  employeeNumber    String    @unique // Auto-generated: EMP-00001
+  firstName         String
+  lastName          String
+  dateOfBirth       DateTime?
+  email             String?
+  phone             String?
+  departmentId      String?
+  position          String?
+  startDate         DateTime?
+  clothingBudget    Decimal   @db.Decimal(10, 2) @default(0)
+  remainingBudget   Decimal   @db.Decimal(10, 2) @default(0)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  // Relations
+  department         Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  documents          Document[]
+  customFieldValues  CustomFieldValue[]
+  employeeSize       EmployeeSize?
+  clothingOrders     ClothingOrder[]
+  vacations          Vacation[]
+
+  @@index([departmentId])
+  @@index([email])
+  @@index([employeeNumber])
+  @@map("employees")
+}
+
+model CustomFieldDefinition {
+  id             String   @id @default(cuid())
+  fieldName      String   @unique
+  fieldType      FieldType
+  isRequired     Boolean  @default(false)
+  sortOrder      Int      @default(0)
+  selectOptions  Json?    // Array of strings for SELECT type
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  values CustomFieldValue[]
+
+  @@map("custom_field_definitions")
+}
+
+model CustomFieldValue {
+  id              String   @id @default(cuid())
+  employeeId      String
+  fieldDefinitionId String
+  textValue       String?
+  numberValue     Decimal? @db.Decimal(15, 2)
+  dateValue       DateTime?
+  booleanValue    Boolean?
+  selectValue     String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  employee        Employee              @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  fieldDefinition CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([employeeId, fieldDefinitionId])
+  @@index([employeeId])
+  @@index([fieldDefinitionId])
+  @@map("custom_field_values")
+}
+
+enum FieldType {
+  TEXT
+  NUMBER
+  DATE
+  BOOLEAN
+  SELECT
+}
+
+// ============================================================================
+// DOCUMENTS
+// ============================================================================
+
+model DocumentType {
+  id                 String     @id @default(cuid())
+  name               String     @unique
+  description        String?
+  requiresExpiration Boolean    @default(false)
+  isActive           Boolean    @default(true)
+  isDefault          Boolean    @default(false) // Standard types can't be deleted
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  // Relations
+  documents Document[]
+
+  @@map("document_types")
+}
+
+model Document {
+  id             String       @id @default(cuid())
+  employeeId     String
+  documentTypeId String
+  title          String
+  description    String?      @db.Text
+  filePath       String       // Relative path: uploads/documents/2024/01/...
+  fileName       String
+  fileSize       Int          // In bytes
+  mimeType       String
+  expirationDate DateTime?
+  notes          String?      @db.Text
+  uploadedAt     DateTime     @default(now())
+  uploadedBy     String
+  updatedAt      DateTime     @updatedAt
+
+  // Relations
+  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  documentType DocumentType    @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
+  uploader     User            @relation("DocumentUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  tags         DocumentTag[]
+
+  @@index([employeeId])
+  @@index([documentTypeId])
+  @@index([expirationDate])
+  @@index([uploadedBy])
+  @@map("documents")
+}
+
+model Tag {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  color     String?  @default("#3B82F6") // Hex color code
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  documents DocumentTag[]
+
+  @@map("tags")
+}
+
+model DocumentTag {
+  id         String   @id @default(cuid())
+  documentId String
+  tagId      String
+  createdAt  DateTime @default(now())
+
+  // Relations
+  document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([documentId, tagId])
+  @@index([documentId])
+  @@index([tagId])
+  @@map("document_tags")
+}
+
+// ============================================================================
+// CLOTHING / ARBEITSKLEIDUNG
+// ============================================================================
+
+model EmployeeSize {
+  id             String   @id @default(cuid())
+  employeeId     String   @unique
+  shirtSize      String?  // XS, S, M, L, XL, XXL, 3XL
+  pantsSize      String?  // Konfektionsgröße oder Maße
+  shoeSize       String?  // EU 35-50
+  gloveSize      String?  // 6-12
+  jacketSize     String?  // XS-3XL
+  additionalSizes Json?   // Flexible JSON for additional sizes
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@map("employee_sizes")
+}
+
+model ClothingItem {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?  @db.Text
+  category       String
+  basePrice      Decimal  @db.Decimal(10, 2)
+  availableSizes Json     // Array of available sizes
+  imageUrl       String?
+  isActive       Boolean  @default(true)
+
+  // WooCommerce Integration Fields
+  sku                  String?   @unique  // Stock Keeping Unit
+  woocommerceId        Int?      @unique  // WooCommerce Product ID
+  syncedToWooCommerce  Boolean   @default(false)
+  lastSyncedAt         DateTime?
+
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Relations
+  orderItems ClothingOrderItem[]
+
+  @@index([isActive])
+  @@index([category])
+  @@index([woocommerceId])
+  @@index([sku])
+  @@map("clothing_items")
+}
+
+model ClothingOrder {
+  id          String            @id @default(cuid())
+  employeeId  String
+  orderDate   DateTime          @default(now())
+  totalAmount Decimal           @db.Decimal(10, 2)
+  status      OrderStatus       @default(ORDERED)
+  notes       String?           @db.Text
+  createdBy   String
+
+  // WooCommerce Integration Fields
+  woocommerceOrderId Int?      @unique  // WooCommerce Order ID
+  importedFromWC     Boolean   @default(false)
+  lastSyncedAt       DateTime?
+
+  // Status Timestamps
+  deliveredAt DateTime?  // Timestamp when status changed to DELIVERED
+  returnedAt  DateTime?  // Timestamp when status changed to RETURNED
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  // Relations
+  employee    Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  creator     User              @relation("ClothingOrderCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  items       ClothingOrderItem[]
+
+  @@index([employeeId])
+  @@index([status])
+  @@index([orderDate])
+  @@index([woocommerceOrderId])
+  @@map("clothing_orders")
+}
+
+model ClothingOrderItem {
+  id             String   @id @default(cuid())
+  orderId        String
+  clothingItemId String
+  size           String
+  quantity       Int      @default(1)
+  unitPrice      Decimal  @db.Decimal(10, 2)
+  totalPrice     Decimal  @db.Decimal(10, 2)
+  createdAt      DateTime @default(now())
+
+  // Relations
+  order        ClothingOrder @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  clothingItem ClothingItem  @relation(fields: [clothingItemId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([clothingItemId])
+  @@map("clothing_order_items")
+}
+
+enum OrderStatus {
+  ORDERED
+  DELIVERED
+  RETURNED
+}
+
+// ============================================================================
+// VACATION / URLAUB
+// ============================================================================
+
+model Vacation {
+  id           String       @id @default(cuid())
+  employeeId   String
+  startDate    DateTime
+  endDate      DateTime
+  vacationType VacationType @default(VACATION)
+  notes        String?      @db.Text
+  createdBy    String
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  // Relations
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  creator  User     @relation("VacationCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([startDate])
+  @@index([endDate])
+  @@map("vacations")
+}
+
+enum VacationType {
+  VACATION
+  SICK
+  SPECIAL
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id                String           @id @default(cuid())
+  userId            String
+  type              NotificationType
+  title             String
+  message           String           @db.Text
+  isRead            Boolean          @default(false)
+  relatedEntityType String?          // e.g., "Document", "Employee"
+  relatedEntityId   String?
+  createdAt         DateTime         @default(now())
+  readAt            DateTime?
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+enum NotificationType {
+  DOCUMENT_EXPIRING
+  DOCUMENT_EXPIRED
+  LOW_BUDGET
+  UPCOMING_VACATION
+}
+
+// ============================================================================
+// AUDIT LOG
+// ============================================================================
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String
+  action     String   // CREATE, UPDATE, DELETE, LOGIN, LOGOUT
+  entityType String   // Employee, Document, etc.
+  entityId   String?
+  oldValues  Json?    // Previous state (for UPDATE)
+  newValues  Json?    // New state (for CREATE, UPDATE)
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([entityType])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

@@ -1,0 +1,47 @@
+{
+  "common": {
+    "appName": "HR Management System",
+    "welcome": "Willkommen",
+    "loading": "Wird geladen...",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "create": "Erstellen",
+    "search": "Suchen",
+    "filter": "Filtern",
+    "actions": "Aktionen",
+    "status": "Status",
+    "yes": "Ja",
+    "no": "Nein"
+  },
+  "auth": {
+    "login": "Anmelden",
+    "logout": "Abmelden",
+    "username": "Benutzername",
+    "password": "Passwort",
+    "rememberMe": "Angemeldet bleiben",
+    "loginButton": "Anmelden",
+    "loginError": "Ungültiger Benutzername oder Passwort",
+    "loginSuccess": "Erfolgreich angemeldet"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "employees": "Mitarbeiter",
+    "documents": "Dokumente",
+    "clothing": "Arbeitskleidung",
+    "woocommerceImport": "WooCommerce Import",
+    "calendar": "Kalender",
+    "settings": "Einstellungen"
+  },
+  "dashboard": {
+    "title": "Dashboard",
+    "totalEmployees": "Mitarbeiter gesamt",
+    "expiredDocuments": "Abgelaufene Dokumente",
+    "expiringSoon": "Läuft bald ab",
+    "upcomingVacations": "Anstehende Urlaube",
+    "expiringDocuments": "Bald ablaufende Dokumente",
+    "recentNotifications": "Aktuelle Benachrichtigungen",
+    "lowBudgetEmployees": "Mitarbeiter mit niedrigem Budget"
+  }
+}

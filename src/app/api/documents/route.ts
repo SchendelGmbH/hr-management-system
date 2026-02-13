@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const employeeId = searchParams.get('employeeId');
   const status = searchParams.get('status'); // all, valid, expiring, expired
-  const tagId = searchParams.get('tagId'); // Filter by tag
+  const categoryId = searchParams.get('categoryId'); // Filter by category
 
   try {
     const where: any = {};
@@ -20,11 +20,11 @@ export async function GET(request: NextRequest) {
       where.employeeId = employeeId;
     }
 
-    // Tag filter
-    if (tagId) {
-      where.tags = {
+    // Category filter
+    if (categoryId) {
+      where.categories = {
         some: {
-          tagId: tagId,
+          categoryId: categoryId,
         },
       };
     }
@@ -52,10 +52,9 @@ export async function GET(request: NextRequest) {
             employeeNumber: true,
           },
         },
-        documentType: true,
-        tags: {
+        categories: {
           include: {
-            tag: true,
+            category: true,
           },
         },
       },

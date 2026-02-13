@@ -19,9 +19,9 @@ async function getDashboardData() {
             employeeNumber: true,
           },
         },
-        documentType: {
-          select: {
-            name: true,
+        categories: {
+          include: {
+            category: true,
           },
         },
       },
@@ -133,7 +133,7 @@ export default async function DashboardPage() {
                     Mitarbeiter
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Dokumenttyp
+                    Kategorien
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Ablaufdatum
@@ -162,8 +162,20 @@ export default async function DashboardPage() {
                         {doc.employee.firstName} {doc.employee.lastName}
                         <div className="text-xs text-gray-500">{doc.employee.employeeNumber}</div>
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                        {doc.documentType.name}
+                      <td className="px-6 py-4 text-sm text-gray-900">
+                        <div className="flex flex-wrap gap-1">
+                          {doc.categories && doc.categories.length > 0
+                            ? doc.categories.map((dc: any) => (
+                                <span
+                                  key={dc.category.id}
+                                  className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                  style={{ backgroundColor: `${dc.category.color}20`, color: dc.category.color }}
+                                >
+                                  {dc.category.name}
+                                </span>
+                              ))
+                            : '-'}
+                        </div>
                       </td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                         {doc.expirationDate

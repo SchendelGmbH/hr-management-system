@@ -36,7 +36,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('stammdaten');
-  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [selectedCategoryIds, setSelectedCategoryIds] = useState<string[]>([]);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   useEffect(() => {
@@ -208,34 +208,34 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               </button>
             </div>
 
-            {/* Tag Filter */}
+            {/* Category Filter */}
             {employee.documents.length > 0 && (() => {
-              // Extract all unique tags from documents
-              const allTags = Array.from(
+              // Extract all unique categories from documents
+              const allCategories = Array.from(
                 new Map(
                   employee.documents
-                    .flatMap((doc: any) => doc.tags || [])
-                    .map((dt: any) => [dt.tag.id, dt.tag])
+                    .flatMap((doc: any) => doc.categories || [])
+                    .map((dc: any) => [dc.category.id, dc.category])
                 ).values()
               );
 
-              return allTags.length > 0 ? (
+              return allCategories.length > 0 ? (
                 <div>
                   <label className="mb-2 block text-sm font-medium text-gray-700">
                     <TagIcon className="mr-1 inline h-4 w-4" />
-                    Nach Tags filtern
+                    Nach Kategorie filtern
                   </label>
                   <div className="flex flex-wrap gap-2">
-                    {allTags.map((tag: any) => {
-                      const isSelected = selectedTagIds.includes(tag.id);
+                    {allCategories.map((cat: any) => {
+                      const isSelected = selectedCategoryIds.includes(cat.id);
                       return (
                         <button
-                          key={tag.id}
+                          key={cat.id}
                           onClick={() => {
-                            setSelectedTagIds((prev) =>
+                            setSelectedCategoryIds((prev) =>
                               isSelected
-                                ? prev.filter((id) => id !== tag.id)
-                                : [...prev, tag.id]
+                                ? prev.filter((cid) => cid !== cat.id)
+                                : [...prev, cat.id]
                             );
                           }}
                           className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
@@ -244,18 +244,21 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                               : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
                           }`}
                         >
-                          <TagIcon className="h-3 w-3" />
-                          {tag.name}
+                          <span
+                            className="h-2.5 w-2.5 rounded-full"
+                            style={{ backgroundColor: cat.color || '#3B82F6' }}
+                          />
+                          {cat.name}
                           {isSelected && <X className="h-3 w-3" />}
                         </button>
                       );
                     })}
-                    {selectedTagIds.length > 0 && (
+                    {selectedCategoryIds.length > 0 && (
                       <button
-                        onClick={() => setSelectedTagIds([])}
+                        onClick={() => setSelectedCategoryIds([])}
                         className="rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
                       >
-                        Filter zurücksetzen
+                        Filter zur&uuml;cksetzen
                       </button>
                     )}
                   </div>
@@ -270,11 +273,11 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                 <p className="mt-4">Keine Dokumente vorhanden</p>
               </div>
             ) : (() => {
-              // Filter documents by selected tags
-              const filteredDocuments = selectedTagIds.length > 0
+              // Filter documents by selected categories
+              const filteredDocuments = selectedCategoryIds.length > 0
                 ? employee.documents.filter((doc: any) =>
-                    selectedTagIds.some((tagId) =>
-                      doc.tags?.some((dt: any) => dt.tag.id === tagId)
+                    selectedCategoryIds.some((catId) =>
+                      doc.categories?.some((dc: any) => dc.category.id === catId)
                     )
                   )
                 : employee.documents;
@@ -306,7 +309,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               return filteredDocuments.length === 0 ? (
                 <div className="flex h-64 flex-col items-center justify-center text-gray-500">
                   <FileText className="h-12 w-12 text-gray-400" />
-                  <p className="mt-4">Keine Dokumente mit den ausgewählten Tags</p>
+                  <p className="mt-4">Keine Dokumente mit den ausgew&auml;hlten Kategorien</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
@@ -317,16 +320,13 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                           Titel
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                          Typ
+                          Kategorien
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                           Ablaufdatum
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                           Status
-                        </th>
-                        <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                          Tags
                         </th>
                         <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                           Hochgeladen
@@ -353,8 +353,25 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                                 </div>
                               </div>
                             </td>
-                            <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                              {doc.documentType?.name || '-'}
+                            <td className="px-6 py-4">
+                              <div className="flex flex-wrap gap-1">
+                                {doc.categories && doc.categories.length > 0 ? (
+                                  doc.categories.map((dc: any) => (
+                                    <span
+                                      key={dc.category.id}
+                                      className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                                      style={{
+                                        backgroundColor: `${dc.category.color || '#3B82F6'}20`,
+                                        color: dc.category.color || '#3B82F6',
+                                      }}
+                                    >
+                                      {dc.category.name}
+                                    </span>
+                                  ))
+                                ) : (
+                                  <span className="text-xs text-gray-400">-</span>
+                                )}
+                              </div>
                             </td>
                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                               {doc.expirationDate ? formatDate(doc.expirationDate) : '-'}
@@ -368,22 +385,6 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                                   <span className="ml-1">({statusInfo.days}d)</span>
                                 )}
                               </span>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="flex flex-wrap gap-1">
-                                {doc.tags && doc.tags.length > 0 ? (
-                                  doc.tags.map((dt: any) => (
-                                    <span
-                                      key={dt.id}
-                                      className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-xs font-medium text-blue-800"
-                                    >
-                                      {dt.tag.name}
-                                    </span>
-                                  ))
-                                ) : (
-                                  <span className="text-xs text-gray-400">-</span>
-                                )}
-                              </div>
                             </td>
                             <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
                               {formatDate(doc.uploadedAt)}

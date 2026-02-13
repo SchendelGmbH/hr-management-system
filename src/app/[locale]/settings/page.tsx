@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, FileText, Sliders, Users, Bell, FileCheck } from 'lucide-react';
+import { Building2, Tag, Sliders, Users, Bell, FileCheck } from 'lucide-react';
 
 export default function SettingsPage() {
   const settings = [
@@ -11,10 +11,10 @@ export default function SettingsPage() {
       available: true,
     },
     {
-      title: 'Dokumenttypen',
-      description: 'Dokumenttypen konfigurieren',
-      icon: FileText,
-      href: '/de/settings/document-types',
+      title: 'Kategorien',
+      description: 'Dokument-Kategorien verwalten',
+      icon: Tag,
+      href: '/de/settings/categories',
       available: true,
     },
     {

@@ -28,10 +28,9 @@ export async function GET(
         employeeSize: true,
         documents: {
           include: {
-            documentType: true,
-            tags: {
+            categories: {
               include: {
-                tag: true,
+                category: true,
               },
             },
           },

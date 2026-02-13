@@ -9,7 +9,7 @@ export async function GET(_request: NextRequest) {
   }
 
   try {
-    const tags = await prisma.tag.findMany({
+    const categories = await prisma.category.findMany({
       orderBy: { name: 'asc' },
       include: {
         _count: {
@@ -18,9 +18,9 @@ export async function GET(_request: NextRequest) {
       },
     });
 
-    return NextResponse.json({ tags });
+    return NextResponse.json({ categories });
   } catch (error) {
-    console.error('Error fetching tags:', error);
+    console.error('Error fetching categories:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { name, color } = body;
+    const { name, description, color } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -42,8 +42,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if tag already exists (case-insensitive)
-    const existingTag = await prisma.tag.findFirst({
+    // Check if category already exists (case-insensitive)
+    const existingCategory = await prisma.category.findFirst({
       where: {
         name: {
           equals: name,
@@ -52,21 +52,21 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    if (existingTag) {
-      return NextResponse.json({ tag: existingTag });
+    if (existingCategory) {
+      return NextResponse.json({ category: existingCategory });
     }
 
-    // Create new tag
-    const tag = await prisma.tag.create({
+    const category = await prisma.category.create({
       data: {
         name: name.trim(),
+        description: description || null,
         color: color || '#3B82F6',
       },
     });
 
-    return NextResponse.json({ tag });
+    return NextResponse.json({ category });
   } catch (error) {
-    console.error('Error creating tag:', error);
+    console.error('Error creating category:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

@@ -11,12 +11,7 @@ interface Employee {
   lastName: string;
 }
 
-interface DocumentType {
-  id: string;
-  name: string;
-}
-
-interface Tag {
+interface Category {
   id: string;
   name: string;
   color: string;
@@ -36,14 +31,12 @@ export default function UploadDocumentModal({
   preselectedEmployeeId,
 }: UploadDocumentModalProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
-  const [documentTypes, setDocumentTypes] = useState<DocumentType[]>([]);
-  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [newTagInput, setNewTagInput] = useState('');
+  const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [newCategoryInput, setNewCategoryInput] = useState('');
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     employeeId: '',
-    documentTypeId: '',
     title: '',
     description: '',
     expirationDate: '',
@@ -55,9 +48,7 @@ export default function UploadDocumentModal({
   useEffect(() => {
     if (isOpen) {
       fetchEmployees();
-      fetchDocumentTypes();
-      fetchTags();
-      // Set preselected employee if provided
+      fetchCategories();
       if (preselectedEmployeeId) {
         setFormData((prev) => ({ ...prev, employeeId: preselectedEmployeeId }));
       }
@@ -74,23 +65,13 @@ export default function UploadDocumentModal({
     }
   };
 
-  const fetchDocumentTypes = async () => {
+  const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/document-types');
+      const response = await fetch('/api/categories');
       const data = await response.json();
-      setDocumentTypes(data.documentTypes || []);
+      setAvailableCategories(data.categories || []);
     } catch (error) {
-      console.error('Error fetching document types:', error);
-    }
-  };
-
-  const fetchTags = async () => {
-    try {
-      const response = await fetch('/api/tags');
-      const data = await response.json();
-      setAvailableTags(data.tags || []);
-    } catch (error) {
-      console.error('Error fetching tags:', error);
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -120,21 +101,21 @@ export default function UploadDocumentModal({
     }
   };
 
-  const handleAddTag = (tagName: string) => {
-    const trimmedTag = tagName.trim();
-    if (!trimmedTag || selectedTags.includes(trimmedTag)) return;
+  const handleAddCategory = (categoryName: string) => {
+    const trimmedCategory = categoryName.trim();
+    if (!trimmedCategory || selectedCategories.includes(trimmedCategory)) return;
 
-    setSelectedTags([...selectedTags, trimmedTag]);
-    setNewTagInput('');
+    setSelectedCategories([...selectedCategories, trimmedCategory]);
+    setNewCategoryInput('');
   };
 
-  const handleRemoveTag = (tagToRemove: string) => {
-    setSelectedTags(selectedTags.filter((tag) => tag !== tagToRemove));
+  const handleRemoveCategory = (categoryToRemove: string) => {
+    setSelectedCategories(selectedCategories.filter((cat) => cat !== categoryToRemove));
   };
 
-  const handleSelectExistingTag = (tagName: string) => {
-    if (!selectedTags.includes(tagName)) {
-      setSelectedTags([...selectedTags, tagName]);
+  const handleSelectExistingCategory = (categoryName: string) => {
+    if (!selectedCategories.includes(categoryName)) {
+      setSelectedCategories([...selectedCategories, categoryName]);
     }
   };
 
@@ -150,12 +131,11 @@ export default function UploadDocumentModal({
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
       uploadFormData.append('employeeId', formData.employeeId);
-      uploadFormData.append('documentTypeId', formData.documentTypeId);
       uploadFormData.append('title', formData.title);
       uploadFormData.append('description', formData.description);
       uploadFormData.append('expirationDate', formData.expirationDate);
       uploadFormData.append('notes', formData.notes);
-      uploadFormData.append('tags', JSON.stringify(selectedTags));
+      uploadFormData.append('categories', JSON.stringify(selectedCategories));
 
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
@@ -180,15 +160,14 @@ export default function UploadDocumentModal({
   const resetForm = () => {
     setFormData({
       employeeId: '',
-      documentTypeId: '',
       title: '',
       description: '',
       expirationDate: '',
       notes: '',
     });
     setFile(null);
-    setSelectedTags([]);
-    setNewTagInput('');
+    setSelectedCategories([]);
+    setNewCategoryInput('');
   };
 
   return (
@@ -217,7 +196,7 @@ export default function UploadDocumentModal({
                   htmlFor="file-upload"
                   className="relative cursor-pointer rounded-md font-medium text-primary-600 hover:text-primary-500"
                 >
-                  <span>Datei auswählen</span>
+                  <span>Datei ausw&auml;hlen</span>
                   <input
                     id="file-upload"
                     name="file-upload"
@@ -227,14 +206,14 @@ export default function UploadDocumentModal({
                     onChange={handleFileChange}
                   />
                 </label>
-                <p className="pl-1">oder Drag & Drop</p>
+                <p className="pl-1">oder Drag &amp; Drop</p>
               </div>
               <p className="text-xs text-gray-500 mt-2">
                 PDF, JPG, PNG, DOCX bis zu 10 MB
               </p>
               {file && (
                 <p className="mt-2 text-sm font-medium text-primary-600">
-                  Ausgewählt: {file.name}
+                  Ausgew&auml;hlt: {file.name}
                 </p>
               )}
             </div>
@@ -257,7 +236,7 @@ export default function UploadDocumentModal({
               preselectedEmployeeId ? 'bg-gray-100 cursor-not-allowed' : ''
             }`}
           >
-            <option value="">Bitte wählen...</option>
+            <option value="">Bitte w&auml;hlen...</option>
             {employees.map((employee) => (
               <option key={employee.id} value={employee.id}>
                 {employee.employeeNumber} - {employee.firstName} {employee.lastName}
@@ -266,26 +245,92 @@ export default function UploadDocumentModal({
           </select>
         </div>
 
-        {/* Document Type Select */}
+        {/* Categories (replaces DocumentType + Tags) */}
         <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Dokumenttyp *
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            <TagIcon className="inline h-4 w-4 mr-1" />
+            Kategorien
           </label>
-          <select
-            required
-            value={formData.documentTypeId}
-            onChange={(e) =>
-              setFormData({ ...formData, documentTypeId: e.target.value })
-            }
-            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-          >
-            <option value="">Bitte wählen...</option>
-            {documentTypes.map((type) => (
-              <option key={type.id} value={type.id}>
-                {type.name}
-              </option>
-            ))}
-          </select>
+
+          {/* Selected Categories */}
+          {selectedCategories.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {selectedCategories.map((cat) => {
+                const existing = availableCategories.find(
+                  (c) => c.name.toLowerCase() === cat.toLowerCase()
+                );
+                const color = existing?.color || '#3B82F6';
+                return (
+                  <span
+                    key={cat}
+                    className="inline-flex items-center gap-1 rounded-full px-3 py-1 text-sm font-medium"
+                    style={{ backgroundColor: `${color}20`, color: color }}
+                  >
+                    {cat}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveCategory(cat)}
+                      className="rounded-full hover:opacity-70"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Category Input */}
+          <div className="flex gap-2 mb-2">
+            <input
+              type="text"
+              value={newCategoryInput}
+              onChange={(e) => setNewCategoryInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  handleAddCategory(newCategoryInput);
+                }
+              }}
+              placeholder="Neue Kategorie eingeben..."
+              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+            />
+            <button
+              type="button"
+              onClick={() => handleAddCategory(newCategoryInput)}
+              disabled={!newCategoryInput.trim()}
+              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+            >
+              Hinzuf&uuml;gen
+            </button>
+          </div>
+
+          {/* Existing Categories */}
+          {availableCategories.length > 0 && (
+            <div>
+              <p className="text-xs text-gray-500 mb-2">Oder w&auml;hlen Sie aus bestehenden Kategorien:</p>
+              <div className="flex flex-wrap gap-2">
+                {availableCategories
+                  .filter((cat) => !selectedCategories.some(
+                    (sc) => sc.toLowerCase() === cat.name.toLowerCase()
+                  ))
+                  .map((cat) => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => handleSelectExistingCategory(cat.name)}
+                      className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      <span
+                        className="mr-1.5 h-2.5 w-2.5 rounded-full"
+                        style={{ backgroundColor: cat.color || '#3B82F6' }}
+                      />
+                      {cat.name}
+                    </button>
+                  ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Title */}
@@ -347,82 +392,6 @@ export default function UploadDocumentModal({
             rows={2}
             className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
           />
-        </div>
-
-        {/* Tags */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            <TagIcon className="inline h-4 w-4 mr-1" />
-            Tags
-          </label>
-
-          {/* Selected Tags */}
-          {selectedTags.length > 0 && (
-            <div className="mb-3 flex flex-wrap gap-2">
-              {selectedTags.map((tag) => (
-                <span
-                  key={tag}
-                  className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-3 py-1 text-sm font-medium text-blue-800"
-                >
-                  {tag}
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveTag(tag)}
-                    className="rounded-full hover:bg-blue-200"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-            </div>
-          )}
-
-          {/* Tag Input */}
-          <div className="flex gap-2 mb-2">
-            <input
-              type="text"
-              value={newTagInput}
-              onChange={(e) => setNewTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleAddTag(newTagInput);
-                }
-              }}
-              placeholder="Neuen Tag eingeben..."
-              className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
-            />
-            <button
-              type="button"
-              onClick={() => handleAddTag(newTagInput)}
-              disabled={!newTagInput.trim()}
-              className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
-            >
-              Hinzufügen
-            </button>
-          </div>
-
-          {/* Existing Tags Dropdown */}
-          {availableTags.length > 0 && (
-            <div>
-              <p className="text-xs text-gray-500 mb-2">Oder wählen Sie aus bestehenden Tags:</p>
-              <div className="flex flex-wrap gap-2">
-                {availableTags
-                  .filter((tag) => !selectedTags.includes(tag.name))
-                  .map((tag) => (
-                    <button
-                      key={tag.id}
-                      type="button"
-                      onClick={() => handleSelectExistingTag(tag.name)}
-                      className="inline-flex items-center rounded-full border border-gray-300 bg-white px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50"
-                    >
-                      <TagIcon className="mr-1 h-3 w-3" />
-                      {tag.name}
-                    </button>
-                  ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Buttons */}

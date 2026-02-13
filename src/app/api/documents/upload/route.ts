@@ -15,23 +15,22 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const employeeId = formData.get('employeeId') as string;
-    const documentTypeId = formData.get('documentTypeId') as string;
     const title = formData.get('title') as string;
     const description = formData.get('description') as string;
     const expirationDate = formData.get('expirationDate') as string;
     const notes = formData.get('notes') as string;
-    const tagsJson = formData.get('tags') as string;
+    const categoriesJson = formData.get('categories') as string;
 
-    let tagNames: string[] = [];
-    if (tagsJson) {
+    let categoryNames: string[] = [];
+    if (categoriesJson) {
       try {
-        tagNames = JSON.parse(tagsJson);
+        categoryNames = JSON.parse(categoriesJson);
       } catch (error) {
-        console.error('Error parsing tags:', error);
+        console.error('Error parsing categories:', error);
       }
     }
 
-    if (!file || !employeeId || !documentTypeId || !title) {
+    if (!file || !employeeId || !title) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -83,40 +82,39 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(bytes);
     await writeFile(filepath, buffer);
 
-    // Process tags: create if new, find if existing
-    const tagIds: string[] = [];
-    for (const tagName of tagNames) {
-      const trimmedTagName = tagName.trim();
-      if (!trimmedTagName) continue;
+    // Process categories: create if new, find if existing
+    const categoryIds: string[] = [];
+    for (const categoryName of categoryNames) {
+      const trimmedName = categoryName.trim();
+      if (!trimmedName) continue;
 
-      // Try to find existing tag (case-insensitive)
-      let tag = await prisma.tag.findFirst({
+      // Try to find existing category (case-insensitive)
+      let category = await prisma.category.findFirst({
         where: {
           name: {
-            equals: trimmedTagName,
+            equals: trimmedName,
             mode: 'insensitive',
           },
         },
       });
 
-      // Create tag if it doesn't exist
-      if (!tag) {
-        tag = await prisma.tag.create({
+      // Create category if it doesn't exist
+      if (!category) {
+        category = await prisma.category.create({
           data: {
-            name: trimmedTagName,
+            name: trimmedName,
             color: '#3B82F6',
           },
         });
       }
 
-      tagIds.push(tag.id);
+      categoryIds.push(category.id);
     }
 
     // Create document record
     const document = await prisma.document.create({
       data: {
         employeeId,
-        documentTypeId,
         title,
         description: description || null,
         filePath: relativePath,
@@ -126,9 +124,9 @@ export async function POST(request: NextRequest) {
         expirationDate: expirationDate ? new Date(expirationDate) : null,
         notes: notes || null,
         uploadedBy: session.user.id,
-        tags: {
-          create: tagIds.map((tagId) => ({
-            tagId,
+        categories: {
+          create: categoryIds.map((categoryId) => ({
+            categoryId,
           })),
         },
       },
@@ -140,20 +138,16 @@ export async function POST(request: NextRequest) {
             employeeNumber: true,
           },
         },
-        documentType: {
-          select: {
-            name: true,
-          },
-        },
-        tags: {
+        categories: {
           include: {
-            tag: true,
+            category: true,
           },
         },
       },
     });
 
     // Create audit log
+    const categoryNamesList = document.categories.map((dc) => dc.category.name).join(', ');
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
@@ -162,7 +156,7 @@ export async function POST(request: NextRequest) {
         entityId: document.id,
         newValues: JSON.stringify({
           title,
-          documentType: document.documentType.name,
+          categories: categoryNamesList,
           employee: `${document.employee.firstName} ${document.employee.lastName}`,
         }),
       },

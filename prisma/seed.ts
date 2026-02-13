@@ -52,28 +52,28 @@ async function main() {
   }
 
   // ============================================================================
-  // 3. CREATE DOCUMENT TYPES
+  // 3. CREATE CATEGORIES (replacing DocumentTypes + Tags)
   // ============================================================================
-  console.log('\nCreating document types...');
+  console.log('\nCreating categories...');
 
-  const documentTypes = [
-    { name: 'Personalausweis', description: 'Personalausweis des Mitarbeiters', isDefault: true },
-    { name: 'Reisepass', description: 'Reisepass des Mitarbeiters', isDefault: true },
-    { name: 'Führerschein', description: 'Führerschein', isDefault: true },
-    { name: 'Zertifikate', description: 'Berufliche Zertifikate und Qualifikationen', isDefault: true },
-    { name: 'Arbeitsvertrag', description: 'Arbeitsvertrag', isDefault: true },
-    { name: 'Zeugnisse', description: 'Arbeitszeugnisse', isDefault: true },
-    { name: 'Gesundheitszeugnis', description: 'Gesundheitszeugnis', isDefault: true },
-    { name: 'Sonstige', description: 'Sonstige Dokumente', isDefault: false },
+  const categories = [
+    { name: 'Personalausweis', description: 'Personalausweis des Mitarbeiters', color: '#3B82F6' },
+    { name: 'Reisepass', description: 'Reisepass des Mitarbeiters', color: '#8B5CF6' },
+    { name: 'Führerschein', description: 'Führerschein', color: '#10B981' },
+    { name: 'Zertifikate', description: 'Berufliche Zertifikate und Qualifikationen', color: '#F59E0B' },
+    { name: 'Arbeitsvertrag', description: 'Arbeitsvertrag', color: '#EF4444' },
+    { name: 'Zeugnisse', description: 'Arbeitszeugnisse', color: '#6366F1' },
+    { name: 'Gesundheitszeugnis', description: 'Gesundheitszeugnis', color: '#EC4899' },
+    { name: 'Sonstige', description: 'Sonstige Dokumente', color: '#6B7280' },
   ];
 
-  for (const docType of documentTypes) {
-    const documentType = await prisma.documentType.upsert({
-      where: { name: docType.name },
+  for (const cat of categories) {
+    const category = await prisma.category.upsert({
+      where: { name: cat.name },
       update: {},
-      create: docType,
+      create: cat,
     });
-    console.log(`✓ Document type created: ${documentType.name}`);
+    console.log(`✓ Category created: ${category.name}`);
   }
 
   // ============================================================================

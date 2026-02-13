@@ -5,7 +5,7 @@ import { FileText, Plus, Tag as TagIcon, X, User } from 'lucide-react';
 import { formatDate, daysUntil, getExpirationStatus } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 
-interface Tag {
+interface Category {
   id: string;
   name: string;
   color: string;
@@ -23,11 +23,8 @@ interface Document {
     lastName: string;
     employeeNumber: string;
   };
-  documentType: {
-    name: string;
-  };
-  tags: Array<{
-    tag: Tag;
+  categories: Array<{
+    category: Category;
   }>;
 }
 
@@ -40,19 +37,19 @@ interface Employee {
 
 export default function DocumentsPage() {
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [allTags, setAllTags] = useState<Tag[]>([]);
+  const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('all');
-  const [selectedTagId, setSelectedTagId] = useState<string>('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   useEffect(() => {
     fetchDocuments();
-    fetchTags();
+    fetchCategories();
     fetchEmployees();
-  }, [statusFilter, selectedTagId, selectedEmployeeId]);
+  }, [statusFilter, selectedCategoryId, selectedEmployeeId]);
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -61,8 +58,8 @@ export default function DocumentsPage() {
       if (statusFilter !== 'all') {
         params.append('status', statusFilter);
       }
-      if (selectedTagId) {
-        params.append('tagId', selectedTagId);
+      if (selectedCategoryId) {
+        params.append('categoryId', selectedCategoryId);
       }
       if (selectedEmployeeId) {
         params.append('employeeId', selectedEmployeeId);
@@ -78,13 +75,13 @@ export default function DocumentsPage() {
     }
   };
 
-  const fetchTags = async () => {
+  const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/tags');
+      const response = await fetch('/api/categories');
       const data = await response.json();
-      setAllTags(data.tags || []);
+      setAllCategories(data.categories || []);
     } catch (error) {
-      console.error('Error fetching tags:', error);
+      console.error('Error fetching categories:', error);
     }
   };
 
@@ -134,8 +131,8 @@ export default function DocumentsPage() {
           <div className="flex flex-wrap gap-2">
             {[
               { value: 'all', label: 'Alle' },
-              { value: 'valid', label: 'Gültig' },
-              { value: 'expiring', label: 'Läuft bald ab' },
+              { value: 'valid', label: 'G\u00fcltig' },
+              { value: 'expiring', label: 'L\u00e4uft bald ab' },
               { value: 'expired', label: 'Abgelaufen' },
             ].map((filter) => (
               <button
@@ -175,42 +172,46 @@ export default function DocumentsPage() {
           </div>
         )}
 
-        {/* Tag Filter */}
-        {allTags.length > 0 && (
+        {/* Category Filter */}
+        {allCategories.length > 0 && (
           <div>
             <label className="text-xs font-medium text-gray-600 mb-2 flex items-center">
               <TagIcon className="h-4 w-4 mr-1" />
-              Nach Tag filtern:
+              Nach Kategorie filtern:
             </label>
             <div className="flex flex-wrap gap-2">
               <button
-                onClick={() => setSelectedTagId('')}
+                onClick={() => setSelectedCategoryId('')}
                 className={`rounded-full px-4 py-2 text-sm font-medium ${
-                  !selectedTagId
+                  !selectedCategoryId
                     ? 'bg-primary-600 text-white'
                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                 }`}
               >
-                Alle Tags
+                Alle Kategorien
               </button>
-              {allTags.map((tag) => (
+              {allCategories.map((cat) => (
                 <button
-                  key={tag.id}
-                  onClick={() => setSelectedTagId(tag.id)}
+                  key={cat.id}
+                  onClick={() => setSelectedCategoryId(cat.id)}
                   className={`inline-flex items-center rounded-full px-4 py-2 text-sm font-medium ${
-                    selectedTagId === tag.id
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                    selectedCategoryId === cat.id
+                      ? 'text-white'
+                      : 'hover:opacity-80'
                   }`}
+                  style={
+                    selectedCategoryId === cat.id
+                      ? { backgroundColor: cat.color || '#3B82F6' }
+                      : { backgroundColor: `${cat.color || '#3B82F6'}20`, color: cat.color || '#3B82F6' }
+                  }
                 >
-                  <TagIcon className="mr-1 h-3 w-3" />
-                  {tag.name}
-                  {selectedTagId === tag.id && (
+                  {cat.name}
+                  {selectedCategoryId === cat.id && (
                     <X
                       className="ml-2 h-4 w-4"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setSelectedTagId('');
+                        setSelectedCategoryId('');
                       }}
                     />
                   )}
@@ -244,13 +245,10 @@ export default function DocumentsPage() {
                     Mitarbeiter
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Dokumenttyp
+                    Kategorien
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Titel
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
-                    Tags
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500">
                     Ablaufdatum
@@ -282,20 +280,19 @@ export default function DocumentsPage() {
                           {doc.employee.employeeNumber}
                         </div>
                       </td>
-                      <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
-                        {doc.documentType.name}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-900">{doc.title}</td>
                       <td className="px-6 py-4">
                         <div className="flex flex-wrap gap-1">
-                          {doc.tags && doc.tags.length > 0 ? (
-                            doc.tags.map((docTag) => (
+                          {doc.categories && doc.categories.length > 0 ? (
+                            doc.categories.map((dc) => (
                               <span
-                                key={docTag.tag.id}
-                                className="inline-flex items-center rounded-full bg-blue-100 px-2 py-1 text-xs font-medium text-blue-800"
+                                key={dc.category.id}
+                                className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium"
+                                style={{
+                                  backgroundColor: `${dc.category.color || '#3B82F6'}20`,
+                                  color: dc.category.color || '#3B82F6',
+                                }}
                               >
-                                <TagIcon className="mr-1 h-3 w-3" />
-                                {docTag.tag.name}
+                                {dc.category.name}
                               </span>
                             ))
                           ) : (
@@ -303,6 +300,7 @@ export default function DocumentsPage() {
                           )}
                         </div>
                       </td>
+                      <td className="px-6 py-4 text-sm text-gray-900">{doc.title}</td>
                       <td className="whitespace-nowrap px-6 py-4 text-sm text-gray-900">
                         {doc.expirationDate ? formatDate(doc.expirationDate) : '-'}
                       </td>
@@ -320,7 +318,7 @@ export default function DocumentsPage() {
                                 ? 'Kritisch'
                                 : status.status === 'warning'
                                   ? 'Warnung'
-                                  : 'Gültig'}
+                                  : 'G\u00fcltig'}
                           </span>
                         )}
                       </td>

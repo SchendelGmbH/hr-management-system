@@ -135,26 +135,24 @@ enum FieldType {
 // DOCUMENTS
 // ============================================================================
 
-model DocumentType {
-  id                 String     @id @default(cuid())
-  name               String     @unique
-  description        String?
-  requiresExpiration Boolean    @default(false)
-  isActive           Boolean    @default(true)
-  isDefault          Boolean    @default(false) // Standard types can't be deleted
-  createdAt          DateTime   @default(now())
-  updatedAt          DateTime   @updatedAt
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  color       String?  @default("#3B82F6") // Hex color code
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   // Relations
-  documents Document[]
+  documents DocumentCategory[]
 
-  @@map("document_types")
+  @@map("categories")
 }
 
 model Document {
   id             String       @id @default(cuid())
   employeeId     String
-  documentTypeId String
   title          String
   description    String?      @db.Text
   filePath       String       // Relative path: uploads/documents/2024/01/...
@@ -168,45 +166,30 @@ model Document {
   updatedAt      DateTime     @updatedAt
 
   // Relations
-  employee     Employee        @relation(fields: [employeeId], references: [id], onDelete: Cascade)
-  documentType DocumentType    @relation(fields: [documentTypeId], references: [id], onDelete: Restrict)
-  uploader     User            @relation("DocumentUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
-  tags         DocumentTag[]
+  employee   Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  uploader   User               @relation("DocumentUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
+  categories DocumentCategory[]
 
   @@index([employeeId])
-  @@index([documentTypeId])
   @@index([expirationDate])
   @@index([uploadedBy])
   @@map("documents")
 }
 
-model Tag {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  color     String?  @default("#3B82F6") // Hex color code
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  // Relations
-  documents DocumentTag[]
-
-  @@map("tags")
-}
-
-model DocumentTag {
+model DocumentCategory {
   id         String   @id @default(cuid())
   documentId String
-  tagId      String
+  categoryId String
   createdAt  DateTime @default(now())
 
   // Relations
   document Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  tag      Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
-  @@unique([documentId, tagId])
+  @@unique([documentId, categoryId])
   @@index([documentId])
-  @@index([tagId])
-  @@map("document_tags")
+  @@index([categoryId])
+  @@map("document_categories")
 }
 
 // ============================================================================

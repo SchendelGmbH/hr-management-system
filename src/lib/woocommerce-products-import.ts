@@ -183,7 +183,7 @@ function extractSizesFromAttributes(attributes: WCProduct['attributes']): string
       attr.name.toLowerCase() === 'size' ||
       attr.name.toLowerCase() === 'größe' ||
       attr.name.toLowerCase() === 'groesse' ||
-      attr.slug === 'pa_size'
+      attr.name === 'pa_size'
   );
 
   if (sizeAttr && sizeAttr.options && sizeAttr.options.length > 0) {

@@ -57,30 +57,37 @@ export default function SettingsPage() {
       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {settings.map((setting) => {
           const Icon = setting.icon;
-          const Component = setting.available ? Link : 'div';
-          const props = setting.available ? { href: setting.href } : {};
+          const className = `rounded-lg border border-gray-200 bg-white p-6 transition-shadow ${
+            setting.available ? 'hover:shadow-md cursor-pointer' : 'opacity-60'
+          }`;
+
+          const content = (
+            <div className="flex items-start space-x-3">
+              <div className="rounded-lg bg-primary-100 p-2">
+                <Icon className="h-5 w-5 text-primary-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-lg font-semibold text-gray-900">{setting.title}</h3>
+                <p className="mt-1 text-sm text-gray-600">{setting.description}</p>
+                {!setting.available && (
+                  <p className="mt-3 text-xs text-gray-400">Wird in Kürze verfügbar sein</p>
+                )}
+              </div>
+            </div>
+          );
+
+          if (setting.available) {
+            return (
+              <Link key={setting.title} href={setting.href} className={className}>
+                {content}
+              </Link>
+            );
+          }
 
           return (
-            <Component
-              key={setting.title}
-              {...props}
-              className={`rounded-lg border border-gray-200 bg-white p-6 transition-shadow ${
-                setting.available ? 'hover:shadow-md cursor-pointer' : 'opacity-60'
-              }`}
-            >
-              <div className="flex items-start space-x-3">
-                <div className="rounded-lg bg-primary-100 p-2">
-                  <Icon className="h-5 w-5 text-primary-600" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-gray-900">{setting.title}</h3>
-                  <p className="mt-1 text-sm text-gray-600">{setting.description}</p>
-                  {!setting.available && (
-                    <p className="mt-3 text-xs text-gray-400">Wird in Kürze verfügbar sein</p>
-                  )}
-                </div>
-              </div>
-            </Component>
+            <div key={setting.title} className={className}>
+              {content}
+            </div>
           );
         })}
       </div>

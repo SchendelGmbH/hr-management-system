@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
   if (!session) {
@@ -13,7 +13,7 @@ export async function PATCH(
 
   try {
     const { isRead } = await request.json();
-    const { id } = params;
+    const { id } = await params;
 
     const notification = await prisma.notification.update({
       where: {

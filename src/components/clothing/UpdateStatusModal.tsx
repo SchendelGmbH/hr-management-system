@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Modal from '@/components/ui/Modal';
-import { Package, CheckCircle, XCircle } from 'lucide-react';
+import { CheckCircle, XCircle } from 'lucide-react';
 
 interface UpdateStatusModalProps {
   isOpen: boolean;

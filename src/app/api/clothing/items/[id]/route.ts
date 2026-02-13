@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 // GET /api/clothing/items/[id] - Einzelnen Artikel abrufen
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -140,7 +140,7 @@ export async function PUT(
 
 // DELETE /api/clothing/items/[id] - Artikel löschen
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();

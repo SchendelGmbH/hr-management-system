@@ -224,9 +224,6 @@ export default function NewOrderModal({
 
           <div className="space-y-3">
             {orderItems.map((item, index) => {
-              const selectedItem = clothingItems.find(
-                (ci) => ci.id === item.clothingItemId
-              );
               const availableSizes = getAvailableSizes(item.clothingItemId);
 
               return (

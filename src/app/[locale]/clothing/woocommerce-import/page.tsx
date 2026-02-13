@@ -198,13 +198,13 @@ export default function WooCommerceImportPage() {
             <p className="font-semibold mb-2">Wichtige Hinweise:</p>
             <ul className="list-disc list-inside space-y-1">
               <li>
-                Mitarbeiter-Zuordnung erfolgt über Custom Field "woocommerce_customer_id" oder Email
+                Mitarbeiter-Zuordnung erfolgt über Custom Field &quot;woocommerce_customer_id&quot; oder Email
               </li>
               <li>
                 Produkte werden über SKU gemappt - SKU muss im Artikel-Katalog vorhanden sein
               </li>
               <li>
-                Status "completed" wird als DELIVERED importiert (Budget wird sofort abgezogen!)
+                Status &quot;completed&quot; wird als DELIVERED importiert (Budget wird sofort abgezogen!)
               </li>
               <li>
                 Duplikate werden automatisch übersprungen (anhand WooCommerce Order ID)

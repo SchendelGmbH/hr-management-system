@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { Bell, CheckCheck, Filter } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
-import Link from 'next/link';
 
 interface Notification {
   id: string;

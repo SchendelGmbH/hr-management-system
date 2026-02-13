@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, FieldType } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -228,38 +228,38 @@ async function main() {
   const customFields = [
     {
       fieldName: 'Führerscheinnummer',
-      fieldType: 'TEXT',
+      fieldType: FieldType.TEXT,
       isRequired: false,
       sortOrder: 1,
     },
     {
       fieldName: 'Gabelstapler-Zertifikat',
-      fieldType: 'BOOLEAN',
+      fieldType: FieldType.BOOLEAN,
       isRequired: false,
       sortOrder: 2,
     },
     {
       fieldName: 'Notfallkontakt Name',
-      fieldType: 'TEXT',
+      fieldType: FieldType.TEXT,
       isRequired: false,
       sortOrder: 3,
     },
     {
       fieldName: 'Notfallkontakt Telefon',
-      fieldType: 'TEXT',
+      fieldType: FieldType.TEXT,
       isRequired: false,
       sortOrder: 4,
     },
     {
       fieldName: 'Zertifikat-Level',
-      fieldType: 'SELECT',
+      fieldType: FieldType.SELECT,
       isRequired: false,
       sortOrder: 5,
       selectOptions: ['Bronze', 'Silber', 'Gold'],
     },
     {
       fieldName: 'woocommerce_customer_id',
-      fieldType: 'TEXT',
+      fieldType: FieldType.TEXT,
       isRequired: false,
       sortOrder: 100,
     },

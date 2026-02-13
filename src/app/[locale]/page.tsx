@@ -1,4 +1,3 @@
-import { useTranslations } from 'next-intl';
 import { Users, FileText, Calendar, AlertCircle } from 'lucide-react';
 import prisma from '@/lib/prisma';
 import { daysUntil } from '@/lib/utils';

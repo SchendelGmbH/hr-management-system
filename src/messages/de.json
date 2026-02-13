@@ -29,7 +29,8 @@
     "dashboard": "Dashboard",
     "employees": "Mitarbeiter",
     "documents": "Dokumente",
-    "clothing": "Arbeitskleidung",
+    "orders": "Bestellungen",
+    "items": "Artikelkatalog",
     "woocommerceImport": "WooCommerce Import",
     "calendar": "Kalender",
     "settings": "Einstellungen"

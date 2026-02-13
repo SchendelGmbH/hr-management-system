@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
+import EmployeeClothingInventory from '@/components/employees/EmployeeClothingInventory';
 
 interface Employee {
   id: string;
@@ -399,18 +400,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
         )}
 
         {activeTab === 'clothing' && (
-          <div>
-            {employee.clothingOrders.length === 0 ? (
-              <div className="flex h-64 flex-col items-center justify-center text-gray-500">
-                <Shirt className="h-12 w-12 text-gray-400" />
-                <p className="mt-4">Keine Bestellungen vorhanden</p>
-              </div>
-            ) : (
-              <div className="text-gray-500">
-                {employee.clothingOrders.length} Bestellung(en) - Arbeitskleidung-Verwaltung folgt in Phase 8
-              </div>
-            )}
-          </div>
+          <EmployeeClothingInventory employeeId={employee.id} />
         )}
 
         {activeTab === 'vacations' && (

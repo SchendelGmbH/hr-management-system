@@ -40,7 +40,6 @@ export default function UploadDocumentModal({
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [newTagInput, setNewTagInput] = useState('');
-  const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [formData, setFormData] = useState({
     employeeId: '',

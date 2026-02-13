@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Calendar as CalendarIcon, Plus, Users } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import AddVacationModal from '@/components/calendar/AddVacationModal';
 

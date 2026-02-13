@@ -7,11 +7,12 @@ import {
   LayoutDashboard,
   Users,
   FileText,
-  Shirt,
   Calendar,
   Settings,
   LogOut,
   Download,
+  ShoppingCart,
+  Package,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -32,9 +33,14 @@ const navigation = [
     icon: FileText,
   },
   {
-    name: 'clothing',
-    href: '/de/clothing',
-    icon: Shirt,
+    name: 'orders',
+    href: '/de/clothing/orders',
+    icon: ShoppingCart,
+  },
+  {
+    name: 'items',
+    href: '/de/clothing/items',
+    icon: Package,
   },
   {
     name: 'woocommerceImport',

@@ -87,8 +87,8 @@ export async function POST(request: NextRequest) {
         }
         return {
           ...item,
-          unitPrice: clothingItem.basePrice,
-          totalPrice: clothingItem.basePrice * item.quantity,
+          unitPrice: Number(clothingItem.basePrice),
+          totalPrice: Number(clothingItem.basePrice) * item.quantity,
         };
       })
     );

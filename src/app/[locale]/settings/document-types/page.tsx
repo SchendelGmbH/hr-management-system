@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { FileText, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import Link from 'next/link';
 
 interface DocumentType {

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { checkAndResetBudget } from '@/lib/budget';
 import { z } from 'zod';
 
 // GET /api/employees - List employees with pagination, search, and filters
@@ -26,8 +27,8 @@ export async function GET(request: NextRequest) {
       where.OR = [
         { firstName: { contains: search, mode: 'insensitive' } },
         { lastName: { contains: search, mode: 'insensitive' } },
-        { email: { contains: search, mode: 'insensitive' } },
         { employeeNumber: { contains: search, mode: 'insensitive' } },
+        // email ist verschlüsselt und kann nicht direkt durchsucht werden
       ];
     }
 
@@ -56,8 +57,23 @@ export async function GET(request: NextRequest) {
       prisma.employee.count({ where }),
     ]);
 
+    // Auto-Reset des Budgets bei neuem Quartal (parallel statt sequentiell)
+    const resetResults = await Promise.all(employees.map((emp) => checkAndResetBudget(emp)));
+    const anyReset = resetResults.some(Boolean);
+
+    // Zweites findMany nur wenn tatsächlich ein Reset stattfand
+    const finalEmployees = anyReset
+      ? await prisma.employee.findMany({
+          where,
+          include: { department: { select: { id: true, name: true } } },
+          orderBy: { employeeNumber: 'asc' },
+          skip,
+          take: limit,
+        })
+      : employees;
+
     return NextResponse.json({
-      employees,
+      employees: finalEmployees,
       pagination: {
         page,
         limit,
@@ -82,6 +98,26 @@ const createEmployeeSchema = z.object({
   position: z.string().optional().nullable(),
   startDate: z.string().optional().nullable(),
   clothingBudget: z.number().min(0),
+  // Adresse
+  street: z.string().optional().nullable(),
+  zipCode: z.string().optional().nullable(),
+  city: z.string().optional().nullable(),
+  // Steuern & Sozialversicherung
+  socialSecurityNumber: z.string().optional().nullable(),
+  taxId: z.string().optional().nullable(),
+  healthInsurance: z.string().optional().nullable(),
+  // Vertrag & Vergütung
+  isFixedTerm: z.boolean().optional(),
+  fixedTermEndDate: z.string().optional().nullable(),
+  hourlyWage: z.number().min(0).optional().nullable(),
+  payGrade: z.string().optional().nullable(),
+  vacationDays: z.number().int().min(0).optional().nullable(),
+  // Zugang & Identifikation
+  keyNumber: z.string().optional().nullable(),
+  chipNumber: z.string().optional().nullable(),
+  // Qualifikationen & Lizenzen
+  driversLicenseClass: z.string().optional().nullable(),
+  forkliftLicense: z.boolean().optional(),
 });
 
 export async function POST(request: NextRequest) {
@@ -123,6 +159,27 @@ export async function POST(request: NextRequest) {
         startDate: data.startDate ? new Date(data.startDate) : null,
         clothingBudget: data.clothingBudget,
         remainingBudget: data.clothingBudget,
+        lastBudgetReset: new Date(),
+        // Adresse
+        street: data.street,
+        zipCode: data.zipCode,
+        city: data.city,
+        // Steuern & Sozialversicherung
+        socialSecurityNumber: data.socialSecurityNumber,
+        taxId: data.taxId,
+        healthInsurance: data.healthInsurance,
+        // Vertrag & Vergütung
+        isFixedTerm: data.isFixedTerm ?? false,
+        fixedTermEndDate: data.fixedTermEndDate ? new Date(data.fixedTermEndDate) : null,
+        hourlyWage: data.hourlyWage,
+        payGrade: data.payGrade,
+        vacationDays: data.vacationDays,
+        // Zugang & Identifikation
+        keyNumber: data.keyNumber,
+        chipNumber: data.chipNumber,
+        // Qualifikationen & Lizenzen
+        driversLicenseClass: data.driversLicenseClass ?? 'Nein',
+        forkliftLicense: data.forkliftLicense ?? false,
       },
       include: {
         department: true,

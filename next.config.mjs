@@ -10,6 +10,7 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  serverExternalPackages: ['prisma-field-encryption', '@prisma/client'],
 };
 
 export default withNextIntl(nextConfig);

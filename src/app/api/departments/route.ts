@@ -13,6 +13,9 @@ export async function GET(_request: NextRequest) {
       orderBy: {
         name: 'asc',
       },
+      include: {
+        _count: { select: { employees: true } },
+      },
     });
 
     return NextResponse.json({ departments });

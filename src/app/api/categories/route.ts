@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { getNextColor } from '@/lib/categoryColors';
 
 export async function GET(_request: NextRequest) {
   const session = await auth();
@@ -56,11 +57,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ category: existingCategory });
     }
 
+    // Wenn keine Farbe explizit angegeben, nächste freie Farbe aus Palette wählen
+    let assignedColor = color;
+    if (!assignedColor) {
+      const usedColors = (await prisma.category.findMany({ select: { color: true } }))
+        .map((c) => c.color)
+        .filter(Boolean) as string[];
+      assignedColor = getNextColor(usedColors);
+    }
+
     const category = await prisma.category.create({
       data: {
         name: name.trim(),
         description: description || null,
-        color: color || '#3B82F6',
+        color: assignedColor,
       },
     });
 

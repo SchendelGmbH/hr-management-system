@@ -22,6 +22,13 @@ interface UploadDocumentModalProps {
   onClose: () => void;
   onSuccess: () => void;
   preselectedEmployeeId?: string;
+  // Für "Neue Version hochladen"-Modus
+  parentDocumentId?: string;
+  prefillData?: {
+    title: string;
+    description?: string;
+    categories?: string[];
+  };
 }
 
 export default function UploadDocumentModal({
@@ -29,7 +36,11 @@ export default function UploadDocumentModal({
   onClose,
   onSuccess,
   preselectedEmployeeId,
+  parentDocumentId,
+  prefillData,
 }: UploadDocumentModalProps) {
+  const isNewVersion = !!parentDocumentId;
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [availableCategories, setAvailableCategories] = useState<Category[]>([]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -39,6 +50,7 @@ export default function UploadDocumentModal({
     employeeId: '',
     title: '',
     description: '',
+    validFrom: '',
     expirationDate: '',
     notes: '',
   });
@@ -52,8 +64,18 @@ export default function UploadDocumentModal({
       if (preselectedEmployeeId) {
         setFormData((prev) => ({ ...prev, employeeId: preselectedEmployeeId }));
       }
+      if (prefillData) {
+        setFormData((prev) => ({
+          ...prev,
+          title: prefillData.title || '',
+          description: prefillData.description || '',
+          validFrom: '',
+          expirationDate: '',
+        }));
+        setSelectedCategories(prefillData.categories || []);
+      }
     }
-  }, [isOpen, preselectedEmployeeId]);
+  }, [isOpen, preselectedEmployeeId, prefillData]);
 
   const fetchEmployees = async () => {
     try {
@@ -89,7 +111,6 @@ export default function UploadDocumentModal({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       setFile(e.dataTransfer.files[0]);
     }
@@ -104,7 +125,6 @@ export default function UploadDocumentModal({
   const handleAddCategory = (categoryName: string) => {
     const trimmedCategory = categoryName.trim();
     if (!trimmedCategory || selectedCategories.includes(trimmedCategory)) return;
-
     setSelectedCategories([...selectedCategories, trimmedCategory]);
     setNewCategoryInput('');
   };
@@ -126,16 +146,26 @@ export default function UploadDocumentModal({
       return;
     }
 
+    const finalCategories = [...selectedCategories];
+    const pendingCategory = newCategoryInput.trim();
+    if (pendingCategory && !finalCategories.includes(pendingCategory)) {
+      finalCategories.push(pendingCategory);
+    }
+
     setUploading(true);
     try {
       const uploadFormData = new FormData();
       uploadFormData.append('file', file);
-      uploadFormData.append('employeeId', formData.employeeId);
+      uploadFormData.append('employeeId', formData.employeeId || preselectedEmployeeId || '');
       uploadFormData.append('title', formData.title);
       uploadFormData.append('description', formData.description);
+      uploadFormData.append('validFrom', formData.validFrom);
       uploadFormData.append('expirationDate', formData.expirationDate);
       uploadFormData.append('notes', formData.notes);
-      uploadFormData.append('categories', JSON.stringify(selectedCategories));
+      uploadFormData.append('categories', JSON.stringify(finalCategories));
+      if (parentDocumentId) {
+        uploadFormData.append('parentDocumentId', parentDocumentId);
+      }
 
       const response = await fetch('/api/documents/upload', {
         method: 'POST',
@@ -143,7 +173,8 @@ export default function UploadDocumentModal({
       });
 
       if (!response.ok) {
-        throw new Error('Upload failed');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || 'Upload failed');
       }
 
       onSuccess();
@@ -151,7 +182,7 @@ export default function UploadDocumentModal({
       resetForm();
     } catch (error) {
       console.error('Error uploading document:', error);
-      alert('Fehler beim Hochladen des Dokuments');
+      alert('Fehler beim Hochladen: ' + (error instanceof Error ? error.message : 'Unbekannter Fehler'));
     } finally {
       setUploading(false);
     }
@@ -162,6 +193,7 @@ export default function UploadDocumentModal({
       employeeId: '',
       title: '',
       description: '',
+      validFrom: '',
       expirationDate: '',
       notes: '',
     });
@@ -171,8 +203,19 @@ export default function UploadDocumentModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Dokument hochladen" size="lg">
+    <Modal
+      isOpen={isOpen}
+      onClose={onClose}
+      title={isNewVersion ? 'Neue Version hochladen' : 'Dokument hochladen'}
+      size="lg"
+    >
       <form onSubmit={handleSubmit} className="space-y-4">
+        {isNewVersion && (
+          <div className="rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 text-sm text-blue-800">
+            Sie laden eine neue Version hoch. Die bisherige Version bleibt weiterhin abrufbar.
+          </div>
+        )}
+
         {/* File Upload */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -220,39 +263,40 @@ export default function UploadDocumentModal({
           </div>
         </div>
 
-        {/* Employee Select */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Mitarbeiter *
-          </label>
-          <select
-            required
-            value={formData.employeeId}
-            onChange={(e) =>
-              setFormData({ ...formData, employeeId: e.target.value })
-            }
-            disabled={!!preselectedEmployeeId}
-            className={`mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 ${
-              preselectedEmployeeId ? 'bg-gray-100 cursor-not-allowed' : ''
-            }`}
-          >
-            <option value="">Bitte w&auml;hlen...</option>
-            {employees.map((employee) => (
-              <option key={employee.id} value={employee.id}>
-                {employee.employeeNumber} - {employee.firstName} {employee.lastName}
-              </option>
-            ))}
-          </select>
-        </div>
+        {/* Employee Select - nur bei neuem Dokument */}
+        {!isNewVersion && (
+          <div>
+            <label className="block text-sm font-medium text-gray-700">
+              Mitarbeiter *
+            </label>
+            <select
+              required
+              value={formData.employeeId}
+              onChange={(e) =>
+                setFormData({ ...formData, employeeId: e.target.value })
+              }
+              disabled={!!preselectedEmployeeId}
+              className={`mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500 ${
+                preselectedEmployeeId ? 'bg-gray-100 cursor-not-allowed' : ''
+              }`}
+            >
+              <option value="">Bitte w&auml;hlen...</option>
+              {employees.map((employee) => (
+                <option key={employee.id} value={employee.id}>
+                  {employee.employeeNumber} - {employee.firstName} {employee.lastName}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
-        {/* Categories (replaces DocumentType + Tags) */}
+        {/* Categories */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
             <TagIcon className="inline h-4 w-4 mr-1" />
             Kategorien
           </label>
 
-          {/* Selected Categories */}
           {selectedCategories.length > 0 && (
             <div className="mb-3 flex flex-wrap gap-2">
               {selectedCategories.map((cat) => {
@@ -280,7 +324,6 @@ export default function UploadDocumentModal({
             </div>
           )}
 
-          {/* Category Input */}
           <div className="flex gap-2 mb-2">
             <input
               type="text"
@@ -305,7 +348,6 @@ export default function UploadDocumentModal({
             </button>
           </div>
 
-          {/* Existing Categories */}
           {availableCategories.length > 0 && (
             <div>
               <p className="text-xs text-gray-500 mb-2">Oder w&auml;hlen Sie aus bestehenden Kategorien:</p>
@@ -364,6 +406,21 @@ export default function UploadDocumentModal({
           />
         </div>
 
+        {/* Valid From Date */}
+        <div>
+          <label className="block text-sm font-medium text-gray-700">
+            G&uuml;ltig ab
+          </label>
+          <input
+            type="date"
+            value={formData.validFrom}
+            onChange={(e) =>
+              setFormData({ ...formData, validFrom: e.target.value })
+            }
+            className="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+          />
+        </div>
+
         {/* Expiration Date */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
@@ -408,7 +465,11 @@ export default function UploadDocumentModal({
             disabled={uploading}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
-            {uploading ? 'Wird hochgeladen...' : 'Hochladen'}
+            {uploading
+              ? 'Wird hochgeladen...'
+              : isNewVersion
+              ? 'Neue Version hochladen'
+              : 'Hochladen'}
           </button>
         </div>
       </form>

@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { Search, Plus, User } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Search, Plus, User, Edit, Trash2 } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
+import { TableSkeleton } from '@/components/ui/Skeleton';
 
 interface Employee {
   id: string;
@@ -28,6 +30,7 @@ interface Department {
 }
 
 export default function EmployeesPage() {
+  const router = useRouter();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,6 +38,8 @@ export default function EmployeesPage() {
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [deleteConfirm, setDeleteConfirm] = useState<Employee | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     fetchEmployees();
@@ -70,6 +75,25 @@ export default function EmployeesPage() {
       setDepartments(data.departments || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
+    }
+  };
+
+  const handleDelete = async (employee: Employee) => {
+    setDeleting(true);
+    try {
+      const response = await fetch(`/api/employees/${employee.id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        throw new Error('Fehler beim Löschen');
+      }
+      setDeleteConfirm(null);
+      fetchEmployees();
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      alert('Fehler beim Löschen des Mitarbeiters');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -132,9 +156,10 @@ export default function EmployeesPage() {
       {/* Table */}
       <div className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
         {loading ? (
-          <div className="flex h-64 items-center justify-center">
-            <div className="text-gray-500">Laden...</div>
-          </div>
+          <TableSkeleton
+            rows={8}
+            headers={['Mitarbeiter-Nr.', 'Name', 'Abteilung', 'Position', 'E-Mail', 'Eintrittsdatum']}
+          />
         ) : employees.length === 0 ? (
           <div className="flex h-64 flex-col items-center justify-center">
             <User className="h-12 w-12 text-gray-400" />
@@ -170,6 +195,9 @@ export default function EmployeesPage() {
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
                     Kleidungsbudget
+                  </th>
+                  <th className="px-6 py-3 text-right text-xs font-medium uppercase tracking-wider text-gray-500">
+                    Aktionen
                   </th>
                 </tr>
               </thead>
@@ -219,6 +247,30 @@ export default function EmployeesPage() {
                       </div>
                       <div className="text-xs text-gray-500">
                         von {formatCurrency(employee.clothingBudget)}
+                      </div>
+                    </td>
+                    <td className="whitespace-nowrap px-6 py-4 text-right text-sm">
+                      <div className="flex items-center justify-end space-x-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/de/employees/${employee.id}?edit=true`);
+                          }}
+                          className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-primary-600"
+                          title="Bearbeiten"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDeleteConfirm(employee);
+                          }}
+                          className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                          title="Löschen"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -278,6 +330,37 @@ export default function EmployeesPage() {
           </div>
         )}
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Mitarbeiter löschen</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Möchten Sie <strong>{deleteConfirm.firstName} {deleteConfirm.lastName}</strong> ({deleteConfirm.employeeNumber}) wirklich löschen?
+            </p>
+            <p className="mt-2 text-sm text-red-600">
+              Achtung: Alle zugehörigen Dokumente, Bestellungen und Urlaubsdaten werden ebenfalls gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+            <div className="mt-4 flex justify-end space-x-3">
+              <button
+                onClick={() => setDeleteConfirm(null)}
+                disabled={deleting}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={() => handleDelete(deleteConfirm)}
+                disabled={deleting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {deleting ? 'Wird gelöscht...' : 'Endgültig löschen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

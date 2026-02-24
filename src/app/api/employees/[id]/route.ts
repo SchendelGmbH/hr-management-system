@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { checkAndResetBudget, getCurrentBudgetPeriodStart } from '@/lib/budget';
 import { z } from 'zod';
 
 // GET /api/employees/[id] - Get single employee
@@ -26,40 +27,45 @@ export async function GET(
           },
         },
         employeeSize: true,
+        // Nur Container-Dokumente mit Versions-Info
         documents: {
+          where: { isContainer: true },
           include: {
-            categories: {
-              include: {
-                category: true,
-              },
+            categories: { include: { category: true } },
+            versions: {
+              orderBy: { versionNumber: 'desc' },
+              take: 1,
+              include: { categories: { include: { category: true } } },
             },
+            _count: { select: { versions: true } },
           },
-          orderBy: {
-            uploadedAt: 'desc',
-          },
+          orderBy: { uploadedAt: 'desc' },
+          take: 50,
         },
         clothingOrders: {
           include: {
-            items: {
-              include: {
-                clothingItem: true,
-              },
-            },
+            items: { include: { clothingItem: true } },
           },
-          orderBy: {
-            orderDate: 'desc',
-          },
+          orderBy: { orderDate: 'desc' },
+          take: 30,
         },
         vacations: {
-          orderBy: {
-            startDate: 'desc',
-          },
+          orderBy: { startDate: 'desc' },
+          take: 30,
         },
       },
     });
 
     if (!employee) {
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
+    }
+
+    // Auto-Reset des Budgets bei neuem Quartal — kein zweiter DB-Fetch nötig
+    const wasReset = await checkAndResetBudget(employee);
+    if (wasReset) {
+      // Felder direkt im Objekt aktualisieren statt erneut zu laden
+      (employee as any).remainingBudget = employee.clothingBudget;
+      (employee as any).lastBudgetReset = getCurrentBudgetPeriodStart(employee.startDate!);
     }
 
     return NextResponse.json(employee);
@@ -70,16 +76,50 @@ export async function GET(
 }
 
 // PUT /api/employees/[id] - Update employee
+const emptyToNull = z.preprocess((val) => (val === '' ? null : val), z.string().optional().nullable());
+
 const updateEmployeeSchema = z.object({
   firstName: z.string().min(1).optional(),
   lastName: z.string().min(1).optional(),
-  dateOfBirth: z.string().optional().nullable(),
-  email: z.string().email().optional().nullable(),
-  phone: z.string().optional().nullable(),
-  departmentId: z.string().optional().nullable(),
-  position: z.string().optional().nullable(),
-  startDate: z.string().optional().nullable(),
-  clothingBudget: z.number().min(0).optional(),
+  dateOfBirth: emptyToNull,
+  email: z.preprocess(
+    (val) => (val === '' ? null : val),
+    z.string().email().optional().nullable()
+  ),
+  phone: emptyToNull,
+  departmentId: emptyToNull,
+  position: emptyToNull,
+  startDate: emptyToNull,
+  clothingBudget: z.preprocess(
+    (val) => (typeof val === 'string' ? parseFloat(val) : val),
+    z.number().min(0).optional()
+  ),
+  // Adresse
+  street: emptyToNull,
+  zipCode: emptyToNull,
+  city: emptyToNull,
+  // Steuern & Sozialversicherung
+  socialSecurityNumber: emptyToNull,
+  taxId: emptyToNull,
+  healthInsurance: emptyToNull,
+  // Vertrag & Vergütung
+  isFixedTerm: z.boolean().optional(),
+  fixedTermEndDate: emptyToNull,
+  hourlyWage: z.preprocess(
+    (val) => (val === '' || val === null ? null : typeof val === 'string' ? parseFloat(val) : val),
+    z.number().min(0).optional().nullable()
+  ),
+  payGrade: emptyToNull,
+  vacationDays: z.preprocess(
+    (val) => (val === '' || val === null ? null : typeof val === 'string' ? parseInt(val) : val),
+    z.number().int().min(0).optional().nullable()
+  ),
+  // Zugang & Identifikation
+  keyNumber: emptyToNull,
+  chipNumber: emptyToNull,
+  // Qualifikationen & Lizenzen
+  driversLicenseClass: emptyToNull,
+  forkliftLicense: z.boolean().optional(),
 });
 
 export async function PUT(
@@ -105,8 +145,15 @@ export async function PUT(
 
     const updateData: any = {
       ...data,
-      dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
-      startDate: data.startDate ? new Date(data.startDate) : undefined,
+      dateOfBirth: data.dateOfBirth !== undefined
+        ? (data.dateOfBirth ? new Date(data.dateOfBirth) : null)
+        : undefined,
+      startDate: data.startDate !== undefined
+        ? (data.startDate ? new Date(data.startDate) : null)
+        : undefined,
+      fixedTermEndDate: data.fixedTermEndDate !== undefined
+        ? (data.fixedTermEndDate ? new Date(data.fixedTermEndDate) : null)
+        : undefined,
     };
 
     const employee = await prisma.employee.update({

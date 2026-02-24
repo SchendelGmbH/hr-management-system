@@ -61,13 +61,51 @@ model Employee {
   firstName         String
   lastName          String
   dateOfBirth       DateTime?
+  /// @encrypted
   email             String?
+  /// @encrypted
   phone             String?
   departmentId      String?
   position          String?
   startDate         DateTime?
   clothingBudget    Decimal   @db.Decimal(10, 2) @default(0)
   remainingBudget   Decimal   @db.Decimal(10, 2) @default(0)
+  lastBudgetReset   DateTime?
+
+  // Adresse
+  /// @encrypted
+  street              String?
+  /// @encrypted
+  zipCode             String?
+  /// @encrypted
+  city                String?
+
+  // Steuern & Sozialversicherung
+  /// @encrypted
+  socialSecurityNumber String?
+  /// @encrypted
+  taxId               String?
+  /// @encrypted
+  healthInsurance     String?
+
+  // Vertrag & Vergütung
+  isFixedTerm         Boolean   @default(false)
+  fixedTermEndDate    DateTime?
+  hourlyWage          Decimal?  @db.Decimal(10, 2)
+  /// @encrypted
+  payGrade            String?
+  vacationDays        Int?
+
+  // Zugang & Identifikation
+  /// @encrypted
+  keyNumber           String?
+  /// @encrypted
+  chipNumber          String?
+
+  // Qualifikationen & Lizenzen
+  driversLicenseClass String?   @default("Nein")
+  forkliftLicense     Boolean   @default(false)
+
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
@@ -153,26 +191,40 @@ model Category {
 model Document {
   id             String       @id @default(cuid())
   employeeId     String
+  /// @encrypted
   title          String
+  /// @encrypted
   description    String?      @db.Text
-  filePath       String       // Relative path: uploads/documents/2024/01/...
-  fileName       String
-  fileSize       Int          // In bytes
-  mimeType       String
+  filePath       String?      // Relative path: uploads/documents/2024/01/... (null für Container)
+  fileName       String?      // null für Container
+  fileSize       Int?         // In bytes (null für Container)
+  mimeType       String?      // null für Container
+  validFrom      DateTime?
   expirationDate DateTime?
+  /// @encrypted
   notes          String?      @db.Text
   uploadedAt     DateTime     @default(now())
   uploadedBy     String
   updatedAt      DateTime     @updatedAt
+
+  // Versionierung
+  isContainer       Boolean   @default(false) // true = virtueller Container ohne Datei
+  parentDocumentId  String?   // null = Container; gesetzt = zeigt auf Container der Gruppe
+  versionNumber     Int       @default(1)     // 0 für Container, 1-n für Versionen
 
   // Relations
   employee   Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   uploader   User               @relation("DocumentUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
   categories DocumentCategory[]
 
+  // Selbst-Relation für Versionierung
+  parent   Document?  @relation("DocumentVersions", fields: [parentDocumentId], references: [id], onDelete: SetNull)
+  versions Document[] @relation("DocumentVersions")
+
   @@index([employeeId])
   @@index([expirationDate])
   @@index([uploadedBy])
+  @@index([parentDocumentId])
   @@map("documents")
 }
 

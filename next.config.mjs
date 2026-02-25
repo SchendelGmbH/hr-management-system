@@ -10,7 +10,7 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
-  serverExternalPackages: ['prisma-field-encryption', '@prisma/client'],
+  serverExternalPackages: ['prisma-field-encryption', '@prisma/client', 'pdf-parse', 'mammoth', '@react-pdf/renderer'],
 };
 
 export default withNextIntl(nextConfig);

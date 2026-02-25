@@ -12,6 +12,7 @@ export async function GET(request: NextRequest) {
   const employeeId = searchParams.get('employeeId');
   const status = searchParams.get('status'); // all, valid, expiring, expired
   const categoryId = searchParams.get('categoryId');
+  const search = searchParams.get('search');
 
   try {
     const now = new Date();
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
           },
         },
         categories: { include: { category: true } },
-        // Latest version for display
+        // Latest version for display (inkl. textContent für Volltextsuche)
         versions: {
           orderBy: { versionNumber: 'desc' },
           take: 1,
@@ -71,6 +72,16 @@ export async function GET(request: NextRequest) {
       filteredDocuments = documents.filter(
         (doc) => !doc.expirationDate || doc.expirationDate > in90Days
       );
+    }
+
+    // Volltextsuche: In-memory nach Titel (entschlüsselt) und Inhalt der neuesten Version
+    if (search) {
+      const q = search.toLowerCase();
+      filteredDocuments = filteredDocuments.filter((doc) => {
+        const titleMatch = (doc.title ?? '').toLowerCase().includes(q);
+        const contentMatch = ((doc.versions[0] as any)?.textContent ?? '').toLowerCase().includes(q);
+        return titleMatch || contentMatch;
+      });
     }
 
     return NextResponse.json({ documents: filteredDocuments });

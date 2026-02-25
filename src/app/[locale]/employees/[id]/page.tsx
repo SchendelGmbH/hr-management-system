@@ -4,10 +4,12 @@ import { useState, useEffect, Fragment } from 'react';
 import { use } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import EditDocumentModal from '@/components/documents/EditDocumentModal';
+import DeleteDocumentModal from '@/components/documents/DeleteDocumentModal';
+import GenerateDocumentModal from '@/components/templates/GenerateDocumentModal';
 import { DetailFormSkeleton } from '@/components/ui/Skeleton';
 import EmployeeClothingInventory from '@/components/employees/EmployeeClothingInventory';
 
@@ -109,6 +111,10 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const [versionHistory, setVersionHistory] = useState<Record<string, any[]>>({});
   const [loadingVersions, setLoadingVersions] = useState<Set<string>>(new Set());
   const [editDocModal, setEditDocModal] = useState<any | null>(null);
+  const [deleteDocModal, setDeleteDocModal] = useState<{ id: string; title: string } | null>(null);
+  const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<string>('all');
+  const [docSearchQuery, setDocSearchQuery] = useState('');
 
   // Edit state
   const [isEditing, setIsEditing] = useState(false);
@@ -154,6 +160,23 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   useEffect(() => {
     if (searchParams.get('edit') === 'true' && employee) {
       startEditing();
+    }
+  }, [searchParams, employee]);
+
+  // Auto-navigate to documents tab and expand a specific document if requested
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const expandDoc = searchParams.get('expandDoc');
+    if (tab === 'documents' && employee) {
+      setActiveTab('documents');
+      if (expandDoc) {
+        setExpandedDocIds((prev) => {
+          const next = new Set(prev);
+          next.add(expandDoc);
+          return next;
+        });
+        fetchVersionHistory(expandDoc);
+      }
     }
   }, [searchParams, employee]);
 
@@ -830,14 +853,37 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               <h3 className="text-lg font-medium text-gray-900">
                 Dokumente ({employee.documents.length})
               </h3>
-              <button
-                onClick={() => setIsUploadModalOpen(true)}
-                className="flex items-center space-x-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-              >
-                <Plus className="h-4 w-4" />
-                <span>Dokument hinzufügen</span>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setGenerateModalOpen(true)}
+                  className="flex items-center space-x-2 rounded-lg border border-primary-300 bg-white px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+                >
+                  <FileText className="h-4 w-4" />
+                  <span>Aus Vorlage</span>
+                </button>
+                <button
+                  onClick={() => setIsUploadModalOpen(true)}
+                  className="flex items-center space-x-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                >
+                  <Plus className="h-4 w-4" />
+                  <span>Dokument hinzufügen</span>
+                </button>
+              </div>
             </div>
+
+            {/* Search */}
+            {employee.documents.length > 0 && (
+              <div className="relative max-w-sm">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Nach Titel suchen…"
+                  value={docSearchQuery}
+                  onChange={(e) => setDocSearchQuery(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+                />
+              </div>
+            )}
 
             {/* Category Filter */}
             {employee.documents.length > 0 && (() => {
@@ -896,6 +942,35 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               ) : null;
             })()}
 
+            {/* Status Filter */}
+            {employee.documents.length > 0 && (
+              <div>
+                <label className="mb-2 block text-sm font-medium text-gray-700">
+                  Status
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { value: 'all', label: 'Alle' },
+                    { value: 'valid', label: 'Gültig' },
+                    { value: 'expiring', label: 'Läuft bald ab' },
+                    { value: 'expired', label: 'Abgelaufen' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.value}
+                      onClick={() => setSelectedStatus(opt.value)}
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium transition-colors ${
+                        selectedStatus === opt.value
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Documents List */}
             {employee.documents.length === 0 ? (
               <div className="flex h-64 flex-col items-center justify-center text-gray-500">
@@ -903,13 +978,34 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                 <p className="mt-4">Keine Dokumente vorhanden</p>
               </div>
             ) : (() => {
-              const filteredDocuments = selectedCategoryIds.length > 0
+              const categoryFiltered = selectedCategoryIds.length > 0
                 ? employee.documents.filter((doc: any) =>
                     selectedCategoryIds.some((catId) =>
                       doc.categories?.some((dc: any) => dc.category.id === catId)
                     )
                   )
                 : employee.documents;
+
+              const statusFiltered = selectedStatus === 'all'
+                ? categoryFiltered
+                : categoryFiltered.filter((doc: any) => {
+                    const display = doc.versions?.[0] || doc;
+                    const expDate = display.expirationDate ? new Date(display.expirationDate) : null;
+                    const diffDays = expDate
+                      ? Math.ceil((expDate.getTime() - Date.now()) / 86400000)
+                      : null;
+                    if (selectedStatus === 'expired') return diffDays !== null && diffDays < 0;
+                    if (selectedStatus === 'expiring') return diffDays !== null && diffDays >= 0 && diffDays <= 30;
+                    if (selectedStatus === 'valid') return diffDays === null || diffDays > 30;
+                    return true;
+                  });
+
+              const filteredDocuments = docSearchQuery.trim()
+                ? statusFiltered.filter((doc: any) => {
+                    const display = doc.versions?.[0] || doc;
+                    return (display.title || doc.title || '').toLowerCase().includes(docSearchQuery.toLowerCase());
+                  })
+                : statusFiltered;
 
               const getStatusInfo = (expirationDate: string | null) => {
                 if (!expirationDate) {
@@ -1069,6 +1165,18 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                                     <Upload className="h-3.5 w-3.5" />
                                     Neue Version
                                   </button>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      const display = doc.versions?.[0] || doc;
+                                      setDeleteDocModal({ id: doc.id, title: display.title || doc.title });
+                                    }}
+                                    className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                                    title="Dokument löschen"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                    Löschen
+                                  </button>
                                 </div>
                               </td>
                             </tr>
@@ -1209,6 +1317,31 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
           document={editDocModal}
         />
       )}
+
+      {/* Delete Document Modal */}
+      {deleteDocModal && (
+        <DeleteDocumentModal
+          isOpen={true}
+          onClose={() => setDeleteDocModal(null)}
+          onSuccess={() => {
+            setDeleteDocModal(null);
+            fetchEmployee();
+          }}
+          documentId={deleteDocModal.id}
+          documentTitle={deleteDocModal.title}
+        />
+      )}
+
+      {/* Generate Document from Template Modal */}
+      <GenerateDocumentModal
+        isOpen={generateModalOpen}
+        onClose={() => setGenerateModalOpen(false)}
+        onSuccess={() => {
+          setGenerateModalOpen(false);
+          fetchEmployee();
+        }}
+        employeeId={employee.id}
+      />
 
       {/* Delete Confirmation Dialog */}
       {showDeleteDialog && (

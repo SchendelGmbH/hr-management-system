@@ -5,6 +5,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { getNextColor } from '@/lib/categoryColors';
+import { extractText } from '@/lib/extractText';
 
 export async function POST(request: NextRequest) {
   const session = await auth();
@@ -85,6 +86,9 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
     await writeFile(filepath, buffer);
+
+    // Textinhalt für Volltextsuche extrahieren (optional; Fehler blockieren nicht den Upload)
+    const textContent = await extractText(filepath, file.type);
 
     // Process categories: create if new, find if existing
     if (categoryNames.length === 0 && parentDocumentId) {
@@ -180,6 +184,7 @@ export async function POST(request: NextRequest) {
         isContainer: false,
         parentDocumentId: containerId,
         versionNumber,
+        textContent,
         categories: {
           create: categoryIds.map((categoryId) => ({ categoryId })),
         },

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Tag, Sliders, Users, Bell, FileCheck } from 'lucide-react';
+import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText } from 'lucide-react';
 
 export default function SettingsPage() {
   const settings = [
@@ -15,6 +15,13 @@ export default function SettingsPage() {
       description: 'Dokument-Kategorien verwalten',
       icon: Tag,
       href: '/de/settings/categories',
+      available: true,
+    },
+    {
+      title: 'Dokumentvorlagen',
+      description: 'Vertragsvorlagen mit Variablen',
+      icon: FileText,
+      href: '/de/settings/templates',
       available: true,
     },
     {

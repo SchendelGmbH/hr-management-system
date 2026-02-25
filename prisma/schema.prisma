@@ -212,6 +212,13 @@ model Document {
   parentDocumentId  String?   // null = Container; gesetzt = zeigt auf Container der Gruppe
   versionNumber     Int       @default(1)     // 0 für Container, 1-n für Versionen
 
+  // Dashboard Snooze
+  snoozedUntil      DateTime? // null = sichtbar; gesetzt = bis zu diesem Datum im Dashboard ausgeblendet
+
+  // Volltextsuche (nur auf Versions-Documents; max. 10.000 Zeichen; verschlüsselt)
+  /// @encrypted
+  textContent       String?   @db.Text
+
   // Relations
   employee   Employee           @relation(fields: [employeeId], references: [id], onDelete: Cascade)
   uploader   User               @relation("DocumentUploader", fields: [uploadedBy], references: [id], onDelete: Restrict)
@@ -439,4 +446,23 @@ model AuditLog {
   @@index([entityType])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================================
+// DOKUMENTVORLAGEN / DOCUMENT TEMPLATES
+// ============================================================================
+
+model DocumentTemplate {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  content        String   @db.Text  // HTML-Inhalt aus TipTap-Editor
+  letterheadPath String?             // z.B. /uploads/letterheads/filename.png
+  isActive       Boolean  @default(true)
+  createdBy      String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("document_templates")
 }

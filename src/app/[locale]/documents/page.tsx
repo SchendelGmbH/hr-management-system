@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, Fragment } from 'react';
-import { FileText, Plus, Tag as TagIcon, X, User, GitBranch, ChevronDown, ChevronRight, Upload, Pencil } from 'lucide-react';
+import { FileText, Plus, Tag as TagIcon, X, User, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Trash2 } from 'lucide-react';
 import { formatDate, daysUntil, getExpirationStatus } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import EditDocumentModal from '@/components/documents/EditDocumentModal';
+import DeleteDocumentModal from '@/components/documents/DeleteDocumentModal';
 import { TableSkeleton } from '@/components/ui/Skeleton';
 
 interface Category {
@@ -29,6 +30,8 @@ interface Document {
   id: string;
   employeeId: string;
   title: string;
+  description: string | null;
+  notes: string | null;
   fileName: string;
   filePath: string;
   validFrom: string | null;
@@ -60,6 +63,7 @@ export default function DocumentsPage() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedCategoryId, setSelectedCategoryId] = useState<string>('');
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Versioning state
@@ -72,6 +76,7 @@ export default function DocumentsPage() {
   const [versionHistory, setVersionHistory] = useState<Record<string, DocumentVersion[]>>({});
   const [loadingVersions, setLoadingVersions] = useState<Set<string>>(new Set());
   const [editModal, setEditModal] = useState<Document | null>(null);
+  const [deleteModal, setDeleteModal] = useState<{ id: string; title: string } | null>(null);
 
   // Einmalig beim Mount: Kategorien und Mitarbeiter laden
   useEffect(() => {
@@ -79,10 +84,15 @@ export default function DocumentsPage() {
     fetchEmployees();
   }, []);
 
-  // Bei Filter-Änderungen: nur Dokumente neu laden
+  // Bei Filter-Änderungen sofort neu laden; Suchfeld mit 300 ms Debounce
   useEffect(() => {
     fetchDocuments();
   }, [statusFilter, selectedCategoryId, selectedEmployeeId]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => fetchDocuments(), 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
 
   const fetchDocuments = async () => {
     setLoading(true);
@@ -91,6 +101,7 @@ export default function DocumentsPage() {
       if (statusFilter !== 'all') params.append('status', statusFilter);
       if (selectedCategoryId) params.append('categoryId', selectedCategoryId);
       if (selectedEmployeeId) params.append('employeeId', selectedEmployeeId);
+      if (searchQuery.trim()) params.append('search', searchQuery.trim());
       const queryString = params.toString();
       const response = await fetch(`/api/documents${queryString ? `?${queryString}` : ''}`);
       const data = await response.json();
@@ -262,8 +273,34 @@ export default function DocumentsPage() {
         />
       )}
 
+      {/* Delete confirmation modal */}
+      {deleteModal && (
+        <DeleteDocumentModal
+          isOpen={true}
+          onClose={() => setDeleteModal(null)}
+          onSuccess={() => {
+            setDeleteModal(null);
+            fetchDocuments();
+          }}
+          documentId={deleteModal.id}
+          documentTitle={deleteModal.title}
+        />
+      )}
+
       {/* Filters */}
       <div className="space-y-3">
+        {/* Search */}
+        <div className="relative max-w-sm">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            placeholder="Nach Titel suchen…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 py-2 pl-9 pr-3 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-primary-500"
+          />
+        </div>
+
         {/* Status Filter */}
         <div>
           <label className="text-xs font-medium text-gray-600 mb-2 block">Status:</label>
@@ -510,6 +547,18 @@ export default function DocumentsPage() {
                             >
                               <Upload className="h-3.5 w-3.5" />
                               Neue Version
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const display = getDisplayDoc(doc);
+                                setDeleteModal({ id: doc.id, title: display.title || doc.title });
+                              }}
+                              className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                              title="Dokument löschen"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                              Löschen
                             </button>
                           </div>
                         </td>

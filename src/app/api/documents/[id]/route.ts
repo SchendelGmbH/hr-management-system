@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { getNextColor } from '@/lib/categoryColors';
+import { unlink } from 'fs/promises';
+import { join } from 'path';
 
 // GET /api/documents/[id] - Alle Versionen eines Dokuments abrufen
 export async function GET(
@@ -145,6 +147,109 @@ export async function PUT(
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error updating document:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// DELETE /api/documents/[id] - Dokument (Container + alle Versionen) löschen
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    // Container mit allen Versionen laden
+    const container = await prisma.document.findUnique({
+      where: { id, isContainer: true },
+      include: {
+        versions: { select: { id: true, filePath: true } },
+      },
+    });
+
+    if (!container) {
+      return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 });
+    }
+
+    // Physische Dateien von der Festplatte löschen
+    for (const version of container.versions) {
+      if (version.filePath) {
+        const absPath = join(process.cwd(), 'public', version.filePath);
+        try {
+          await unlink(absPath);
+        } catch {
+          // Datei evtl. schon gelöscht — ignorieren
+        }
+      }
+    }
+
+    // Zuerst alle Versionen löschen (wegen onDelete: SetNull auf der Relation)
+    await prisma.document.deleteMany({
+      where: { parentDocumentId: id },
+    });
+
+    // Container löschen
+    await prisma.document.delete({ where: { id } });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'DELETE',
+        entityType: 'Document',
+        entityId: id,
+        oldValues: JSON.stringify({
+          title: container.title,
+          versionsDeleted: container.versions.length,
+        }),
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error deleting document:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+// PATCH /api/documents/[id] - Snooze setzen oder aufheben
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { id } = await params;
+
+  try {
+    const body = await request.json();
+    const snoozedUntil = body.snoozedUntil ? new Date(body.snoozedUntil) : null;
+
+    await prisma.document.update({
+      where: { id },
+      data: { snoozedUntil },
+    });
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'UPDATE',
+        entityType: 'Document',
+        entityId: id,
+        newValues: JSON.stringify({ snoozedUntil }),
+      },
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Error snoozing document:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

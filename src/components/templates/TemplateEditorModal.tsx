@@ -4,8 +4,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
-import { X, Bold, Italic, UnderlineIcon, Heading1, Heading2, Heading3, List, ListOrdered } from 'lucide-react';
+import TextAlign from '@tiptap/extension-text-align';
+import { TextStyle, FontSize } from '@tiptap/extension-text-style';
+import {
+  X,
+  Bold,
+  Italic,
+  UnderlineIcon,
+  Heading1,
+  Heading2,
+  Heading3,
+  List,
+  ListOrdered,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignJustify,
+} from 'lucide-react';
 import { AVAILABLE_VARIABLES } from '@/lib/templateVariables';
+
+const FONT_SIZES = ['8', '9', '10', '11', '12', '14', '16', '18', '20', '24', '28', '32'];
 
 interface Template {
   id: string;
@@ -30,7 +48,13 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
 
   const editor = useEditor({
     immediatelyRender: false,
-    extensions: [StarterKit, Underline],
+    extensions: [
+      StarterKit,
+      Underline,
+      TextStyle,
+      FontSize,
+      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+    ],
     content: '',
     editorProps: {
       attributes: {
@@ -57,6 +81,20 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
     },
     [editor]
   );
+
+  // Aktuelle Schriftgröße aus dem Cursor-Kontext lesen
+  const currentFontSize =
+    editor?.getAttributes('textStyle').fontSize?.replace('pt', '') ?? '';
+
+  const handleFontSizeChange = (size: string) => {
+    if (!size) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (editor?.chain().focus() as any).unsetFontSize().run();
+    } else {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (editor?.chain().focus() as any).setFontSize(`${size}pt`).run();
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) { setError('Name ist erforderlich'); return; }
@@ -182,7 +220,9 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
           {/* Editor */}
           <div className="rounded-lg border border-gray-300 overflow-hidden">
             {/* Toolbar */}
-            <div className="flex items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 py-2">
+
+              {/* Schriftformatierung */}
               <ToolbarButton
                 onClick={() => editor?.chain().focus().toggleBold().run()}
                 active={editor?.isActive('bold')}
@@ -204,7 +244,26 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
               >
                 <UnderlineIcon className="h-4 w-4" />
               </ToolbarButton>
+
               <div className="mx-1 h-5 w-px bg-gray-300" />
+
+              {/* Schriftgröße */}
+              <select
+                value={currentFontSize}
+                onChange={(e) => handleFontSizeChange(e.target.value)}
+                title="Schriftgröße"
+                onMouseDown={(e) => e.stopPropagation()}
+                className="h-7 rounded border border-gray-300 bg-white px-1 text-xs text-gray-700 focus:border-primary-500 focus:outline-none cursor-pointer"
+              >
+                <option value="">Größe</option>
+                {FONT_SIZES.map((s) => (
+                  <option key={s} value={s}>{s} pt</option>
+                ))}
+              </select>
+
+              <div className="mx-1 h-5 w-px bg-gray-300" />
+
+              {/* Überschriften */}
               <ToolbarButton
                 onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
                 active={editor?.isActive('heading', { level: 1 })}
@@ -226,7 +285,10 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
               >
                 <Heading3 className="h-4 w-4" />
               </ToolbarButton>
+
               <div className="mx-1 h-5 w-px bg-gray-300" />
+
+              {/* Listen */}
               <ToolbarButton
                 onClick={() => editor?.chain().focus().toggleBulletList().run()}
                 active={editor?.isActive('bulletList')}
@@ -240,6 +302,38 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
                 title="Nummerierte Liste"
               >
                 <ListOrdered className="h-4 w-4" />
+              </ToolbarButton>
+
+              <div className="mx-1 h-5 w-px bg-gray-300" />
+
+              {/* Textausrichtung */}
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().setTextAlign('left').run()}
+                active={editor?.isActive({ textAlign: 'left' })}
+                title="Linksbündig"
+              >
+                <AlignLeft className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().setTextAlign('center').run()}
+                active={editor?.isActive({ textAlign: 'center' })}
+                title="Zentriert"
+              >
+                <AlignCenter className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().setTextAlign('right').run()}
+                active={editor?.isActive({ textAlign: 'right' })}
+                title="Rechtsbündig"
+              >
+                <AlignRight className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().setTextAlign('justify').run()}
+                active={editor?.isActive({ textAlign: 'justify' })}
+                title="Blocksatz"
+              >
+                <AlignJustify className="h-4 w-4" />
               </ToolbarButton>
             </div>
 

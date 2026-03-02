@@ -110,7 +110,7 @@ const createEmployeeSchema = z.object({
   isFixedTerm: z.boolean().optional(),
   fixedTermEndDate: z.string().optional().nullable(),
   hourlyWage: z.number().min(0).optional().nullable(),
-  payGrade: z.string().optional().nullable(),
+  payGradeId: z.string().optional().nullable(),
   vacationDays: z.number().int().min(0).optional().nullable(),
   // Zugang & Identifikation
   keyNumber: z.string().optional().nullable(),
@@ -146,6 +146,15 @@ export async function POST(request: NextRequest) {
 
     const employeeNumber = `EMP-${nextNumber.toString().padStart(5, '0')}`;
 
+    // Übertariflichen Zuschlag berechnen
+    let overtariffSupplement: number | null = null;
+    if (data.hourlyWage != null && data.payGradeId) {
+      const payGrade = await prisma.payGrade.findUnique({ where: { id: data.payGradeId } });
+      if (payGrade?.tariffWage != null) {
+        overtariffSupplement = Number(data.hourlyWage) - Number(payGrade.tariffWage);
+      }
+    }
+
     const employee = await prisma.employee.create({
       data: {
         employeeNumber,
@@ -172,7 +181,8 @@ export async function POST(request: NextRequest) {
         isFixedTerm: data.isFixedTerm ?? false,
         fixedTermEndDate: data.fixedTermEndDate ? new Date(data.fixedTermEndDate) : null,
         hourlyWage: data.hourlyWage,
-        payGrade: data.payGrade,
+        overtariffSupplement,
+        payGradeId: data.payGradeId,
         vacationDays: data.vacationDays,
         // Zugang & Identifikation
         keyNumber: data.keyNumber,
@@ -183,6 +193,7 @@ export async function POST(request: NextRequest) {
       },
       include: {
         department: true,
+        payGrade: true,
       },
     });
 

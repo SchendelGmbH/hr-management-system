@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText } from 'lucide-react';
+import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText, CircleDollarSign } from 'lucide-react';
 
 export default function SettingsPage() {
   const settings = [
@@ -22,6 +22,13 @@ export default function SettingsPage() {
       description: 'Vertragsvorlagen mit Variablen',
       icon: FileText,
       href: '/de/settings/templates',
+      available: true,
+    },
+    {
+      title: 'Lohngruppen',
+      description: 'Tariflohngruppen verwalten',
+      icon: CircleDollarSign,
+      href: '/de/settings/pay-grades',
       available: true,
     },
     {

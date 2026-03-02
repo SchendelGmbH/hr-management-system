@@ -29,8 +29,9 @@ const employeeSchema = z.object({
   // Vertrag & Vergütung
   isFixedTerm: z.boolean().optional(),
   fixedTermEndDate: z.string().optional(),
+  probationEndDate: z.string().optional(),
   hourlyWage: z.number().min(0).optional().nullable(),
-  payGrade: z.string().optional(),
+  payGradeId: z.string().optional(),
   vacationDays: z.number().int().min(0).optional().nullable(),
   // Zugang & Identifikation
   keyNumber: z.string().optional(),
@@ -47,6 +48,7 @@ export default function NewEmployeePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [departments, setDepartments] = useState<any[]>([]);
+  const [payGrades, setPayGrades] = useState<any[]>([]);
 
   const {
     register,
@@ -65,11 +67,15 @@ export default function NewEmployeePage() {
 
   const isFixedTerm = watch('isFixedTerm');
 
-  // Fetch departments
+  // Fetch departments & pay grades
   useState(() => {
     fetch('/api/departments')
       .then((res) => res.json())
       .then((data) => setDepartments(data.departments || []))
+      .catch(console.error);
+    fetch('/api/pay-grades')
+      .then((res) => res.json())
+      .then((data) => setPayGrades(data.payGrades || []))
       .catch(console.error);
   });
 
@@ -97,8 +103,9 @@ export default function NewEmployeePage() {
           healthInsurance: data.healthInsurance || null,
           isFixedTerm: data.isFixedTerm ?? false,
           fixedTermEndDate: data.isFixedTerm ? (data.fixedTermEndDate || null) : null,
+          probationEndDate: data.probationEndDate || null,
           hourlyWage: data.hourlyWage ?? null,
-          payGrade: data.payGrade || null,
+          payGradeId: data.payGradeId || null,
           vacationDays: data.vacationDays ?? null,
           keyNumber: data.keyNumber || null,
           chipNumber: data.chipNumber || null,
@@ -248,12 +255,21 @@ export default function NewEmployeePage() {
               </div>
             )}
             <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Probezeit bis</label>
+              <input type="date" {...register('probationEndDate')} className={inputClass} />
+            </div>
+            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Stundenlohn (&euro;)</label>
               <input type="number" step="0.01" {...register('hourlyWage', { setValueAs: (v) => v === '' ? null : Number(v) })} className={inputClass} />
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Lohngruppe</label>
-              <input type="text" {...register('payGrade')} className={inputClass} />
+              <select {...register('payGradeId')} className={inputClass}>
+                <option value="">Keine Lohngruppe</option>
+                {payGrades.map((pg) => (
+                  <option key={pg.id} value={pg.id}>{pg.name}{pg.tariffWage != null ? ` – ${Number(pg.tariffWage).toFixed(2)} €/h` : ''}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Urlaubsanspruch (Tage)</label>

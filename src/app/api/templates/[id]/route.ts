@@ -1,8 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { unlink } from 'fs/promises';
-import { join } from 'path';
+import { extractCustomVariables } from '@/lib/templateVariables';
+
+export const dynamic = 'force-dynamic';
+
+// GET /api/templates/[id] – Template + Custom-Variablen abrufen
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const { id } = await params;
+
+  try {
+    const template = await prisma.documentTemplate.findUnique({ where: { id } });
+    if (!template) {
+      return NextResponse.json({ error: 'Vorlage nicht gefunden' }, { status: 404 });
+    }
+    const customVariables = extractCustomVariables(template.content);
+    return NextResponse.json({ template, customVariables });
+  } catch (error) {
+    console.error('Error fetching template:', error);
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
 
 // PUT /api/templates/[id] – Template aktualisieren
 export async function PUT(
@@ -52,15 +76,6 @@ export async function DELETE(
     const template = await prisma.documentTemplate.findUnique({ where: { id } });
     if (!template) {
       return NextResponse.json({ error: 'Vorlage nicht gefunden' }, { status: 404 });
-    }
-
-    // Briefpapier-Datei löschen falls vorhanden
-    if (template.letterheadPath) {
-      try {
-        await unlink(join(process.cwd(), 'public', template.letterheadPath));
-      } catch {
-        // Datei evtl. schon gelöscht — ignorieren
-      }
     }
 
     await prisma.documentTemplate.delete({ where: { id } });

@@ -14,7 +14,11 @@ type EmployeeForTemplate = {
   zipCode?: string | null;
   city?: string | null;
   startDate?: Date | null;
+  fixedTermEndDate?: Date | null;
+  probationEndDate?: Date | null;
   hourlyWage?: unknown;
+  overtariffSupplement?: unknown;
+  payGrade?: { name: string; tariffWage?: unknown } | null;
   vacationDays?: number | null;
   socialSecurityNumber?: string | null;
   taxId?: string | null;
@@ -51,7 +55,12 @@ export function buildVariableMap(employee: EmployeeForTemplate): Record<string, 
     plz: val(employee.zipCode),
     stadt: val(employee.city),
     startdatum: formatDate(employee.startDate),
+    befristet_bis: formatDate(employee.fixedTermEndDate),
+    probezeit_bis: formatDate(employee.probationEndDate),
     stundenlohn: employee.hourlyWage != null ? String(employee.hourlyWage) : '[nicht angegeben]',
+    lohngruppe: val(employee.payGrade?.name),
+    tariflohn: employee.payGrade?.tariffWage != null ? String(employee.payGrade.tariffWage) : '[nicht angegeben]',
+    uebertariflicher_zuschlag: employee.overtariffSupplement != null ? String(employee.overtariffSupplement) : '[nicht angegeben]',
     urlaubstage: employee.vacationDays != null ? String(employee.vacationDays) : '[nicht angegeben]',
     datum: formatToday(),
     sozialversicherungsnummer: val(employee.socialSecurityNumber),
@@ -66,6 +75,26 @@ export function substituteVariables(html: string, variables: Record<string, stri
   });
 }
 
+/**
+ * Erkennt alle {{variable}}-Platzhalter im HTML, die NICHT in AVAILABLE_VARIABLES
+ * definiert sind → das sind die Custom-Variablen, die beim Generieren manuell
+ * eingegeben werden müssen.
+ */
+export function extractCustomVariables(html: string): string[] {
+  const knownKeys = new Set(AVAILABLE_VARIABLES.map((v) => v.key));
+  const matches = html.match(/\{\{(\w+)\}\}/g) ?? [];
+  const seen = new Set<string>();
+  const custom: string[] = [];
+  for (const m of matches) {
+    const key = m.slice(2, -2);
+    if (!knownKeys.has(key) && !seen.has(key)) {
+      seen.add(key);
+      custom.push(key);
+    }
+  }
+  return custom;
+}
+
 /** Alle verfügbaren Variablen mit Label für die UI */
 export const AVAILABLE_VARIABLES: { key: string; label: string }[] = [
   { key: 'vorname', label: 'Vorname' },
@@ -76,7 +105,12 @@ export const AVAILABLE_VARIABLES: { key: string; label: string }[] = [
   { key: 'position', label: 'Position' },
   { key: 'abteilung', label: 'Abteilung' },
   { key: 'startdatum', label: 'Eintrittsdatum' },
+  { key: 'befristet_bis', label: 'Befristet bis' },
+  { key: 'probezeit_bis', label: 'Probezeit bis' },
   { key: 'stundenlohn', label: 'Stundenlohn' },
+  { key: 'lohngruppe', label: 'Lohngruppe' },
+  { key: 'tariflohn', label: 'Tariflohn' },
+  { key: 'uebertariflicher_zuschlag', label: 'Übertariflicher Zuschlag' },
   { key: 'urlaubstage', label: 'Urlaubstage' },
   { key: 'datum', label: 'Heutiges Datum' },
   { key: 'strasse', label: 'Straße' },

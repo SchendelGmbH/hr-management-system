@@ -21,6 +21,7 @@ export async function GET(
       where: { id },
       include: {
         department: true,
+        payGrade: true,
         customFieldValues: {
           include: {
             fieldDefinition: true,
@@ -105,11 +106,12 @@ const updateEmployeeSchema = z.object({
   // Vertrag & Vergütung
   isFixedTerm: z.boolean().optional(),
   fixedTermEndDate: emptyToNull,
+  probationEndDate: emptyToNull,
   hourlyWage: z.preprocess(
     (val) => (val === '' || val === null ? null : typeof val === 'string' ? parseFloat(val) : val),
     z.number().min(0).optional().nullable()
   ),
-  payGrade: emptyToNull,
+  payGradeId: emptyToNull,
   vacationDays: z.preprocess(
     (val) => (val === '' || val === null ? null : typeof val === 'string' ? parseInt(val) : val),
     z.number().int().min(0).optional().nullable()
@@ -143,8 +145,21 @@ export async function PUT(
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
+    // Übertariflichen Zuschlag berechnen wenn Stundenlohn oder Lohngruppe geändert wurde
+    let overtariffSupplement: number | null = null;
+    const newHourlyWage = data.hourlyWage !== undefined ? data.hourlyWage : oldEmployee.hourlyWage;
+    const newPayGradeId = data.payGradeId !== undefined ? data.payGradeId : oldEmployee.payGradeId;
+
+    if (newHourlyWage != null && newPayGradeId) {
+      const payGrade = await prisma.payGrade.findUnique({ where: { id: newPayGradeId } });
+      if (payGrade?.tariffWage != null) {
+        overtariffSupplement = Number(newHourlyWage) - Number(payGrade.tariffWage);
+      }
+    }
+
     const updateData: any = {
       ...data,
+      overtariffSupplement,
       dateOfBirth: data.dateOfBirth !== undefined
         ? (data.dateOfBirth ? new Date(data.dateOfBirth) : null)
         : undefined,
@@ -154,6 +169,9 @@ export async function PUT(
       fixedTermEndDate: data.fixedTermEndDate !== undefined
         ? (data.fixedTermEndDate ? new Date(data.fixedTermEndDate) : null)
         : undefined,
+      probationEndDate: data.probationEndDate !== undefined
+        ? (data.probationEndDate ? new Date(data.probationEndDate) : null)
+        : undefined,
     };
 
     const employee = await prisma.employee.update({
@@ -161,6 +179,7 @@ export async function PUT(
       data: updateData,
       include: {
         department: true,
+        payGrade: true,
       },
     });
 

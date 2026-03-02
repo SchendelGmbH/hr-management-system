@@ -176,15 +176,14 @@ export async function DELETE(
       return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 });
     }
 
-    // Physische Dateien von der Festplatte löschen
+    // Physische Dateien von der Festplatte löschen (digitale + Druckversion)
     for (const version of container.versions) {
       if (version.filePath) {
-        const absPath = join(process.cwd(), 'public', version.filePath);
-        try {
-          await unlink(absPath);
-        } catch {
-          // Datei evtl. schon gelöscht — ignorieren
-        }
+        // Digitale Version löschen
+        try { await unlink(join(process.cwd(), 'public', version.filePath)); } catch { /* ignorieren */ }
+        // Druckversion ableiten (naming convention: *-print.pdf) und ebenfalls löschen
+        const printPath = version.filePath.replace(/\.pdf$/, '-print.pdf');
+        try { await unlink(join(process.cwd(), 'public', printPath)); } catch { /* ignorieren */ }
       }
     }
 

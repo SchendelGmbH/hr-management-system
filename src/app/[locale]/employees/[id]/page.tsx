@@ -43,8 +43,10 @@ interface Employee {
   // Vertrag & Vergütung
   isFixedTerm: boolean;
   fixedTermEndDate: string | null;
+  probationEndDate: string | null;
   hourlyWage: number | null;
-  payGrade: string | null;
+  overtariffSupplement: number | null;
+  payGrade: { id: string; name: string; tariffWage: number | null } | null;
   vacationDays: number | null;
   // Zugang & Identifikation
   keyNumber: string | null;
@@ -81,8 +83,9 @@ interface EditForm {
   // Vertrag & Vergütung
   isFixedTerm: boolean;
   fixedTermEndDate: string;
+  probationEndDate: string;
   hourlyWage: string;
-  payGrade: string;
+  payGradeId: string;
   vacationDays: string;
   // Zugang & Identifikation
   keyNumber: string;
@@ -103,9 +106,16 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   // Versioning state
+  const [versionTypeModal, setVersionTypeModal] = useState<{
+    doc: any;
+  } | null>(null);
   const [newVersionModal, setNewVersionModal] = useState<{
     parentDocumentId: string;
     prefillData: { title: string; description?: string; categories?: string[] };
+  } | null>(null);
+  const [generateVersionModal, setGenerateVersionModal] = useState<{
+    parentDocumentId: string;
+    parentDocumentTitle: string;
   } | null>(null);
   const [expandedDocIds, setExpandedDocIds] = useState<Set<string>>(new Set());
   const [versionHistory, setVersionHistory] = useState<Record<string, any[]>>({});
@@ -136,8 +146,9 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
     healthInsurance: '',
     isFixedTerm: false,
     fixedTermEndDate: '',
+    probationEndDate: '',
     hourlyWage: '',
-    payGrade: '',
+    payGradeId: '',
     vacationDays: '',
     keyNumber: '',
     chipNumber: '',
@@ -146,6 +157,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   });
   const [saving, setSaving] = useState(false);
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [payGrades, setPayGrades] = useState<any[]>([]);
 
   // Delete state
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -154,6 +166,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   useEffect(() => {
     fetchEmployee();
     fetchDepartments();
+    fetchPayGrades();
   }, [id]);
 
   // Auto-enter edit mode if ?edit=true in URL
@@ -222,8 +235,23 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
     });
   };
 
-  const openNewVersionModal = (doc: any, e: React.MouseEvent) => {
+  const openVersionTypeModal = (doc: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    setVersionTypeModal({ doc });
+  };
+
+  const openGenerateVersionModal = (doc: any) => {
+    setVersionTypeModal(null);
+    const display = doc.versions?.[0] || doc;
+    setGenerateVersionModal({
+      parentDocumentId: doc.id,
+      parentDocumentTitle: display.title || doc.title,
+    });
+  };
+
+  const openNewVersionModal = (doc: any, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setVersionTypeModal(null);
     const categoryNames = (doc.versions?.[0]?.categories || doc.categories || []).map(
       (dc: any) => dc.category.name
     );
@@ -243,6 +271,16 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
       setDepartments(data.departments || []);
     } catch (error) {
       console.error('Error fetching departments:', error);
+    }
+  };
+
+  const fetchPayGrades = async () => {
+    try {
+      const response = await fetch('/api/pay-grades');
+      const data = await response.json();
+      setPayGrades(data.payGrades || []);
+    } catch (error) {
+      console.error('Error fetching pay grades:', error);
     }
   };
 
@@ -266,8 +304,9 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
       healthInsurance: employee.healthInsurance || '',
       isFixedTerm: employee.isFixedTerm ?? false,
       fixedTermEndDate: employee.fixedTermEndDate ? employee.fixedTermEndDate.split('T')[0] : '',
+      probationEndDate: employee.probationEndDate ? employee.probationEndDate.split('T')[0] : '',
       hourlyWage: employee.hourlyWage != null ? String(employee.hourlyWage) : '',
-      payGrade: employee.payGrade || '',
+      payGradeId: (employee as any).payGradeId || '',
       vacationDays: employee.vacationDays != null ? String(employee.vacationDays) : '',
       keyNumber: employee.keyNumber || '',
       chipNumber: employee.chipNumber || '',
@@ -310,8 +349,9 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
           healthInsurance: editForm.healthInsurance || null,
           isFixedTerm: editForm.isFixedTerm,
           fixedTermEndDate: editForm.isFixedTerm ? (editForm.fixedTermEndDate || null) : null,
+          probationEndDate: editForm.probationEndDate || null,
           hourlyWage: editForm.hourlyWage ? Number(editForm.hourlyWage) : null,
-          payGrade: editForm.payGrade || null,
+          payGradeId: editForm.payGradeId || null,
           vacationDays: editForm.vacationDays ? Number(editForm.vacationDays) : null,
           keyNumber: editForm.keyNumber || null,
           chipNumber: editForm.chipNumber || null,
@@ -588,12 +628,28 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 )}
                 <div>
+                  <label className="block text-xs font-medium text-gray-500">Probezeit bis</label>
+                  <p className="mt-1 text-sm text-gray-900">{employee.probationEndDate ? formatDate(employee.probationEndDate) : '-'}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">Lohngruppe</label>
+                  <p className="mt-1 text-sm text-gray-900">{employee.payGrade ? employee.payGrade.name : '-'}</p>
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-500">Tariflohn</label>
+                  <p className="mt-1 text-sm text-gray-900">
+                    {employee.payGrade?.tariffWage != null ? formatCurrency(employee.payGrade.tariffWage) : '-'}
+                  </p>
+                </div>
+                <div>
                   <label className="block text-xs font-medium text-gray-500">Stundenlohn</label>
                   <p className="mt-1 text-sm text-gray-900">{employee.hourlyWage != null ? formatCurrency(employee.hourlyWage) : '-'}</p>
                 </div>
                 <div>
-                  <label className="block text-xs font-medium text-gray-500">Lohngruppe</label>
-                  <p className="mt-1 text-sm text-gray-900">{employee.payGrade || '-'}</p>
+                  <label className="block text-xs font-medium text-gray-500">Übertariflicher Zuschlag</label>
+                  <p className={`mt-1 text-sm font-medium ${employee.overtariffSupplement != null ? (Number(employee.overtariffSupplement) >= 0 ? 'text-green-700' : 'text-red-600') : 'text-gray-900'}`}>
+                    {employee.overtariffSupplement != null ? formatCurrency(employee.overtariffSupplement) : '-'}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-500">Urlaubsanspruch</label>
@@ -773,12 +829,51 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Stundenlohn (&euro;)</label>
-                  <input type="number" step="0.01" value={editForm.hourlyWage} onChange={(e) => setEditForm({ ...editForm, hourlyWage: e.target.value })} className={inputClass} />
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Probezeit bis</label>
+                  <input type="date" value={editForm.probationEndDate} onChange={(e) => setEditForm({ ...editForm, probationEndDate: e.target.value })} className={inputClass} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Lohngruppe</label>
-                  <input type="text" value={editForm.payGrade} onChange={(e) => setEditForm({ ...editForm, payGrade: e.target.value })} className={inputClass} />
+                  <select value={editForm.payGradeId} onChange={(e) => setEditForm({ ...editForm, payGradeId: e.target.value })} className={inputClass}>
+                    <option value="">Keine Lohngruppe</option>
+                    {payGrades.map((pg) => (
+                      <option key={pg.id} value={pg.id}>{pg.name}{pg.tariffWage != null ? ` – ${Number(pg.tariffWage).toFixed(2)} €/h` : ''}</option>
+                    ))}
+                  </select>
+                </div>
+                {/* Tariflohn readonly */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Tariflohn (€/h)</label>
+                  <div className={`${inputClass} bg-gray-50 text-gray-500`}>
+                    {(() => {
+                      const pg = payGrades.find((p) => p.id === editForm.payGradeId);
+                      return pg?.tariffWage != null ? `${Number(pg.tariffWage).toFixed(2)} €` : '—';
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Stundenlohn (&euro;)</label>
+                  <input type="number" step="0.01" value={editForm.hourlyWage} onChange={(e) => setEditForm({ ...editForm, hourlyWage: e.target.value })} className={inputClass} />
+                </div>
+                {/* Übertariflicher Zuschlag readonly – Vorschau */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Übertariflicher Zuschlag (€/h)</label>
+                  <div className={`${inputClass} bg-gray-50 font-medium ${(() => {
+                    const pg = payGrades.find((p) => p.id === editForm.payGradeId);
+                    if (editForm.hourlyWage && pg?.tariffWage != null) {
+                      const diff = Number(editForm.hourlyWage) - Number(pg.tariffWage);
+                      return diff >= 0 ? 'text-green-700' : 'text-red-600';
+                    }
+                    return 'text-gray-500';
+                  })()}`}>
+                    {(() => {
+                      const pg = payGrades.find((p) => p.id === editForm.payGradeId);
+                      if (editForm.hourlyWage && pg?.tariffWage != null) {
+                        return `${(Number(editForm.hourlyWage) - Number(pg.tariffWage)).toFixed(2)} €`;
+                      }
+                      return '—';
+                    })()}
+                  </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">Urlaubsanspruch (Tage)</label>
@@ -1159,7 +1254,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                                     Bearbeiten
                                   </button>
                                   <button
-                                    onClick={(e) => openNewVersionModal(doc, e)}
+                                    onClick={(e) => openVersionTypeModal(doc, e)}
                                     className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
                                   >
                                     <Upload className="h-3.5 w-3.5" />
@@ -1302,6 +1397,67 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
           parentDocumentId={newVersionModal.parentDocumentId}
           preselectedEmployeeId={employee.id}
           prefillData={newVersionModal.prefillData}
+        />
+      )}
+
+      {/* Version Type Selection Modal */}
+      {versionTypeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+              <h2 className="text-base font-semibold text-gray-900">Neue Version hinzufügen</h2>
+              <button
+                onClick={() => setVersionTypeModal(null)}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-3">
+              <p className="text-sm text-gray-500 mb-4">Wie möchtest du die neue Version erstellen?</p>
+              <button
+                onClick={() => openNewVersionModal(versionTypeModal.doc)}
+                className="flex w-full items-center gap-4 rounded-lg border border-gray-200 px-4 py-3 text-left hover:border-primary-400 hover:bg-primary-50 transition-colors"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                  <Upload className="h-5 w-5 text-gray-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Datei hochladen</p>
+                  <p className="text-xs text-gray-500">PDF, Word oder andere Datei von deinem Gerät</p>
+                </div>
+              </button>
+              <button
+                onClick={() => openGenerateVersionModal(versionTypeModal.doc)}
+                className="flex w-full items-center gap-4 rounded-lg border border-gray-200 px-4 py-3 text-left hover:border-primary-400 hover:bg-primary-50 transition-colors"
+              >
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary-100">
+                  <FileText className="h-5 w-5 text-primary-600" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-gray-900">Aus Vorlage generieren</p>
+                  <p className="text-xs text-gray-500">Automatisch aus einer Dokumentvorlage erstellen</p>
+                </div>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Generate Version from Template Modal */}
+      {generateVersionModal && (
+        <GenerateDocumentModal
+          isOpen={true}
+          onClose={() => setGenerateVersionModal(null)}
+          onSuccess={() => {
+            setGenerateVersionModal(null);
+            setVersionHistory({});
+            setExpandedDocIds(new Set());
+            fetchEmployee();
+          }}
+          employeeId={employee.id}
+          parentDocumentId={generateVersionModal.parentDocumentId}
+          parentDocumentTitle={generateVersionModal.parentDocumentTitle}
         />
       )}
 

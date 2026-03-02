@@ -91,10 +91,11 @@ model Employee {
   // Vertrag & Vergütung
   isFixedTerm         Boolean   @default(false)
   fixedTermEndDate    DateTime?
-  hourlyWage          Decimal?  @db.Decimal(10, 2)
-  /// @encrypted
-  payGrade            String?
-  vacationDays        Int?
+  probationEndDate    DateTime?
+  hourlyWage              Decimal?  @db.Decimal(10, 2)
+  overtariffSupplement    Decimal?  @db.Decimal(10, 2)
+  payGradeId              String?
+  vacationDays            Int?
 
   // Zugang & Identifikation
   /// @encrypted
@@ -111,6 +112,7 @@ model Employee {
 
   // Relations
   department         Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  payGrade           PayGrade?             @relation(fields: [payGradeId], references: [id], onDelete: SetNull)
   documents          Document[]
   customFieldValues  CustomFieldValue[]
   employeeSize       EmployeeSize?
@@ -118,6 +120,7 @@ model Employee {
   vacations          Vacation[]
 
   @@index([departmentId])
+  @@index([payGradeId])
   @@index([email])
   @@index([employeeNumber])
   @@map("employees")
@@ -453,16 +456,44 @@ model AuditLog {
 // ============================================================================
 
 model DocumentTemplate {
-  id             String   @id @default(cuid())
-  name           String
-  description    String?
-  content        String   @db.Text  // HTML-Inhalt aus TipTap-Editor
-  letterheadPath String?             // z.B. /uploads/letterheads/filename.png
-  isActive       Boolean  @default(true)
-  createdBy      String
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  content     String   @db.Text  // HTML-Inhalt aus TipTap-Editor
+  isActive    Boolean  @default(true)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([isActive])
   @@map("document_templates")
+}
+
+// ============================================================================
+// SYSTEM SETTINGS
+// ============================================================================
+
+model SystemSetting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+// ============================================================================
+// PAY GRADES (LOHNGRUPPEN)
+// ============================================================================
+
+model PayGrade {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  tariffWage  Decimal?  @db.Decimal(10, 2)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  employees   Employee[]
+
+  @@map("pay_grades")
 }

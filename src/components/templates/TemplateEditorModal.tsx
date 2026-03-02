@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, useEditorState } from '@tiptap/react';
+import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import TextAlign from '@tiptap/extension-text-align';
@@ -11,17 +12,71 @@ import {
   Bold,
   Italic,
   UnderlineIcon,
-  Heading1,
-  Heading2,
-  Heading3,
   List,
-  ListOrdered,
   AlignLeft,
   AlignCenter,
   AlignRight,
   AlignJustify,
+  IndentIncrease,
+  IndentDecrease,
 } from 'lucide-react';
 import { AVAILABLE_VARIABLES } from '@/lib/templateVariables';
+
+const INDENT_SIZE = 24;
+const MAX_INDENT = 10;
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+declare module '@tiptap/core' {
+  interface Commands<ReturnType> {
+    indent: {
+      increaseIndent: () => ReturnType;
+      decreaseIndent: () => ReturnType;
+    };
+  }
+}
+
+const IndentExtension = Extension.create({
+  name: 'indent',
+  addGlobalAttributes() {
+    return [
+      {
+        types: ['paragraph'],
+        attributes: {
+          indent: {
+            default: 0,
+            parseHTML: (el) => {
+              const pl = (el as HTMLElement).style.paddingLeft;
+              return pl ? Math.round(parseInt(pl) / INDENT_SIZE) : 0;
+            },
+            renderHTML: (attrs) => {
+              if (!attrs.indent) return {};
+              return { style: `padding-left: ${attrs.indent * INDENT_SIZE}px` };
+            },
+          },
+        },
+      },
+    ];
+  },
+  addCommands() {
+    return {
+      increaseIndent: () => ({ editor, commands }) => {
+        const current = editor.getAttributes('paragraph').indent ?? 0;
+        return commands.updateAttributes('paragraph', { indent: Math.min(current + 1, MAX_INDENT) });
+      },
+      decreaseIndent: () => ({ editor, commands }) => {
+        const current = editor.getAttributes('paragraph').indent ?? 0;
+        if (current <= 0) return false;
+        return commands.updateAttributes('paragraph', { indent: Math.max(current - 1, 0) });
+      },
+    };
+  },
+  addKeyboardShortcuts() {
+    return {
+      Tab: () => this.editor.commands.increaseIndent(),
+      'Shift-Tab': () => this.editor.commands.decreaseIndent(),
+    };
+  },
+});
 
 const FONT_SIZES = ['8', '9', '10', '11', '12', '14', '16', '18', '20', '24', '28', '32'];
 
@@ -30,7 +85,6 @@ interface Template {
   name: string;
   description: string | null;
   content: string;
-  letterheadPath: string | null;
 }
 
 interface Props {
@@ -48,18 +102,20 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
 
   const editor = useEditor({
     immediatelyRender: false,
+    enableInputRules: false,
     extensions: [
-      StarterKit,
+      StarterKit.configure({ heading: false, orderedList: false }),
       Underline,
       TextStyle,
       FontSize,
-      TextAlign.configure({ types: ['heading', 'paragraph'] }),
+      TextAlign.configure({ types: ['paragraph'] }),
+      IndentExtension,
     ],
     content: '',
     editorProps: {
       attributes: {
         class:
-          'min-h-[340px] px-4 py-3 text-sm text-gray-900 focus:outline-none prose prose-sm max-w-none',
+          'min-h-full px-4 py-3 text-sm text-gray-900 focus:outline-none prose prose-sm max-w-none',
       },
     },
   });
@@ -82,9 +138,23 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
     [editor]
   );
 
-  // Aktuelle Schriftgröße aus dem Cursor-Kontext lesen
-  const currentFontSize =
-    editor?.getAttributes('textStyle').fontSize?.replace('pt', '') ?? '';
+  // Editor-State reaktiv abonnieren (TipTap v3 – triggert Re-Render bei Selection-Änderungen)
+  const editorState = useEditorState({
+    editor,
+    selector: (ctx) => ({
+      isBold: ctx.editor?.isActive('bold') ?? false,
+      isItalic: ctx.editor?.isActive('italic') ?? false,
+      isUnderline: ctx.editor?.isActive('underline') ?? false,
+      isBulletList: ctx.editor?.isActive('bulletList') ?? false,
+      alignLeft: ctx.editor?.isActive({ textAlign: 'left' }) ?? false,
+      alignCenter: ctx.editor?.isActive({ textAlign: 'center' }) ?? false,
+      alignRight: ctx.editor?.isActive({ textAlign: 'right' }) ?? false,
+      alignJustify: ctx.editor?.isActive({ textAlign: 'justify' }) ?? false,
+      fontSize: ctx.editor?.getAttributes('textStyle').fontSize?.replace('pt', '') ?? '',
+    }),
+  });
+
+  const currentFontSize = editorState?.fontSize ?? '';
 
   const handleFontSizeChange = (size: string) => {
     if (!size) {
@@ -169,8 +239,8 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
           </button>
         </div>
 
-        {/* Body – scrollable */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        {/* Body – nur Editor-Content scrollt */}
+        <div className="flex-1 flex flex-col overflow-hidden px-6 py-5 gap-4">
           {/* Name & Beschreibung */}
           <div className="grid grid-cols-2 gap-4">
             <div>
@@ -218,28 +288,28 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
           </div>
 
           {/* Editor */}
-          <div className="rounded-lg border border-gray-300 overflow-hidden">
+          <div className="rounded-lg border border-gray-300 overflow-hidden flex flex-col flex-1 min-h-0">
             {/* Toolbar */}
-            <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 py-2">
+            <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 px-3 py-2 shrink-0">
 
               {/* Schriftformatierung */}
               <ToolbarButton
                 onClick={() => editor?.chain().focus().toggleBold().run()}
-                active={editor?.isActive('bold')}
+                active={editorState?.isBold}
                 title="Fett"
               >
                 <Bold className="h-4 w-4" />
               </ToolbarButton>
               <ToolbarButton
                 onClick={() => editor?.chain().focus().toggleItalic().run()}
-                active={editor?.isActive('italic')}
+                active={editorState?.isItalic}
                 title="Kursiv"
               >
                 <Italic className="h-4 w-4" />
               </ToolbarButton>
               <ToolbarButton
                 onClick={() => editor?.chain().focus().toggleUnderline().run()}
-                active={editor?.isActive('underline')}
+                active={editorState?.isUnderline}
                 title="Unterstrichen"
               >
                 <UnderlineIcon className="h-4 w-4" />
@@ -263,45 +333,29 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
 
               <div className="mx-1 h-5 w-px bg-gray-300" />
 
-              {/* Überschriften */}
-              <ToolbarButton
-                onClick={() => editor?.chain().focus().toggleHeading({ level: 1 }).run()}
-                active={editor?.isActive('heading', { level: 1 })}
-                title="Überschrift 1"
-              >
-                <Heading1 className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton
-                onClick={() => editor?.chain().focus().toggleHeading({ level: 2 }).run()}
-                active={editor?.isActive('heading', { level: 2 })}
-                title="Überschrift 2"
-              >
-                <Heading2 className="h-4 w-4" />
-              </ToolbarButton>
-              <ToolbarButton
-                onClick={() => editor?.chain().focus().toggleHeading({ level: 3 }).run()}
-                active={editor?.isActive('heading', { level: 3 })}
-                title="Überschrift 3"
-              >
-                <Heading3 className="h-4 w-4" />
-              </ToolbarButton>
-
-              <div className="mx-1 h-5 w-px bg-gray-300" />
-
               {/* Listen */}
               <ToolbarButton
                 onClick={() => editor?.chain().focus().toggleBulletList().run()}
-                active={editor?.isActive('bulletList')}
+                active={editorState?.isBulletList}
                 title="Aufzählung"
               >
                 <List className="h-4 w-4" />
               </ToolbarButton>
+
+              <div className="mx-1 h-5 w-px bg-gray-300" />
+
+              {/* Einrückung */}
               <ToolbarButton
-                onClick={() => editor?.chain().focus().toggleOrderedList().run()}
-                active={editor?.isActive('orderedList')}
-                title="Nummerierte Liste"
+                onClick={() => editor?.chain().focus().decreaseIndent().run()}
+                title="Einrückung verringern (Shift+Tab)"
               >
-                <ListOrdered className="h-4 w-4" />
+                <IndentDecrease className="h-4 w-4" />
+              </ToolbarButton>
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().increaseIndent().run()}
+                title="Einrückung erhöhen (Tab)"
+              >
+                <IndentIncrease className="h-4 w-4" />
               </ToolbarButton>
 
               <div className="mx-1 h-5 w-px bg-gray-300" />
@@ -309,36 +363,38 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
               {/* Textausrichtung */}
               <ToolbarButton
                 onClick={() => editor?.chain().focus().setTextAlign('left').run()}
-                active={editor?.isActive({ textAlign: 'left' })}
+                active={editorState?.alignLeft}
                 title="Linksbündig"
               >
                 <AlignLeft className="h-4 w-4" />
               </ToolbarButton>
               <ToolbarButton
                 onClick={() => editor?.chain().focus().setTextAlign('center').run()}
-                active={editor?.isActive({ textAlign: 'center' })}
+                active={editorState?.alignCenter}
                 title="Zentriert"
               >
                 <AlignCenter className="h-4 w-4" />
               </ToolbarButton>
               <ToolbarButton
                 onClick={() => editor?.chain().focus().setTextAlign('right').run()}
-                active={editor?.isActive({ textAlign: 'right' })}
+                active={editorState?.alignRight}
                 title="Rechtsbündig"
               >
                 <AlignRight className="h-4 w-4" />
               </ToolbarButton>
               <ToolbarButton
                 onClick={() => editor?.chain().focus().setTextAlign('justify').run()}
-                active={editor?.isActive({ textAlign: 'justify' })}
+                active={editorState?.alignJustify}
                 title="Blocksatz"
               >
                 <AlignJustify className="h-4 w-4" />
               </ToolbarButton>
             </div>
 
-            {/* TipTap Editor Content */}
-            <EditorContent editor={editor} />
+            {/* TipTap Editor Content – nur dieser Bereich scrollt */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              <EditorContent editor={editor} />
+            </div>
           </div>
 
           {error && <p className="text-sm text-red-600">{error}</p>}

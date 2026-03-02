@@ -11,6 +11,11 @@ const nextConfig = {
     },
   },
   serverExternalPackages: ['prisma-field-encryption', '@prisma/client', 'pdf-parse', 'mammoth', '@react-pdf/renderer', 'puppeteer'],
+  webpack: (config) => {
+    // Webpack-Filesystem-Cache deaktivieren – verhindert Rename-Fehler auf Netzlaufwerken
+    config.cache = false;
+    return config;
+  },
 };
 
 export default withNextIntl(nextConfig);

@@ -31,3 +31,9 @@ body {
     text-wrap: balance;
   }
 }
+
+/* TipTap-Editor: Zeilenabstand beim Enter reduzieren */
+.ProseMirror p {
+  margin-top: 0;
+  margin-bottom: 10px;
+}

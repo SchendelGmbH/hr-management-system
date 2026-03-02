@@ -20,7 +20,7 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { employeeId, title, categories, validFrom, expirationDate } = body;
+    const { employeeId, title, categories, validFrom, expirationDate, customVariables, parentDocumentId, pageNumbers } = body;
 
     if (!employeeId) {
       return NextResponse.json({ error: 'employeeId fehlt' }, { status: 400 });
@@ -35,18 +35,45 @@ export async function POST(
     // Mitarbeiter mit allen relevanten Feldern laden (Prisma entschlüsselt automatisch)
     const employee = await prisma.employee.findUnique({
       where: { id: employeeId },
-      include: { department: { select: { name: true } } },
+      include: {
+        department: { select: { name: true } },
+        payGrade: { select: { name: true, tariffWage: true } },
+      },
     });
     if (!employee) {
       return NextResponse.json({ error: 'Mitarbeiter nicht gefunden' }, { status: 404 });
     }
 
+    // Globale PDF-Einstellungen laden
+    const pdfSettingsRows = await prisma.systemSetting.findMany({
+      where: {
+        key: {
+          in: ['letterhead_path', 'pdf_margin_top', 'pdf_margin_bottom', 'pdf_margin_left', 'pdf_margin_right'],
+        },
+      },
+    });
+    const settingsMap = Object.fromEntries(pdfSettingsRows.map((s) => [s.key, s.value]));
+    const globalLetterheadPath = settingsMap['letterhead_path'] ?? null;
+    const marginTop = Number(settingsMap['pdf_margin_top'] ?? '40');
+    const marginBottom = Number(settingsMap['pdf_margin_bottom'] ?? '20');
+    const marginLeft = Number(settingsMap['pdf_margin_left'] ?? '25');
+    const marginRight = Number(settingsMap['pdf_margin_right'] ?? '25');
+
     // Variablen substituieren und PDF generieren
-    const variables = buildVariableMap(employee);
+    // customVariables überschreiben/ergänzen die Standard-Variablen
+    const variables = {
+      ...buildVariableMap(employee),
+      ...(customVariables && typeof customVariables === 'object' ? customVariables : {}),
+    };
     const pdfBuffer = await generateTemplatePdf(
       template.content,
       variables,
-      template.letterheadPath ?? null
+      globalLetterheadPath,
+      marginTop,
+      marginBottom,
+      marginLeft,
+      marginRight,
+      pageNumbers === true
     );
 
     // Datei speichern
@@ -88,26 +115,66 @@ export async function POST(
     const parsedValidFrom = validFrom ? new Date(validFrom) : null;
     const parsedExpiration = expirationDate ? new Date(expirationDate) : null;
 
-    // Container erstellen
-    const container = await prisma.document.create({
-      data: {
-        employeeId,
-        title: documentTitle,
-        filePath: null,
-        fileName: null,
-        fileSize: null,
-        mimeType: null,
-        validFrom: parsedValidFrom,
-        expirationDate: parsedExpiration,
-        uploadedBy: session.user.id,
-        isContainer: true,
-        versionNumber: 0,
-        categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
-      },
-    });
+    let containerId: string;
+    let versionNumber: number;
 
-    // Version 1 erstellen
-    const version = await prisma.document.create({
+    if (parentDocumentId) {
+      // ── NEUE VERSION: an bestehendem Container anhängen ──────────────────
+      const container = await prisma.document.findUnique({ where: { id: parentDocumentId } });
+      if (!container) {
+        return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 });
+      }
+      containerId = parentDocumentId;
+
+      const latest = await prisma.document.aggregate({
+        where: { parentDocumentId: containerId },
+        _max: { versionNumber: true },
+      });
+      versionNumber = (latest._max.versionNumber ?? 0) + 1;
+
+      // Vorgänger-Versionen automatisch ablaufen lassen wenn validFrom gesetzt
+      if (parsedValidFrom) {
+        const dayBefore = new Date(parsedValidFrom);
+        dayBefore.setDate(dayBefore.getDate() - 1);
+        await prisma.document.updateMany({
+          where: { parentDocumentId: containerId, isContainer: false, expirationDate: null },
+          data: { expirationDate: dayBefore },
+        });
+      }
+
+      // Container-Metadaten aktualisieren
+      await prisma.document.update({
+        where: { id: containerId },
+        data: {
+          validFrom: parsedValidFrom,
+          expirationDate: parsedExpiration,
+          categories: { deleteMany: {}, create: categoryIds.map((categoryId) => ({ categoryId })) },
+        },
+      });
+    } else {
+      // ── NEUES DOKUMENT: Container + Version 1 erstellen ──────────────────
+      const container = await prisma.document.create({
+        data: {
+          employeeId,
+          title: documentTitle,
+          filePath: null,
+          fileName: null,
+          fileSize: null,
+          mimeType: null,
+          validFrom: parsedValidFrom,
+          expirationDate: parsedExpiration,
+          uploadedBy: session.user.id,
+          isContainer: true,
+          versionNumber: 0,
+          categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
+        },
+      });
+      containerId = container.id;
+      versionNumber = 1;
+    }
+
+    // Version erstellen
+    await prisma.document.create({
       data: {
         employeeId,
         title: documentTitle,
@@ -119,30 +186,30 @@ export async function POST(
         expirationDate: parsedExpiration,
         uploadedBy: session.user.id,
         isContainer: false,
-        parentDocumentId: container.id,
-        versionNumber: 1,
+        parentDocumentId: containerId,
+        versionNumber,
         categories: { create: categoryIds.map((categoryId) => ({ categoryId })) },
       },
     });
-    void version;
 
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
         action: 'CREATE',
         entityType: 'Document',
-        entityId: container.id,
+        entityId: containerId,
         newValues: JSON.stringify({
           title: documentTitle,
           generatedFromTemplate: template.name,
           employee: `${employee.firstName} ${employee.lastName}`,
+          ...(parentDocumentId ? { newVersion: versionNumber } : {}),
         }),
       },
     });
 
     return NextResponse.json({
       success: true,
-      documentId: container.id,
+      documentId: containerId,
       downloadUrl: relativePath,
     });
   } catch (error) {

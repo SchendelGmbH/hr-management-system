@@ -199,6 +199,7 @@ model Document {
   /// @encrypted
   description    String?      @db.Text
   filePath       String?      // Relative path: uploads/documents/2024/01/... (null für Container)
+  printFilePath  String?      // Druckversion ohne Briefbogen (null wenn kein Briefbogen konfiguriert)
   fileName       String?      // null für Container
   fileSize       Int?         // In bytes (null für Container)
   mimeType       String?      // null für Container

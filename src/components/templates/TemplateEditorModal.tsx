@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useEditor, EditorContent, useEditorState } from '@tiptap/react';
 import { Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
@@ -19,6 +19,7 @@ import {
   AlignJustify,
   IndentIncrease,
   IndentDecrease,
+  SeparatorHorizontal,
 } from 'lucide-react';
 import { AVAILABLE_VARIABLES } from '@/lib/templateVariables';
 
@@ -72,7 +73,15 @@ const IndentExtension = Extension.create({
   },
   addKeyboardShortcuts() {
     return {
-      Tab: () => this.editor.commands.increaseIndent(),
+      Tab: () => {
+        const { $from } = this.editor.state.selection;
+        // Cursor at start of paragraph → block-level indent
+        if ($from.parentOffset === 0) {
+          return this.editor.commands.increaseIndent();
+        }
+        // Mid-paragraph (e.g. after Shift+Enter hardBreak) → insert inline spaces
+        return this.editor.commands.insertContent('\u00A0\u00A0\u00A0\u00A0');
+      },
       'Shift-Tab': () => this.editor.commands.decreaseIndent(),
     };
   },
@@ -94,11 +103,25 @@ interface Props {
   template?: Template;
 }
 
+type AutosaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
+
 export default function TemplateEditorModal({ isOpen, onClose, onSuccess, template }: Props) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Autosave
+  const [autosave, setAutosave] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem('template-editor-autosave') === 'true';
+  });
+  const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>('idle');
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const autosaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Refs so the debounced callback always reads fresh values without stale closures
+  const nameRef = useRef(name);
+  const descriptionRef = useRef(description);
 
   const editor = useEditor({
     immediatelyRender: false,
@@ -125,10 +148,72 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
     setName(template?.name ?? '');
     setDescription(template?.description ?? '');
     setError(null);
+    setAutosaveStatus('idle');
+    setLastSavedAt(null);
     if (editor) {
       editor.commands.setContent(template?.content ?? '');
     }
   }, [isOpen, template, editor]);
+
+  // Refs immer aktuell halten
+  useEffect(() => { nameRef.current = name; }, [name]);
+  useEffect(() => { descriptionRef.current = description; }, [description]);
+
+  // Kernfunktion: speichert sofort (kein Debounce hier, der Timer ist außerhalb)
+  const performAutosave = useCallback(async () => {
+    if (!template || !editor) return;
+    const n = nameRef.current.trim();
+    if (!n) return;
+    const content = editor.getHTML();
+    if (!content || content === '<p></p>') return;
+
+    setAutosaveStatus('saving');
+    try {
+      const res = await fetch(`/api/templates/${template.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: n, description: descriptionRef.current.trim() || null, content }),
+      });
+      if (res.ok) {
+        setAutosaveStatus('saved');
+        setLastSavedAt(new Date());
+      } else {
+        setAutosaveStatus('error');
+      }
+    } catch {
+      setAutosaveStatus('error');
+    }
+  }, [template, editor]);
+
+  // Debounced Autosave auslösen
+  const scheduleAutosave = useCallback(() => {
+    if (!autosave || !template) return;
+    if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+    setAutosaveStatus('pending');
+    autosaveTimer.current = setTimeout(() => performAutosave(), 2000);
+  }, [autosave, template, performAutosave]);
+
+  // Editor-Änderungen beobachten
+  useEffect(() => {
+    if (!editor || !autosave || !template) return;
+    editor.on('update', scheduleAutosave);
+    return () => { editor.off('update', scheduleAutosave); };
+  }, [editor, autosave, template, scheduleAutosave]);
+
+  // Name / Beschreibung-Änderungen beobachten
+  useEffect(() => {
+    scheduleAutosave();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, description]);
+
+  const handleAutosaveToggle = (enabled: boolean) => {
+    setAutosave(enabled);
+    localStorage.setItem('template-editor-autosave', String(enabled));
+    if (!enabled) {
+      if (autosaveTimer.current) clearTimeout(autosaveTimer.current);
+      setAutosaveStatus('idle');
+    }
+  };
 
   const insertVariable = useCallback(
     (key: string) => {
@@ -389,6 +474,52 @@ export default function TemplateEditorModal({ isOpen, onClose, onSuccess, templa
               >
                 <AlignJustify className="h-4 w-4" />
               </ToolbarButton>
+
+              <div className="mx-1 h-5 w-px bg-gray-300" />
+
+              {/* Trennlinie */}
+              <ToolbarButton
+                onClick={() => editor?.chain().focus().setHorizontalRule().run()}
+                title="Trennlinie einfügen"
+              >
+                <SeparatorHorizontal className="h-4 w-4" />
+              </ToolbarButton>
+
+              {/* Autosave Toggle — nur im Bearbeiten-Modus sichtbar */}
+              {template && (
+                <>
+                  <div className="mx-1 h-5 w-px bg-gray-300" />
+                  <div className="flex items-center gap-2 ml-auto">
+                    {/* Status-Anzeige */}
+                    <span className="text-xs text-gray-400 min-w-[120px] text-right">
+                      {autosaveStatus === 'pending' && 'Änderungen erkannt…'}
+                      {autosaveStatus === 'saving' && 'Wird gespeichert…'}
+                      {autosaveStatus === 'saved' && lastSavedAt && (
+                        `Gespeichert ${lastSavedAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}`
+                      )}
+                      {autosaveStatus === 'error' && <span className="text-red-500">Fehler beim Speichern</span>}
+                    </span>
+                    {/* Toggle */}
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={autosave}
+                      onClick={() => handleAutosaveToggle(!autosave)}
+                      title={autosave ? 'Autosave deaktivieren' : 'Autosave aktivieren'}
+                      className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                        autosave ? 'bg-primary-600' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                          autosave ? 'translate-x-4' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                    <span className="text-xs text-gray-600 select-none">Autosave</span>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* TipTap Editor Content – nur dieser Bereich scrollt */}

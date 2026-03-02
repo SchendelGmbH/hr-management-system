@@ -5,7 +5,7 @@
  * Nur in API-Routes verwenden – nicht im Client.
  */
 import puppeteer from 'puppeteer';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { join } from 'path';
 import { readFile } from 'fs/promises';
 import { substituteVariables } from './templateVariables';
@@ -69,7 +69,7 @@ async function renderLetterheadPdf(
 /**
  * Rendert den Inhalt als PDF mit korrekten Seitenrändern, aber ohne Briefpapier.
  */
-async function renderContentPdf(
+export async function renderContentPdf(
   content: string,
   marginTop: number,
   marginBottom: number,
@@ -104,7 +104,8 @@ async function renderContentPdf(
   em { font-style: italic; }
   u { text-decoration: underline; }
   s { text-decoration: line-through; }
-  [style*="text-align"] { display: block; }
+  hr { border: none; border-top: 1pt solid #cccccc; margin: 12pt 0; }
+  p[style*="text-align"] { display: block; }
 </style>
 </head>
 <body>
@@ -219,4 +220,142 @@ export async function generateTemplatePdf(
 
   const finalPdfBytes = await finalDoc.save();
   return Buffer.from(finalPdfBytes);
+}
+
+/**
+ * Wie generateTemplatePdf, liefert aber zusätzlich den Content-only-Buffer für den Druck
+ * auf physischem Briefpapier zurück – ohne Extra-Renders gegenüber generateTemplatePdf.
+ * `print` ist null wenn kein Briefbogen konfiguriert ist (digital = content = identisch).
+ */
+export async function generateTemplatePdfBoth(
+  htmlContent: string,
+  variables: Record<string, string>,
+  letterheadPath: string | null,
+  marginTop: number = 40,
+  marginBottom: number = 20,
+  marginLeft: number = 25,
+  marginRight: number = 25,
+  pageNumbers: boolean = false
+): Promise<{ digital: Buffer; print: Buffer | null }> {
+  const substituted = substituteVariables(htmlContent, variables);
+
+  if (!letterheadPath) {
+    const digital = await renderContentPdf(substituted, marginTop, marginBottom, marginLeft, marginRight, pageNumbers);
+    return { digital, print: null };
+  }
+
+  const letterheadData = await getLetterheadBuffer(letterheadPath);
+  if (!letterheadData) {
+    const digital = await renderContentPdf(substituted, marginTop, marginBottom, marginLeft, marginRight, pageNumbers);
+    return { digital, print: null };
+  }
+
+  // Beide PDFs parallel rendern (identisch zu generateTemplatePdf)
+  const [letterheadPdfBuffer, contentPdfBuffer] = await Promise.all([
+    renderLetterheadPdf(letterheadData.buffer, letterheadData.mime),
+    renderContentPdf(substituted, marginTop, marginBottom, marginLeft, marginRight, pageNumbers),
+  ]);
+
+  // Mit pdf-lib zusammenführen
+  const letterheadDoc = await PDFDocument.load(letterheadPdfBuffer);
+  const contentDoc = await PDFDocument.load(contentPdfBuffer);
+  const finalDoc = await PDFDocument.create();
+  const [embeddedLetterhead] = await finalDoc.embedPdf(letterheadDoc, [0]);
+  const letterheadDims = embeddedLetterhead.size();
+  const contentPageCount = contentDoc.getPageCount();
+
+  for (let i = 0; i < contentPageCount; i++) {
+    const [embeddedContent] = await finalDoc.embedPdf(contentDoc, [i]);
+    const contentDims = embeddedContent.size();
+    const newPage = finalDoc.addPage([contentDims.width, contentDims.height]);
+    newPage.drawPage(embeddedLetterhead, { x: 0, y: 0, width: letterheadDims.width, height: letterheadDims.height });
+    newPage.drawPage(embeddedContent, { x: 0, y: 0, width: contentDims.width, height: contentDims.height });
+  }
+
+  const digitalBuffer = Buffer.from(await finalDoc.save());
+  return { digital: digitalBuffer, print: contentPdfBuffer };
+}
+
+/**
+ * Fügt mehrere vorgerenderte Content-PDFs (inkl. Zusammenfassungsseite als letztem Element)
+ * zu einem einzigen PDF zusammen und legt optional das Briefpapier als Hintergrund auf jede Seite.
+ * Die Buffers werden von der API-Route per renderContentPdf vorgerendert.
+ */
+export async function generateGroupPdf(
+  contentBuffers: Buffer[],
+  letterheadPath: string | null,
+  marginTop: number = 40,
+  marginBottom: number = 20,
+  marginLeft: number = 25,
+  marginRight: number = 25,
+  pageNumbers: boolean = false
+): Promise<Buffer> {
+  if (contentBuffers.length === 0) {
+    throw new Error('generateGroupPdf: mindestens ein contentBuffer erforderlich');
+  }
+
+  // Alle Content-PDFs per pdf-lib zu einem einzigen Dokument zusammenführen
+  const combinedDoc = await PDFDocument.create();
+  for (const buf of contentBuffers) {
+    const srcDoc = await PDFDocument.load(buf);
+    const pageCount = srcDoc.getPageCount();
+    if (pageCount === 0) continue;
+    const copied = await combinedDoc.copyPages(srcDoc, Array.from({ length: pageCount }, (_, i) => i));
+    for (const p of copied) combinedDoc.addPage(p);
+  }
+
+  // Zieldokument: entweder mit oder ohne Briefpapier aufbauen
+  let targetDoc: PDFDocument;
+
+  if (!letterheadPath) {
+    targetDoc = combinedDoc;
+  } else {
+    const letterheadData = await getLetterheadBuffer(letterheadPath);
+    if (!letterheadData) {
+      targetDoc = combinedDoc;
+    } else {
+      const letterheadPdfBuffer = await renderLetterheadPdf(letterheadData.buffer, letterheadData.mime);
+      const letterheadDoc = await PDFDocument.load(letterheadPdfBuffer);
+
+      targetDoc = await PDFDocument.create();
+      const [embeddedLetterhead] = await targetDoc.embedPdf(letterheadDoc, [0]);
+      const letterheadDims = embeddedLetterhead.size();
+
+      const totalCombinedPages = combinedDoc.getPageCount();
+      for (let i = 0; i < totalCombinedPages; i++) {
+        const [embeddedContent] = await targetDoc.embedPdf(combinedDoc, [i]);
+        const contentDims = embeddedContent.size();
+
+        const newPage = targetDoc.addPage([contentDims.width, contentDims.height]);
+        newPage.drawPage(embeddedLetterhead, { x: 0, y: 0, width: letterheadDims.width, height: letterheadDims.height });
+        newPage.drawPage(embeddedContent, { x: 0, y: 0, width: contentDims.width, height: contentDims.height });
+      }
+    }
+  }
+
+  // Seitennummern als Text-Overlay auf jede Seite zeichnen (durchlaufend über alle Segmente)
+  if (pageNumbers) {
+    const font = await targetDoc.embedFont(StandardFonts.Helvetica);
+    const fontSize = 9;
+    const MM_TO_PT = 2.8346;
+    const rightPt = marginRight * MM_TO_PT;
+    const bottomPt = (marginBottom / 3) * MM_TO_PT;
+    const totalPages = targetDoc.getPageCount();
+
+    for (let i = 0; i < totalPages; i++) {
+      const page = targetDoc.getPage(i);
+      const { width } = page.getSize();
+      const text = `${i + 1} / ${totalPages}`;
+      const textWidth = font.widthOfTextAtSize(text, fontSize);
+      page.drawText(text, {
+        x: width - textWidth - rightPt,
+        y: bottomPt,
+        size: fontSize,
+        font,
+        color: rgb(0.533, 0.533, 0.533),
+      });
+    }
+  }
+
+  return Buffer.from(await targetDoc.save());
 }

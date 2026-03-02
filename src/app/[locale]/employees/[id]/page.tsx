@@ -4,12 +4,14 @@ import { useState, useEffect, Fragment } from 'react';
 import { use } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Printer } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import EditDocumentModal from '@/components/documents/EditDocumentModal';
 import DeleteDocumentModal from '@/components/documents/DeleteDocumentModal';
 import GenerateDocumentModal from '@/components/templates/GenerateDocumentModal';
+import GroupGenerateDocumentModal from '@/components/templates/GroupGenerateDocumentModal';
+import { Files } from 'lucide-react';
 import { DetailFormSkeleton } from '@/components/ui/Skeleton';
 import EmployeeClothingInventory from '@/components/employees/EmployeeClothingInventory';
 
@@ -123,6 +125,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const [editDocModal, setEditDocModal] = useState<any | null>(null);
   const [deleteDocModal, setDeleteDocModal] = useState<{ id: string; title: string } | null>(null);
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [groupGenerateModalOpen, setGroupGenerateModalOpen] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState<string>('all');
   const [docSearchQuery, setDocSearchQuery] = useState('');
 
@@ -950,6 +953,13 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               </h3>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => setGroupGenerateModalOpen(true)}
+                  className="flex items-center space-x-2 rounded-lg border border-primary-300 bg-white px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+                >
+                  <Files className="h-4 w-4" />
+                  <span>Dokumentengruppe</span>
+                </button>
+                <button
                   onClick={() => setGenerateModalOpen(true)}
                   className="flex items-center space-x-2 rounded-lg border border-primary-300 bg-white px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
                 >
@@ -1245,6 +1255,15 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                               </td>
                               <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                 <div className="flex items-center gap-2">
+                                  {display.printFilePath && (
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); window.open(display.printFilePath, '_blank'); }}
+                                      className="rounded p-1 text-gray-400 hover:text-gray-700"
+                                      title="Druckversion öffnen (ohne Briefbogen)"
+                                    >
+                                      <Printer className="h-4 w-4" />
+                                    </button>
+                                  )}
                                   <button
                                     onClick={(e) => { e.stopPropagation(); setEditDocModal(doc); }}
                                     className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
@@ -1334,7 +1353,17 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                                             <span className="text-sm text-gray-500 italic">Archiviert</span>
                                           ) : null}
                                         </td>
-                                        <td className="px-6 py-3" />
+                                        <td className="px-6 py-3" onClick={(e) => e.stopPropagation()}>
+                                          {ver.printFilePath && (
+                                            <button
+                                              onClick={(e) => { e.stopPropagation(); window.open(ver.printFilePath, '_blank'); }}
+                                              className="rounded p-1 text-gray-400 hover:text-gray-700"
+                                              title="Druckversion öffnen (ohne Briefbogen)"
+                                            >
+                                              <Printer className="h-4 w-4" />
+                                            </button>
+                                          )}
+                                        </td>
                                       </tr>
                                     );
                                   })
@@ -1497,6 +1526,19 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
           fetchEmployee();
         }}
         employeeId={employee.id}
+      />
+
+      {/* Dokumentengruppe Modal */}
+      <GroupGenerateDocumentModal
+        isOpen={groupGenerateModalOpen}
+        onClose={() => setGroupGenerateModalOpen(false)}
+        onSuccess={() => {
+          setGroupGenerateModalOpen(false);
+          fetchEmployee();
+        }}
+        employeeId={employee.id}
+        employeeFullName={`${employee.firstName} ${employee.lastName}`}
+        employeeCity={employee.city ?? null}
       />
 
       {/* Delete Confirmation Dialog */}

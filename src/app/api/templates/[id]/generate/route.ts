@@ -5,7 +5,7 @@ import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
 import { buildVariableMap } from '@/lib/templateVariables';
-import { generateTemplatePdf } from '@/lib/generateTemplatePdf';
+import { generateTemplatePdfBoth } from '@/lib/generateTemplatePdf';
 import { getNextColor } from '@/lib/categoryColors';
 
 // POST /api/templates/[id]/generate – PDF für Mitarbeiter generieren
@@ -65,7 +65,7 @@ export async function POST(
       ...buildVariableMap(employee),
       ...(customVariables && typeof customVariables === 'object' ? customVariables : {}),
     };
-    const pdfBuffer = await generateTemplatePdf(
+    const { digital: pdfBuffer, print: printBuffer } = await generateTemplatePdfBoth(
       template.content,
       variables,
       globalLetterheadPath,
@@ -87,10 +87,19 @@ export async function POST(
 
     const documentTitle = (title?.trim() || template.name).trim();
     const safeTitle = documentTitle.replace(/[^a-zA-Z0-9äöüÄÖÜß\-_. ]/g, '_').slice(0, 60);
-    const filename = `${employeeId}-${Date.now()}-${safeTitle}.pdf`;
+    const ts = Date.now();
+    const filename = `${employeeId}-${ts}-${safeTitle}.pdf`;
     const filepath = join(uploadDir, filename);
     await writeFile(filepath, pdfBuffer);
     const relativePath = `/uploads/documents/${year}/${month}/${filename}`;
+
+    // Druckversion speichern (ohne Briefbogen)
+    let printRelativePath: string | null = null;
+    if (printBuffer) {
+      const printFilename = `${employeeId}-${ts}-${safeTitle}-print.pdf`;
+      await writeFile(join(uploadDir, printFilename), printBuffer);
+      printRelativePath = `/uploads/documents/${year}/${month}/${printFilename}`;
+    }
 
     // Kategorien verarbeiten
     const categoryNames: string[] = Array.isArray(categories) ? categories : [];
@@ -179,6 +188,7 @@ export async function POST(
         employeeId,
         title: documentTitle,
         filePath: relativePath,
+        printFilePath: printRelativePath,
         fileName: `${safeTitle}.pdf`,
         fileSize: pdfBuffer.length,
         mimeType: 'application/pdf',

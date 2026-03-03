@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
+const departmentSchema = z.object({
+  name: z.string().min(1, 'Name ist erforderlich').max(100),
+  description: z.string().max(500).optional().nullable(),
+});
+
 export async function GET(_request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { error } = await requireAuth();
+  if (error) return error;
 
   try {
     const departments = await prisma.department.findMany({
@@ -26,26 +30,17 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const body = await request.json();
-    const { name, description } = body;
-
-    if (!name) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
-    }
+    const data = departmentSchema.parse(body);
 
     const department = await prisma.department.create({
       data: {
-        name,
-        description: description || null,
+        name: data.name.trim(),
+        description: data.description || null,
       },
     });
 
@@ -56,15 +51,15 @@ export async function POST(request: NextRequest) {
         action: 'CREATE',
         entityType: 'Department',
         entityId: department.id,
-        newValues: JSON.stringify({
-          name,
-          description,
-        }),
+        newValues: JSON.stringify({ name: data.name, description: data.description }),
       },
     });
 
     return NextResponse.json({ department });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validierungsfehler', details: error.errors }, { status: 400 });
+    }
     console.error('Error creating department:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

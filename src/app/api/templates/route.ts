@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth, requireAdmin } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
-// GET /api/templates – alle aktiven Templates abrufen
+// GET /api/templates – alle aktiven Templates abrufen (alle Benutzer)
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { error } = await requireAuth();
+  if (error) return error;
 
   try {
     const templates = await prisma.documentTemplate.findMany({
@@ -18,10 +18,10 @@ export async function GET() {
   }
 }
 
-// POST /api/templates – neues Template erstellen
+// POST /api/templates – neues Template erstellen (nur Admin)
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { session, error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const body = await request.json();

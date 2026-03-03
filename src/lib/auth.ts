@@ -3,6 +3,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import * as bcrypt from 'bcryptjs';
 import prisma from '@/lib/prisma-base';
+import { checkLoginRateLimit, resetLoginRateLimit, getRetryAfterSeconds } from '@/lib/rateLimit';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   adapter: PrismaAdapter(prisma),
@@ -24,6 +25,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
           return null;
+        }
+
+        const identifier = credentials.username as string;
+
+        // Rate-Limit prüfen (max. 5 Versuche / 15 Min)
+        if (!checkLoginRateLimit(identifier)) {
+          const retryAfter = getRetryAfterSeconds(identifier);
+          throw new Error(`Too many login attempts. Try again in ${retryAfter} seconds.`);
         }
 
         // Find user by username or email
@@ -51,6 +60,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           return null;
         }
 
+        // Rate-Limit nach erfolgreichem Login zurücksetzen
+        resetLoginRateLimit(identifier);
+
         // Update last login
         await prisma.user.update({
           where: { id: user.id },
@@ -72,6 +84,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           name: user.username,
           email: user.email,
+          role: user.role,
         };
       },
     }),
@@ -80,12 +93,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
+        token.role = user.role ?? 'USER';
       }
       return token;
     },
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
+        session.user.role = token.role as string;
       }
       return session;
     },

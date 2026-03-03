@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -7,11 +7,32 @@ import { existsSync } from 'fs';
 import { getNextColor } from '@/lib/categoryColors';
 import { extractText } from '@/lib/extractText';
 
-export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+/** Prüft die echten Magic-Bytes (Datei-Signatur) des Puffers. */
+function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
+  if (buffer.length < 4) return false;
+  const b = buffer;
+  switch (mimeType) {
+    case 'application/pdf':
+      // %PDF
+      return b[0] === 0x25 && b[1] === 0x50 && b[2] === 0x44 && b[3] === 0x46;
+    case 'image/jpeg':
+    case 'image/jpg':
+      // FF D8 FF
+      return b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff;
+    case 'image/png':
+      // 89 50 4E 47
+      return b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47;
+    case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
+      // 50 4B 03 04 (ZIP)
+      return b[0] === 0x50 && b[1] === 0x4b && b[2] === 0x03 && b[3] === 0x04;
+    default:
+      return false;
   }
+}
+
+export async function POST(request: NextRequest) {
+  const { session, error: authError } = await requireAuth();
+  if (authError) return authError;
 
   try {
     const formData = await request.formData();
@@ -50,7 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file type
+    // Validate file type (MIME)
     const allowedTypes = [
       'application/pdf',
       'image/jpeg',
@@ -61,6 +82,18 @@ export async function POST(request: NextRequest) {
     if (!allowedTypes.includes(file.type)) {
       return NextResponse.json(
         { error: 'Invalid file type. Only PDF, JPG, PNG, and DOCX are allowed.' },
+        { status: 400 }
+      );
+    }
+
+    // Bytes früh lesen für Magic-Byte-Prüfung
+    const bytes = await file.arrayBuffer();
+    const buffer = Buffer.from(bytes);
+
+    // Magic-Byte-Validierung: verhindert umbenannte Schadateien
+    if (!validateMagicBytes(buffer, file.type)) {
+      return NextResponse.json(
+        { error: 'Dateiinhalt entspricht nicht dem angegebenen Dateityp.' },
         { status: 400 }
       );
     }
@@ -82,9 +115,7 @@ export async function POST(request: NextRequest) {
     const filepath = join(uploadDir, filename);
     const relativePath = `/uploads/documents/${year}/${month}/${filename}`;
 
-    // Write file
-    const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
+    // Write file (buffer wurde bereits für Magic-Byte-Check gelesen)
     await writeFile(filepath, buffer);
 
     // Textinhalt für Volltextsuche extrahieren (optional; Fehler blockieren nicht den Upload)

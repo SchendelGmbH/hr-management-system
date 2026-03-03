@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAdmin } from '@/lib/rbac';
 import { importWooCommerceOrders } from '@/lib/woocommerce-import';
 import { z } from 'zod';
 
@@ -10,10 +10,8 @@ const importSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const body = await request.json();

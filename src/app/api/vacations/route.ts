@@ -1,12 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth } from '@/lib/rbac';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
+const vacationSchema = z.object({
+  employeeId: z.string().min(1),
+  startDate: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  endDate: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  vacationType: z.enum(['VACATION', 'SICK', 'SPECIAL']),
+  notes: z.string().max(1000).optional().nullable(),
+});
+
 export async function GET(_request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { error } = await requireAuth();
+  if (error) return error;
 
   try {
     const vacations = await prisma.vacation.findMany({
@@ -36,29 +43,27 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { session, error } = await requireAuth();
+  if (error) return error;
 
   try {
     const body = await request.json();
-    const { employeeId, startDate, endDate, vacationType, notes } = body;
+    const data = vacationSchema.parse(body);
 
-    if (!employeeId || !startDate || !endDate || !vacationType) {
-      return NextResponse.json(
-        { error: 'Missing required fields' },
-        { status: 400 }
-      );
+    const start = new Date(data.startDate);
+    const end = new Date(data.endDate);
+
+    if (end < start) {
+      return NextResponse.json({ error: 'Enddatum muss nach dem Startdatum liegen' }, { status: 400 });
     }
 
     const vacation = await prisma.vacation.create({
       data: {
-        employeeId,
-        startDate: new Date(startDate),
-        endDate: new Date(endDate),
-        vacationType,
-        notes: notes || null,
+        employeeId: data.employeeId,
+        startDate: start,
+        endDate: end,
+        vacationType: data.vacationType,
+        notes: data.notes || null,
         createdBy: session.user.id,
       },
       include: {
@@ -81,15 +86,18 @@ export async function POST(request: NextRequest) {
         entityId: vacation.id,
         newValues: JSON.stringify({
           employee: `${vacation.employee.firstName} ${vacation.employee.lastName}`,
-          startDate,
-          endDate,
-          type: vacationType,
+          startDate: data.startDate,
+          endDate: data.endDate,
+          type: data.vacationType,
         }),
       },
     });
 
     return NextResponse.json({ vacation });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validierungsfehler', details: error.errors }, { status: 400 });
+    }
     console.error('Error creating vacation:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

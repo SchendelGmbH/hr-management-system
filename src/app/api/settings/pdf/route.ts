@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAdmin } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 const SETTING_KEYS = [
@@ -12,8 +12,8 @@ const SETTING_KEYS = [
 
 // GET /api/settings/pdf – PDF-Einstellungen abrufen
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const rows = await prisma.systemSetting.findMany({
@@ -36,8 +36,8 @@ export async function GET() {
 
 // PUT /api/settings/pdf – Ränder speichern
 export async function PUT(request: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const body = await request.json();

@@ -1,13 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { getNextColor } from '@/lib/categoryColors';
 
+const categorySchema = z.object({
+  name: z.string().min(1, 'Name ist erforderlich').max(100),
+  description: z.string().max(500).optional().nullable(),
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
+});
+
 export async function GET(_request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { error } = await requireAuth();
+  if (error) return error;
 
   try {
     const categories = await prisma.category.findMany({
@@ -27,27 +32,18 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const body = await request.json();
-    const { name, description, color } = body;
-
-    if (!name) {
-      return NextResponse.json(
-        { error: 'Name is required' },
-        { status: 400 }
-      );
-    }
+    const data = categorySchema.parse(body);
 
     // Check if category already exists (case-insensitive)
     const existingCategory = await prisma.category.findFirst({
       where: {
         name: {
-          equals: name,
+          equals: data.name,
           mode: 'insensitive',
         },
       },
@@ -58,7 +54,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Wenn keine Farbe explizit angegeben, nächste freie Farbe aus Palette wählen
-    let assignedColor = color;
+    let assignedColor = data.color;
     if (!assignedColor) {
       const usedColors = (await prisma.category.findMany({ select: { color: true } }))
         .map((c) => c.color)
@@ -68,14 +64,17 @@ export async function POST(request: NextRequest) {
 
     const category = await prisma.category.create({
       data: {
-        name: name.trim(),
-        description: description || null,
+        name: data.name.trim(),
+        description: data.description || null,
         color: assignedColor,
       },
     });
 
     return NextResponse.json({ category });
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: 'Validierungsfehler', details: error.errors }, { status: 400 });
+    }
     console.error('Error creating category:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }

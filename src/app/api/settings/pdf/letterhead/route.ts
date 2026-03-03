@@ -1,14 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requireAdmin } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { writeFile, mkdir, unlink } from 'fs/promises';
-import { join } from 'path';
+import { join, resolve, normalize } from 'path';
 import { existsSync } from 'fs';
+
+const LETTERHEAD_DIR = join(process.cwd(), 'public', 'uploads', 'letterheads');
+
+/**
+ * Validiert einen DB-gespeicherten Pfad gegen ein Whitelist-Pattern
+ * um Path-Traversal-Angriffe zu verhindern.
+ */
+function safeLetterheadPath(storedPath: string): string | null {
+  const resolved = resolve(join(process.cwd(), 'public', normalize(storedPath)));
+  if (!resolved.startsWith(LETTERHEAD_DIR)) return null;
+  return resolved;
+}
 
 // POST /api/settings/pdf/letterhead – Globales Briefpapier hochladen
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const formData = await request.formData();
@@ -27,27 +39,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datei zu groß (max. 5 MB)' }, { status: 400 });
     }
 
-    // Altes Briefpapier löschen falls vorhanden
+    // Altes Briefpapier sicher löschen (Path-Traversal-geschützt)
     const existing = await prisma.systemSetting.findUnique({ where: { key: 'letterhead_path' } });
     if (existing?.value) {
-      try {
-        const oldRel = existing.value.startsWith('/') ? existing.value.slice(1) : existing.value;
-        await unlink(join(process.cwd(), 'public', oldRel));
-      } catch {
-        // ignorieren
+      const safePath = safeLetterheadPath(existing.value);
+      if (safePath) {
+        try { await unlink(safePath); } catch { /* ignorieren */ }
       }
     }
 
     // Upload-Verzeichnis sicherstellen
-    const uploadDir = join(process.cwd(), 'public', 'uploads', 'letterheads');
-    if (!existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true });
+    if (!existsSync(LETTERHEAD_DIR)) {
+      await mkdir(LETTERHEAD_DIR, { recursive: true });
     }
 
     // Datei speichern – fixer Name "global-letterhead.{ext}"
-    const ext = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const allowedExts = ['png', 'jpg', 'jpeg'];
+    const rawExt = file.name.split('.').pop()?.toLowerCase() || 'png';
+    const ext = allowedExts.includes(rawExt) ? rawExt : 'png';
     const filename = `global-letterhead.${ext}`;
-    const filepath = join(uploadDir, filename);
+    const filepath = join(LETTERHEAD_DIR, filename);
     const bytes = await file.arrayBuffer();
     await writeFile(filepath, Buffer.from(bytes));
 
@@ -68,17 +79,15 @@ export async function POST(request: NextRequest) {
 
 // DELETE /api/settings/pdf/letterhead – Globales Briefpapier entfernen
 export async function DELETE() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { error } = await requireAdmin();
+  if (error) return error;
 
   try {
     const existing = await prisma.systemSetting.findUnique({ where: { key: 'letterhead_path' } });
     if (existing?.value) {
-      try {
-        const rel = existing.value.startsWith('/') ? existing.value.slice(1) : existing.value;
-        await unlink(join(process.cwd(), 'public', rel));
-      } catch {
-        // ignorieren
+      const safePath = safeLetterheadPath(existing.value);
+      if (safePath) {
+        try { await unlink(safePath); } catch { /* ignorieren */ }
       }
       await prisma.systemSetting.delete({ where: { key: 'letterhead_path' } });
     }

@@ -13,7 +13,7 @@ import AddVacationModal from '@/components/calendar/AddVacationModal';
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type EventType =
-  | 'VACATION' | 'SICK' | 'SPECIAL'
+  | 'VACATION' | 'SICK' | 'SPECIAL' | 'SCHOOL' | 'SCHOOL_BLOCK'
   | 'DOC_EXPIRY' | 'FIXED_TERM' | 'PROBATION'
   | 'BIRTHDAY' | 'ANNIVERSARY' | 'ANNIVERSARY_MILESTONE'
   | 'FIRST_DAY' | 'HOLIDAY' | 'QUALIFICATION_EXPIRY';
@@ -46,6 +46,8 @@ const TYPE_COLORS: Record<string, string> = {
   VACATION:              '#3B82F6',
   SICK:                  '#EF4444',
   SPECIAL:               '#8B5CF6',
+  SCHOOL:                '#EAB308',
+  SCHOOL_BLOCK:          '#F97316',
   DOC_EXPIRY:            '#F97316',
   FIXED_TERM:            '#B45309',
   PROBATION:             '#D97706',
@@ -61,6 +63,8 @@ const TYPE_LABELS: Record<string, string> = {
   VACATION:              'Urlaub',
   SICK:                  'Krankheit',
   SPECIAL:               'Sonderurlaub',
+  SCHOOL:                'Berufsschule',
+  SCHOOL_BLOCK:          'UBL – Blockwoche',
   DOC_EXPIRY:            'Dok. läuft ab',
   FIXED_TERM:            'Befristung',
   PROBATION:             'Probezeit',
@@ -76,7 +80,7 @@ const TYPE_LABELS: Record<string, string> = {
 const FILTER_GROUPS: { label: string; types: EventType[] }[] = [
   {
     label: 'Abwesenheiten',
-    types: ['VACATION', 'SICK', 'SPECIAL'],
+    types: ['VACATION', 'SICK', 'SPECIAL', 'SCHOOL', 'SCHOOL_BLOCK'],
   },
   {
     label: 'Fristen',
@@ -181,6 +185,8 @@ export default function CalendarPage() {
 
   const filteredEvents = events.filter((e) => visibleTypes.has(e.type));
 
+  const ABSENCE_TYPES = new Set(['VACATION', 'SICK', 'SPECIAL', 'SCHOOL', 'SCHOOL_BLOCK']);
+
   const calendarEvents = filteredEvents.map((e) => ({
     id: e.id,
     title: e.title,
@@ -191,6 +197,10 @@ export default function CalendarPage() {
     textColor:       e.type === 'HOLIDAY' ? '#64748B' : '#ffffff',
     allDay: true,
     display: e.type === 'HOLIDAY' ? 'background' : 'block',
+    extendedProps: {
+      typeLabel: ABSENCE_TYPES.has(e.type) ? (TYPE_LABELS[e.type] ?? '') : '',
+      isAbsence: ABSENCE_TYPES.has(e.type),
+    },
   }));
 
   // Count per type
@@ -301,6 +311,16 @@ export default function CalendarPage() {
               }}
               buttonText={{ today: 'Heute', month: 'Monat', week: 'Woche' }}
               events={calendarEvents}
+              eventContent={(arg) => {
+                const { typeLabel, isAbsence } = arg.event.extendedProps as { typeLabel: string; isAbsence: boolean };
+                if (!isAbsence || !typeLabel) return true;
+                return (
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '3px', overflow: 'hidden', padding: '0 2px' }}>
+                    <span style={{ opacity: 0.7, fontSize: '0.72em', whiteSpace: 'nowrap', flexShrink: 0 }}>{typeLabel}</span>
+                    <span style={{ fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.85em' }}>{arg.event.title}</span>
+                  </div>
+                );
+              }}
               eventClick={(info) => {
                 // Background events (holidays) don't support click — skip
                 if (info.event.display === 'background') return;

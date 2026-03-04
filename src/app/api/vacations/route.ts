@@ -7,7 +7,7 @@ const vacationSchema = z.object({
   employeeId: z.string().min(1),
   startDate: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
   endDate: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
-  vacationType: z.enum(['VACATION', 'SICK', 'SPECIAL']),
+  vacationType: z.enum(['VACATION', 'SICK', 'SPECIAL', 'SCHOOL', 'SCHOOL_BLOCK']),
   notes: z.string().max(1000).optional().nullable(),
 });
 

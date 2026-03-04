@@ -220,6 +220,34 @@ export async function GET(_request: NextRequest) {
       }
     }
 
+    // ── Qualification expiry events ───────────────────────────────────────────
+    const qualifications = await prisma.qualification.findMany({
+      where: { expiresAt: { not: null } },
+      select: {
+        id: true, expiresAt: true,
+        type: { select: { name: true, group: true } },
+        employee: {
+          select: {
+            id: true, firstName: true, lastName: true, employeeNumber: true,
+            department: { select: { name: true } },
+          },
+        },
+      },
+    });
+
+    for (const q of qualifications) {
+      const dateStr = q.expiresAt!.toISOString().split('T')[0];
+      events.push({
+        id: `qualification-${q.id}`,
+        type: 'QUALIFICATION_EXPIRY',
+        title: `${q.type.name}: ${q.employee.firstName} ${q.employee.lastName}`,
+        start: dateStr, end: dateStr,
+        notes: null,
+        sourceId: q.id, sourceType: 'qualification',
+        employee: q.employee,
+      });
+    }
+
     // ── NRW Holidays ─────────────────────────────────────────────────────────
     for (const h of NRW_HOLIDAYS) {
       events.push({

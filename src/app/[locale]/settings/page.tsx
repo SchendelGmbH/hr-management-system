@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText, CircleDollarSign } from 'lucide-react';
+import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText, CircleDollarSign, Award } from 'lucide-react';
 
 export default function SettingsPage() {
   const settings = [
@@ -29,6 +29,13 @@ export default function SettingsPage() {
       description: 'Tariflohngruppen verwalten',
       icon: CircleDollarSign,
       href: '/de/settings/pay-grades',
+      available: true,
+    },
+    {
+      title: 'Qualifikationstypen',
+      description: 'Unterweisungs-, Zertifikats- und Fortbildungstypen verwalten',
+      icon: Award,
+      href: '/de/settings/qualification-types',
       available: true,
     },
     {

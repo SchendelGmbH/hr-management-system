@@ -54,6 +54,7 @@ export async function GET(
           orderBy: { startDate: 'desc' },
           take: 30,
         },
+        _count: { select: { qualifications: true } },
       },
     });
 

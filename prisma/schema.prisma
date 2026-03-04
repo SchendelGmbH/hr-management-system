@@ -32,6 +32,7 @@ model User {
   clothingOrdersCreated   ClothingOrder[]  @relation("ClothingOrderCreator")
   vacationsCreated        Vacation[]       @relation("VacationCreator")
   qualificationsCreated   Qualification[]  @relation("QualificationCreator")
+  dailyPlansCreated       DailyPlan[]      @relation("DailyPlanCreator")
 
   @@map("users")
 }
@@ -121,6 +122,7 @@ model Employee {
   clothingOrders     ClothingOrder[]
   vacations          Vacation[]
   qualifications     Qualification[]
+  planAssignments    DailyPlanAssignment[]
 
   @@index([departmentId])
   @@index([payGradeId])
@@ -396,6 +398,8 @@ enum VacationType {
   VACATION
   SICK
   SPECIAL
+  SCHOOL        // Reguläre Berufsschule (Azubi-Tage)
+  SCHOOL_BLOCK  // UBL – Berufsschule-Blockwoche (mehrere Tage)
 }
 
 // ============================================================================
@@ -551,4 +555,91 @@ model PayGrade {
   employees   Employee[]
 
   @@map("pay_grades")
+}
+
+// ============================================================================
+// TAGESPLANUNG (EINSATZPLANUNG)
+// ============================================================================
+
+model WorkSite {
+  id                  String   @id @default(cuid())
+  name                String
+  location            String?
+  color               String?
+  defaultStartTime    String   @default("06:00")
+  defaultEndTime      String   @default("16:00")
+  defaultVehiclePlate String?
+  lastUsedAt          DateTime @default(now())
+  createdAt           DateTime @default(now())
+
+  planSites DailyPlanSite[]
+
+  @@unique([name, location])
+  @@index([lastUsedAt])
+  @@map("work_sites")
+}
+
+model DailyPlan {
+  id        String   @id @default(cuid())
+  date      DateTime @unique
+  notes     String?  @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  creator User          @relation("DailyPlanCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+  sites   DailyPlanSite[]
+
+  @@index([date])
+  @@map("daily_plans")
+}
+
+model DailyPlanSite {
+  id           String  @id @default(cuid())
+  planId       String
+  workSiteId   String?
+  name         String
+  location     String?
+  color        String?
+  vehiclePlate String?
+  startTime    String  @default("06:00")
+  endTime      String  @default("16:00")
+  sortOrder    Int     @default(0)
+
+  plan        DailyPlan            @relation(fields: [planId], references: [id], onDelete: Cascade)
+  workSite    WorkSite?            @relation(fields: [workSiteId], references: [id], onDelete: SetNull)
+  assignments DailyPlanAssignment[]
+
+  @@index([planId])
+  @@map("daily_plan_sites")
+}
+
+model DailyPlanAssignment {
+  id         String  @id @default(cuid())
+  siteId     String
+  employeeId String
+  note       String?
+
+  site     DailyPlanSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@unique([siteId, employeeId])
+  @@index([employeeId])
+  @@map("daily_plan_assignments")
+}
+
+// ============================================================================
+// FAHRZEUGE (VEHICLES)
+// ============================================================================
+
+model Vehicle {
+  id          String   @id @default(cuid())
+  plate       String   @unique
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("vehicles")
 }

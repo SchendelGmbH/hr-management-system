@@ -98,7 +98,7 @@ export default function AddVacationModal({
   };
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Neuer Urlaub" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Neue Abwesenheit" size="md">
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Employee Select */}
         <div>
@@ -126,7 +126,7 @@ export default function AddVacationModal({
         {/* Vacation Type */}
         <div>
           <label className="block text-sm font-medium text-gray-700">
-            Urlaubsart *
+            Abwesenheitsart *
           </label>
           <select
             required
@@ -139,6 +139,8 @@ export default function AddVacationModal({
             <option value="VACATION">Urlaub</option>
             <option value="SICK">Krankheit</option>
             <option value="SPECIAL">Sonderurlaub</option>
+            <option value="SCHOOL">Berufsschule</option>
+            <option value="SCHOOL_BLOCK">UBL – Blockwoche</option>
           </select>
         </div>
 

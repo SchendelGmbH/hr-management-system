@@ -28,9 +28,10 @@ model User {
   // Relations
   auditLogs            AuditLog[]
   notifications        Notification[]
-  documentsUploaded    Document[]         @relation("DocumentUploader")
-  clothingOrdersCreated ClothingOrder[]  @relation("ClothingOrderCreator")
-  vacationsCreated     Vacation[]         @relation("VacationCreator")
+  documentsUploaded       Document[]       @relation("DocumentUploader")
+  clothingOrdersCreated   ClothingOrder[]  @relation("ClothingOrderCreator")
+  vacationsCreated        Vacation[]       @relation("VacationCreator")
+  qualificationsCreated   Qualification[]  @relation("QualificationCreator")
 
   @@map("users")
 }
@@ -119,6 +120,7 @@ model Employee {
   employeeSize       EmployeeSize?
   clothingOrders     ClothingOrder[]
   vacations          Vacation[]
+  qualifications     Qualification[]
 
   @@index([departmentId])
   @@index([payGradeId])
@@ -397,6 +399,56 @@ enum VacationType {
 }
 
 // ============================================================================
+// QUALIFICATIONS, CERTIFICATES & TRAINING
+// ============================================================================
+
+enum QualificationGroup {
+  INSTRUCTION  // Unterweisungen
+  CERTIFICATE  // Zertifikate & Lizenzen
+  TRAINING     // Fortbildungen
+}
+
+model QualificationType {
+  id                      String             @id @default(cuid())
+  name                    String
+  group                   QualificationGroup
+  recurringIntervalMonths Int?               // null = einmalig; 12 = jährlich
+  isActive                Boolean            @default(true)
+  createdAt               DateTime           @default(now())
+  updatedAt               DateTime           @updatedAt
+
+  qualifications Qualification[]
+
+  @@unique([name, group])
+  @@map("qualification_types")
+}
+
+model Qualification {
+  id         String    @id @default(cuid())
+  employeeId String
+  typeId     String
+  issuedAt   DateTime?
+  expiresAt  DateTime?
+  issuer     String?
+  certNumber String?
+  filePath   String?
+  fileName   String?
+  notes      String?   @db.Text
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  employee Employee          @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type     QualificationType @relation(fields: [typeId], references: [id])
+  creator  User              @relation("QualificationCreator", fields: [createdBy], references: [id], onDelete: Restrict)
+
+  @@index([employeeId])
+  @@index([expiresAt])
+  @@index([typeId])
+  @@map("qualifications")
+}
+
+// ============================================================================
 // NOTIFICATIONS
 // ============================================================================
 
@@ -426,6 +478,7 @@ enum NotificationType {
   DOCUMENT_EXPIRED
   LOW_BUDGET
   UPCOMING_VACATION
+  QUALIFICATION_EXPIRING
 }
 
 // ============================================================================

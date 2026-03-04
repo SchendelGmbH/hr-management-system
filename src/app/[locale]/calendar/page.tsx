@@ -16,9 +16,9 @@ type EventType =
   | 'VACATION' | 'SICK' | 'SPECIAL'
   | 'DOC_EXPIRY' | 'FIXED_TERM' | 'PROBATION'
   | 'BIRTHDAY' | 'ANNIVERSARY' | 'ANNIVERSARY_MILESTONE'
-  | 'FIRST_DAY' | 'HOLIDAY';
+  | 'FIRST_DAY' | 'HOLIDAY' | 'QUALIFICATION_EXPIRY';
 
-type SourceType = 'vacation' | 'document' | 'employee' | 'birthday' | 'anniversary' | 'firstday' | 'holiday';
+type SourceType = 'vacation' | 'document' | 'employee' | 'birthday' | 'anniversary' | 'firstday' | 'holiday' | 'qualification';
 
 interface CalendarEvent {
   id: string;
@@ -54,6 +54,7 @@ const TYPE_COLORS: Record<string, string> = {
   ANNIVERSARY_MILESTONE: '#F59E0B',
   FIRST_DAY:             '#059669',
   HOLIDAY:               '#94A3B8',
+  QUALIFICATION_EXPIRY:  '#0EA5E9',
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -68,6 +69,7 @@ const TYPE_LABELS: Record<string, string> = {
   ANNIVERSARY_MILESTONE: 'Besond. Jubiläum',
   FIRST_DAY:             'Erster Arbeitstag',
   HOLIDAY:               'Feiertag NRW',
+  QUALIFICATION_EXPIRY:  'Qualifikation läuft ab',
 };
 
 // Groups for the filter section
@@ -78,7 +80,7 @@ const FILTER_GROUPS: { label: string; types: EventType[] }[] = [
   },
   {
     label: 'Fristen',
-    types: ['DOC_EXPIRY', 'FIXED_TERM', 'PROBATION'],
+    types: ['DOC_EXPIRY', 'FIXED_TERM', 'PROBATION', 'QUALIFICATION_EXPIRY'],
   },
   {
     label: 'Mitarbeiter',
@@ -217,7 +219,7 @@ export default function CalendarPage() {
             className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
           >
             <Plus className="h-5 w-5" />
-            <span>Urlaub hinzufügen</span>
+            <span>Abwesenheit hinzufügen</span>
           </button>
         </div>
       </div>
@@ -348,13 +350,14 @@ function EventDetailModal({
   const days        = isMultiDay ? daysBetween(event.start, event.end) : null;
 
   const dateLabel: Record<string, string> = {
-    DOC_EXPIRY: 'Ablaufdatum',
-    FIXED_TERM: 'Vertragsende',
-    PROBATION:  'Probezeit-Ende',
-    BIRTHDAY:   'Geburtstag',
-    ANNIVERSARY: 'Jubiläumsdatum',
+    DOC_EXPIRY:          'Ablaufdatum',
+    FIXED_TERM:          'Vertragsende',
+    PROBATION:           'Probezeit-Ende',
+    BIRTHDAY:            'Geburtstag',
+    ANNIVERSARY:         'Jubiläumsdatum',
     ANNIVERSARY_MILESTONE: 'Jubiläumsdatum',
-    FIRST_DAY:  'Erster Arbeitstag',
+    FIRST_DAY:           'Erster Arbeitstag',
+    QUALIFICATION_EXPIRY: 'Ablaufdatum',
   };
 
   return (

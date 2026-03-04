@@ -13,6 +13,7 @@ import {
   Download,
   ShoppingCart,
   Package,
+  Award,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
 
@@ -51,6 +52,11 @@ const navigation = [
     name: 'calendar',
     href: '/de/calendar',
     icon: Calendar,
+  },
+  {
+    name: 'qualifications',
+    href: '/de/qualifications',
+    icon: Award,
   },
   {
     name: 'settings',

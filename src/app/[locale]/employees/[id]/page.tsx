@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { use } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Printer } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Printer, Award } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import EditDocumentModal from '@/components/documents/EditDocumentModal';
@@ -14,6 +14,7 @@ import GroupGenerateDocumentModal from '@/components/templates/GroupGenerateDocu
 import { Files } from 'lucide-react';
 import { DetailFormSkeleton } from '@/components/ui/Skeleton';
 import EmployeeClothingInventory from '@/components/employees/EmployeeClothingInventory';
+import EmployeeQualificationsTab from '@/components/employees/EmployeeQualificationsTab';
 
 interface Department {
   id: string;
@@ -179,7 +180,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
     }
   }, [searchParams, employee]);
 
-  // Auto-navigate to documents tab and expand a specific document if requested
+  // Auto-navigate to a specific tab if requested via ?tab=...
   useEffect(() => {
     const tab = searchParams.get('tab');
     const expandDoc = searchParams.get('expandDoc');
@@ -193,6 +194,8 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
         });
         fetchVersionHistory(expandDoc);
       }
+    } else if (tab === 'qualifications' && employee) {
+      setActiveTab('qualifications');
     }
   }, [searchParams, employee]);
 
@@ -442,6 +445,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
     { id: 'documents', label: 'Dokumente', icon: FileText, count: employee.documents.length },
     { id: 'clothing', label: 'Arbeitskleidung', icon: Shirt, count: employee.clothingOrders.length },
     { id: 'vacations', label: 'Urlaube', icon: Calendar, count: employee.vacations.length },
+    { id: 'qualifications', label: 'Qualifikationen', icon: Award, count: (employee as any)._count?.qualifications ?? 0 },
   ];
 
   const inputClass = "w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500";
@@ -1398,6 +1402,10 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
               </div>
             )}
           </div>
+        )}
+
+        {activeTab === 'qualifications' && (
+          <EmployeeQualificationsTab employeeId={employee.id} />
         )}
       </div>
 

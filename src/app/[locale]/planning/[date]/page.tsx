@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import {
   ChevronLeft, ChevronRight, Plus, X, Pencil, Check, Trash2, Printer,
-  AlertTriangle, Car, Clock, MapPin, RotateCcw,
+  AlertTriangle, Car, Clock, MapPin, RotateCcw, Building2, GripVertical,
 } from 'lucide-react';
 import { isSkippedDay, type WeekendMode } from '@/lib/holidays';
 
@@ -172,6 +172,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   const [absenceDateForm, setAbsenceDateForm] = useState({ startDate: '', endDate: '' });
   const [absenceDateError, setAbsenceDateError] = useState('');
   const scrollRAFRef = useRef<number | null>(null);
+  const siteCardRefs = useRef<(HTMLDivElement | null)[]>([]);
   // Which assignment is being noted
   const [editingNote, setEditingNote] = useState<{ siteIdx: number; empIdx: number } | null>(null);
   const [noteValue, setNoteValue] = useState('');
@@ -181,12 +182,13 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showResetEmployeesConfirm, setShowResetEmployeesConfirm] = useState(false);
   const [showResetVehiclesConfirm, setShowResetVehiclesConfirm] = useState(false);
-  // Autocomplete
-  const [autocompleteQuery, setAutocompleteQuery] = useState('');
-  const [showAutocomplete, setShowAutocomplete] = useState(false);
-  const autocompleteRef = useRef<HTMLDivElement>(null);
-  // New site form
-  const [showNewSiteForm, setShowNewSiteForm] = useState(false);
+  // Work site pool
+  const [draggingWorkSite, setDraggingWorkSite] = useState<WorkSite | null>(null);
+  const [draggingPlanSiteIdx, setDraggingPlanSiteIdx] = useState<number | null>(null);
+  const [dropInsertIdx, setDropInsertIdx] = useState<number | null>(null);
+  const [dragOverBaustellenPool, setDragOverBaustellenPool] = useState(false);
+  const [showWorkSiteForm, setShowWorkSiteForm] = useState(false);
+  const [workSiteFormError, setWorkSiteFormError] = useState('');
   const [defaultTimes, setDefaultTimes] = useState({ startTime: '06:00', endTime: '16:00' });
   const [newSiteForm, setNewSiteForm] = useState({ name: '', location: '', startTime: '06:00', endTime: '16:00' });
 
@@ -341,16 +343,6 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     };
   }, []);
 
-  // Close autocomplete on outside click
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (autocompleteRef.current && !autocompleteRef.current.contains(e.target as Node)) {
-        setShowAutocomplete(false);
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
 
   // ── Computed ─────────────────────────────────────────────────────────────────
 
@@ -384,13 +376,9 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     .filter(Boolean)
     .sort((a, b) => a.lastName.localeCompare(b.lastName));
 
-  // Autocomplete filter (exclude already used sites)
+  // Work site pool (exclude already used sites)
   const usedSiteNames = new Set(sites.map((s) => s.name.toLowerCase()));
-  const filteredWorkSites = workSites.filter((ws) =>
-    !usedSiteNames.has(ws.name.toLowerCase()) &&
-    (ws.name.toLowerCase().includes(autocompleteQuery.toLowerCase()) ||
-    (ws.location ?? '').toLowerCase().includes(autocompleteQuery.toLowerCase()))
-  );
+  const poolWorkSites = workSites.filter((ws) => !usedSiteNames.has(ws.name.toLowerCase()));
 
   // ── Actions ───────────────────────────────────────────────────────────────────
 
@@ -410,11 +398,11 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     const updated = [...sites, s];
     setSites(updated);
     setNewSiteForm({ name: '', location: '', startTime: defaultTimes.startTime, endTime: defaultTimes.endTime });
-    setShowNewSiteForm(false);
+    setShowWorkSiteForm(false);
     saveToServer(updated);
   };
 
-  const addSiteFromWorkSite = (ws: WorkSite) => {
+  const addSiteFromWorkSite = (ws: WorkSite, insertAt?: number) => {
     const s: PlanSite = {
       _tempId: newTempId(),
       name: ws.name,
@@ -422,15 +410,17 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
       vehiclePlates: ws.defaultVehiclePlate ? [ws.defaultVehiclePlate] : [],
       startTime: ws.defaultStartTime,
       endTime: ws.defaultEndTime,
-      sortOrder: sites.length,
+      sortOrder: 0,
       assignments: [],
       isEditing: false,
     };
-    const updated = [...sites, s];
+    const arr = insertAt !== undefined && insertAt <= sites.length
+      ? [...sites.slice(0, insertAt), s, ...sites.slice(insertAt)]
+      : [...sites, s];
+    const updated = arr.map((site, i) => ({ ...site, sortOrder: i }));
     setSites(updated);
-    setShowNewSiteForm(false);
-    setShowAutocomplete(false);
-    setAutocompleteQuery('');
+    setDraggingWorkSite(null);
+    setDropInsertIdx(null);
     saveToServer(updated);
   };
 
@@ -446,6 +436,18 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     setSites(updated);
     setDeleteSiteIdx(null);
     saveToServer(updated);
+  };
+
+  const reorderSite = (fromIdx: number, insertBefore: number) => {
+    const arr = [...sites];
+    const [moved] = arr.splice(fromIdx, 1);
+    const pos = fromIdx < insertBefore ? insertBefore - 1 : insertBefore;
+    arr.splice(pos, 0, moved);
+    const withOrder = arr.map((s, i) => ({ ...s, sortOrder: i }));
+    setSites(withOrder);
+    setDraggingPlanSiteIdx(null);
+    setDropInsertIdx(null);
+    saveToServer(withOrder);
   };
 
   const assignEmployee = (emp: Employee, siteIdx: number) => {
@@ -743,25 +745,55 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
         {/* Main 2-column layout */}
         <div className="flex gap-4 items-start">
           {/* ── Left: Baustellen ── */}
-          <div className="flex-1 space-y-4">
+          <div
+            className="flex-1 space-y-4"
+            onDragOver={(e) => {
+              if (draggingPlanSiteIdx === null && !draggingWorkSite) return;
+              e.preventDefault();
+              let newInsert = sites.length;
+              for (let i = 0; i < sites.length; i++) {
+                const el = siteCardRefs.current[i];
+                if (!el) continue;
+                const rect = el.getBoundingClientRect();
+                if (e.clientY < rect.top + rect.height / 2) { newInsert = i; break; }
+              }
+              if (newInsert !== dropInsertIdx) setDropInsertIdx(newInsert);
+            }}
+            onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDropInsertIdx(null); }}
+            onDrop={(e) => {
+              e.preventDefault();
+              if (draggingPlanSiteIdx !== null && dropInsertIdx !== null) { reorderSite(draggingPlanSiteIdx, dropInsertIdx); return; }
+              if (draggingWorkSite && dropInsertIdx !== null) addSiteFromWorkSite(draggingWorkSite, dropInsertIdx);
+            }}
+          >
             {sites.map((site, siteIdx) => (
               <Fragment key={site._tempId ?? site.id}>
-              {siteIdx > 0 && (
-                <hr className="border-t-2 border-gray-200 -mt-1" />
+              {/* Insert indicator (top of this card) when reordering or inserting from pool */}
+              {(draggingPlanSiteIdx !== null || draggingWorkSite !== null) && dropInsertIdx === siteIdx && draggingPlanSiteIdx !== siteIdx && (
+                <div className="h-1.5 rounded-full bg-primary-400 shadow-sm" />
               )}
               <div
+                ref={(el) => { siteCardRefs.current[siteIdx] = el; }}
                 className={`rounded-lg border bg-white shadow-sm transition-colors ${
-                  dragOverSiteIdx === siteIdx && draggingEmployee
+                  draggingPlanSiteIdx === siteIdx
+                    ? 'opacity-40 border-gray-200'
+                    : dragOverSiteIdx === siteIdx && draggingEmployee
                     ? 'border-primary-400 ring-2 ring-primary-300 bg-primary-50'
                     : dragOverSiteIdx === siteIdx && draggingVehicle
                     ? 'border-amber-400 ring-2 ring-amber-300 bg-amber-50'
                     : 'border-gray-200'
                 }`}
-                onDragOver={(e) => { e.preventDefault(); setDragOverSiteIdx(siteIdx); }}
+                onDragOver={(e) => {
+                  if ((draggingEmployee || draggingVehicle) && draggingPlanSiteIdx === null) {
+                    e.preventDefault();
+                    setDragOverSiteIdx(siteIdx);
+                  }
+                }}
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSiteIdx(null); }}
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragOverSiteIdx(null);
+                  if (draggingPlanSiteIdx !== null) return; // outer column handles reorder
                   if (draggingEmployee) {
                     absenceDropHandledRef.current = true;
                     if (draggingFromAbsenceId) {
@@ -825,8 +857,18 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                     </button>
                   </div>
                 ) : (
-                  <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-                    <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-between border-b border-gray-100 pl-2 pr-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span
+                        draggable
+                        onDragStart={(e) => { e.stopPropagation(); setDraggingPlanSiteIdx(siteIdx); }}
+                        onDragEnd={() => { setDraggingPlanSiteIdx(null); setDropInsertIdx(null); setDragOverBaustellenPool(false); }}
+                        className="cursor-grab active:cursor-grabbing text-gray-300 hover:text-gray-500 shrink-0"
+                        title="Baustelle in den Pool zurückziehen"
+                      >
+                        <GripVertical className="h-4 w-4" />
+                      </span>
+                      <div className="flex items-center gap-3">
                       <div>
                         <span className="font-semibold text-gray-900">{site.name}</span>
                         {site.location && (
@@ -868,6 +910,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                           </button>
                         </span>
                       ))}
+                      </div>
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
@@ -959,94 +1002,157 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
               </Fragment>
             ))}
 
-            {/* Add site */}
-            {showNewSiteForm ? (
-              <div className="rounded-lg border border-primary-200 bg-primary-50 p-4 space-y-3">
-                {/* Autocomplete */}
-                <div className="relative" ref={autocompleteRef}>
+            {/* End insert indicator */}
+            {(draggingPlanSiteIdx !== null || draggingWorkSite !== null) && dropInsertIdx === sites.length && draggingPlanSiteIdx !== sites.length - 1 && (
+              <div className="h-1.5 rounded-full bg-primary-400 shadow-sm" />
+            )}
+
+            {/* Static hint when nothing is being dragged */}
+            {!draggingWorkSite && draggingPlanSiteIdx === null && (
+              <div className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-200 py-4 text-sm text-gray-400">
+                <Building2 className="h-4 w-4" />
+                Baustelle aus dem Pool hierher ziehen
+              </div>
+            )}
+          </div>
+
+          {/* ── Right: Pools + Absences ── */}
+          <div className="w-64 shrink-0 space-y-4 sticky top-6">
+
+            {/* Baustellenpool */}
+            <div
+              className={`rounded-lg border bg-white shadow-sm transition-colors ${
+                dragOverBaustellenPool && draggingPlanSiteIdx !== null
+                  ? 'border-primary-400 ring-2 ring-primary-300'
+                  : 'border-primary-200'
+              }`}
+              onDragOver={(e) => { if (draggingPlanSiteIdx !== null) { e.preventDefault(); setDragOverBaustellenPool(true); } }}
+              onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverBaustellenPool(false); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOverBaustellenPool(false);
+                if (draggingPlanSiteIdx !== null) {
+                  removeSite(draggingPlanSiteIdx);
+                  setDraggingPlanSiteIdx(null);
+                }
+              }}
+            >
+              <div className="flex items-center justify-between border-b border-primary-100 px-4 py-3">
+                <h2 className="text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+                  <Building2 className="h-4 w-4 text-primary-500" />
+                  Baustellenpool
+                  <span className="ml-1 rounded-full bg-primary-100 px-2 py-0.5 text-xs font-medium text-primary-700">
+                    {poolWorkSites.length}
+                  </span>
+                </h2>
+                <button
+                  onClick={() => { setShowWorkSiteForm(true); setWorkSiteFormError(''); setNewSiteForm({ name: '', location: '', startTime: defaultTimes.startTime, endTime: defaultTimes.endTime }); }}
+                  className="rounded p-1 text-primary-600 hover:bg-primary-50"
+                  title="Neue Baustelle"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Add work site form */}
+              {showWorkSiteForm && (
+                <div className="border-b border-primary-100 px-3 py-2 bg-primary-50 space-y-2">
                   <input
                     autoFocus
-                    value={autocompleteQuery}
-                    onChange={(e) => { setAutocompleteQuery(e.target.value); setNewSiteForm({ ...newSiteForm, name: e.target.value }); setShowAutocomplete(true); }}
-                    onFocus={() => setShowAutocomplete(true)}
+                    value={newSiteForm.name}
+                    onChange={(e) => setNewSiteForm({ ...newSiteForm, name: e.target.value })}
+                    onKeyDown={(e) => e.key === 'Enter' && (newSiteForm.name.trim() ? (addSiteFromForm(), setWorkSiteFormError('')) : setWorkSiteFormError('Name erforderlich'))}
                     placeholder="Name der Baustelle…"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full rounded border border-primary-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
                   />
-                  {showAutocomplete && filteredWorkSites.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg">
-                      {filteredWorkSites.map((ws) => (
-                        <div key={ws.id} className="flex items-center hover:bg-gray-50 group">
-                          <button
-                            onClick={() => addSiteFromWorkSite(ws)}
-                            className="flex flex-1 items-center justify-between px-4 py-2 text-sm text-left"
-                          >
-                            <span className="font-medium">{ws.name}</span>
-                            <span className="text-gray-500 flex items-center gap-2">
-                              {ws.location && <span className="flex items-center gap-0.5 text-primary-600"><MapPin className="h-3 w-3" />{ws.location}</span>}
-                            </span>
-                          </button>
-                          {isAdmin && (
-                            <button
-                              onClick={(e) => deleteWorkSite(ws, e)}
-                              className="mr-2 rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
-                              title="Baustelle löschen"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-2">
                   <input
                     value={newSiteForm.location}
                     onChange={(e) => setNewSiteForm({ ...newSiteForm, location: e.target.value })}
                     placeholder="Ort (optional)"
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                    className="w-full rounded border border-primary-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
                   />
-                  <input
-                    type="time"
-                    value={newSiteForm.startTime}
-                    onChange={(e) => setNewSiteForm({ ...newSiteForm, startTime: e.target.value })}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  />
-                  <input
-                    type="time"
-                    value={newSiteForm.endTime}
-                    onChange={(e) => setNewSiteForm({ ...newSiteForm, endTime: e.target.value })}
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  />
+                  <div className="flex gap-1">
+                    <input
+                      type="time"
+                      value={newSiteForm.startTime}
+                      onChange={(e) => setNewSiteForm({ ...newSiteForm, startTime: e.target.value })}
+                      className="flex-1 rounded border border-primary-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                    />
+                    <input
+                      type="time"
+                      value={newSiteForm.endTime}
+                      onChange={(e) => setNewSiteForm({ ...newSiteForm, endTime: e.target.value })}
+                      className="flex-1 rounded border border-primary-300 px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-primary-400"
+                    />
+                  </div>
+                  {workSiteFormError && <p className="text-xs text-red-600">{workSiteFormError}</p>}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        if (!newSiteForm.name.trim()) { setWorkSiteFormError('Name erforderlich'); return; }
+                        addSiteFromForm();
+                      }}
+                      className="flex items-center gap-1 rounded bg-primary-600 px-3 py-1 text-xs font-medium text-white hover:bg-primary-700"
+                    >
+                      <Check className="h-3 w-3" /> Speichern
+                    </button>
+                    <button
+                      onClick={() => setShowWorkSiteForm(false)}
+                      className="rounded border border-gray-300 px-3 py-1 text-xs text-gray-600 hover:bg-gray-50"
+                    >
+                      Abbrechen
+                    </button>
+                  </div>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={addSiteFromForm}
-                    className="flex items-center gap-1 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-                  >
-                    <Check className="h-4 w-4" /> Hinzufügen
-                  </button>
-                  <button
-                    onClick={() => { setShowNewSiteForm(false); setAutocompleteQuery(''); setNewSiteForm({ name: '', location: '', startTime: defaultTimes.startTime, endTime: defaultTimes.endTime }); }}
-                    className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                onClick={() => setShowNewSiteForm(true)}
-                className="flex w-full items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-3 text-sm font-medium text-gray-500 hover:border-primary-400 hover:text-primary-600 hover:bg-primary-50 transition-colors"
-              >
-                <Plus className="h-4 w-4" />
-                Neue Baustelle
-              </button>
-            )}
-          </div>
+              )}
 
-          {/* ── Right: Employee Pool + Absences ── */}
-          <div className="w-64 shrink-0 space-y-4 sticky top-6">
+              <div className="max-h-52 overflow-y-auto p-2 space-y-1">
+                {poolWorkSites.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-gray-400">
+                    {workSites.length === 0 ? 'Keine Baustellen' : 'Alle Baustellen im Plan'}
+                  </p>
+                ) : (
+                  poolWorkSites.map((ws) => (
+                    <div
+                      key={ws.id}
+                      draggable
+                      onDragStart={() => setDraggingWorkSite(ws)}
+                      onDragEnd={() => setDraggingWorkSite(null)}
+                      onClick={() => addSiteFromWorkSite(ws)}
+                      className={`group flex items-center justify-between rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                        draggingWorkSite?.id === ws.id
+                          ? 'opacity-40 border-primary-300 bg-primary-50'
+                          : 'border-primary-100 hover:bg-primary-50'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium text-gray-800 block truncate">{ws.name}</span>
+                        {ws.location && (
+                          <span className="flex items-center gap-0.5 text-xs text-gray-500">
+                            <MapPin className="h-3 w-3 shrink-0" />{ws.location}
+                          </span>
+                        )}
+                      </div>
+                      {isAdmin && (
+                        <button
+                          onClick={(e) => deleteWorkSite(ws, e)}
+                          className="ml-2 shrink-0 text-gray-300 hover:text-red-500"
+                          title="Löschen"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))
+                )}
+              </div>
+              <div className="border-t border-primary-100 px-3 py-2">
+                <p className="text-xs text-primary-600">
+                  {draggingPlanSiteIdx !== null ? 'Hier loslassen zum Entfernen' : 'Klicken oder auf den Plan ziehen'}
+                </p>
+              </div>
+            </div>
+
             {/* Mitarbeiter-Pool */}
             <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-100 px-4 py-3">

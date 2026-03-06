@@ -14,10 +14,7 @@ export async function DELETE(
   try {
     const { id } = await params;
 
-    await prisma.vehicle.update({
-      where: { id },
-      data: { isActive: false },
-    });
+    await prisma.vehicle.delete({ where: { id } });
 
     return NextResponse.json({ success: true });
   } catch (err: unknown) {

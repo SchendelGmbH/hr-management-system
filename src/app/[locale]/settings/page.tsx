@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText, CircleDollarSign, Award, MapPin } from 'lucide-react';
+import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText, CircleDollarSign, Award, MapPin, CalendarDays } from 'lucide-react';
 
 export default function SettingsPage() {
   const settings = [
@@ -65,6 +65,13 @@ export default function SettingsPage() {
       icon: Bell,
       href: '#',
       available: false,
+    },
+    {
+      title: 'Tagesplanung',
+      description: 'Einstellungen für die Tagesplanung',
+      icon: CalendarDays,
+      href: '/de/settings/planning',
+      available: true,
     },
     {
       title: 'Audit-Log',

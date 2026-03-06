@@ -4,7 +4,7 @@ import { useState, useEffect, Fragment } from 'react';
 import { use } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Printer, Award } from 'lucide-react';
+import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Printer, Award, ShieldCheck, Lock, Copy, Check } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import EditDocumentModal from '@/components/documents/EditDocumentModal';
@@ -167,11 +167,31 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
+  // Portal access state
+  const [portalUser, setPortalUser] = useState<any>(null);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [portalFetched, setPortalFetched] = useState(false);
+  const [showCreateForm, setShowCreateForm] = useState(false);
+  const [portalCreateForm, setPortalCreateForm] = useState({ username: '', email: '', role: 'USER' });
+  const [portalEditForm, setPortalEditForm] = useState({ username: '', email: '', role: 'USER', isActive: true });
+  const [portalSaving, setPortalSaving] = useState(false);
+  const [portalDeleting, setPortalDeleting] = useState(false);
+  const [showRevokeDialog, setShowRevokeDialog] = useState(false);
+  const [tempPasswordModal, setTempPasswordModal] = useState<{ password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+
   useEffect(() => {
     fetchEmployee();
     fetchDepartments();
     fetchPayGrades();
   }, [id]);
+
+  // Fetch portal access once when the portal tab is first opened
+  useEffect(() => {
+    if (activeTab === 'portal' && !portalFetched) {
+      fetchPortalAccess();
+    }
+  }, [activeTab, portalFetched]);
 
   // Auto-enter edit mode if ?edit=true in URL
   useEffect(() => {
@@ -287,6 +307,125 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
       setPayGrades(data.payGrades || []);
     } catch (error) {
       console.error('Error fetching pay grades:', error);
+    }
+  };
+
+  const fetchPortalAccess = async () => {
+    setPortalLoading(true);
+    try {
+      const response = await fetch(`/api/employees/${id}/portal-access`);
+      const data = await response.json();
+      setPortalUser(data.user);
+      if (data.user) {
+        setPortalEditForm({
+          username: data.user.username,
+          email: data.user.email || '',
+          role: data.user.role,
+          isActive: data.user.isActive,
+        });
+      }
+    } catch (error) {
+      console.error('Error fetching portal access:', error);
+    } finally {
+      setPortalLoading(false);
+      setPortalFetched(true);
+    }
+  };
+
+  const handleCreatePortalAccess = async () => {
+    if (!portalCreateForm.username.trim()) return;
+    setPortalSaving(true);
+    try {
+      const response = await fetch(`/api/employees/${id}/portal-access`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(portalCreateForm),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Fehler beim Anlegen');
+        return;
+      }
+      setPortalUser(data.user);
+      setPortalEditForm({
+        username: data.user.username,
+        email: data.user.email || '',
+        role: data.user.role,
+        isActive: data.user.isActive,
+      });
+      setShowCreateForm(false);
+      setTempPasswordModal({ password: data.tempPassword });
+    } catch {
+      alert('Fehler beim Anlegen des Portalzugangs');
+    } finally {
+      setPortalSaving(false);
+    }
+  };
+
+  const handleUpdatePortalAccess = async () => {
+    setPortalSaving(true);
+    try {
+      const response = await fetch(`/api/employees/${id}/portal-access`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(portalEditForm),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Fehler beim Speichern');
+        return;
+      }
+      setPortalUser(data.user);
+      setPortalEditForm({
+        username: data.user.username,
+        email: data.user.email || '',
+        role: data.user.role,
+        isActive: data.user.isActive,
+      });
+    } catch {
+      alert('Fehler beim Speichern');
+    } finally {
+      setPortalSaving(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    setPortalSaving(true);
+    try {
+      const response = await fetch(`/api/employees/${id}/portal-access/reset-password`, {
+        method: 'POST',
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        alert(data.error || 'Fehler beim Zurücksetzen');
+        return;
+      }
+      setTempPasswordModal({ password: data.tempPassword });
+    } catch {
+      alert('Fehler beim Zurücksetzen des Passworts');
+    } finally {
+      setPortalSaving(false);
+    }
+  };
+
+  const handleRevokePortalAccess = async () => {
+    setPortalDeleting(true);
+    try {
+      const response = await fetch(`/api/employees/${id}/portal-access`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) {
+        const data = await response.json();
+        alert(data.error || 'Fehler beim Widerrufen');
+        return;
+      }
+      setPortalUser(null);
+      setShowRevokeDialog(false);
+      setShowCreateForm(false);
+    } catch {
+      alert('Fehler beim Widerrufen des Portalzugangs');
+    } finally {
+      setPortalDeleting(false);
     }
   };
 
@@ -446,6 +585,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
     { id: 'clothing', label: 'Arbeitskleidung', icon: Shirt, count: employee.clothingOrders.length },
     { id: 'vacations', label: 'Urlaube', icon: Calendar, count: employee.vacations.length },
     { id: 'qualifications', label: 'Qualifikationen', icon: Award, count: (employee as any)._count?.qualifications ?? 0 },
+    { id: 'portal', label: 'Portalzugriff', icon: ShieldCheck },
   ];
 
   const inputClass = "w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500";
@@ -1407,7 +1547,286 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
         {activeTab === 'qualifications' && (
           <EmployeeQualificationsTab employeeId={employee.id} />
         )}
+
+        {activeTab === 'portal' && (
+          <div>
+            {portalLoading ? (
+              <div className="flex h-40 items-center justify-center">
+                <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary-600 border-t-transparent" />
+              </div>
+            ) : portalUser === null ? (
+              /* ── No portal access ── */
+              <div className="space-y-4">
+                <div className="flex items-start gap-4 rounded-lg border border-gray-200 bg-gray-50 p-5">
+                  <Lock className="mt-0.5 h-5 w-5 shrink-0 text-gray-400" />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Kein Portalzugang vorhanden</p>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Dieser Mitarbeiter hat noch keinen Login-Zugang zum Mitarbeiterportal.
+                    </p>
+                  </div>
+                </div>
+
+                {!showCreateForm ? (
+                  <button
+                    onClick={() => {
+                      setPortalCreateForm({
+                        username: `${employee.firstName.toLowerCase()}.${employee.lastName.toLowerCase()}`.replace(/\s+/g, ''),
+                        email: employee.email || '',
+                        role: 'USER',
+                      });
+                      setShowCreateForm(true);
+                    }}
+                    className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Portalzugang anlegen
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+                    <h4 className="mb-4 text-sm font-semibold text-gray-900">Neuen Portalzugang anlegen</h4>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-700">Benutzername *</label>
+                        <input
+                          type="text"
+                          value={portalCreateForm.username}
+                          onChange={(e) => setPortalCreateForm((f) => ({ ...f, username: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          placeholder="z.B. max.mustermann"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-700">E-Mail</label>
+                        <input
+                          type="email"
+                          value={portalCreateForm.email}
+                          onChange={(e) => setPortalCreateForm((f) => ({ ...f, email: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                          placeholder="vorname.nachname@firma.de"
+                        />
+                      </div>
+                      <div>
+                        <label className="mb-1 block text-xs font-medium text-gray-700">Rolle</label>
+                        <select
+                          value={portalCreateForm.role}
+                          onChange={(e) => setPortalCreateForm((f) => ({ ...f, role: e.target.value }))}
+                          className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        >
+                          <option value="USER">Benutzer</option>
+                          <option value="ADMIN">Administrator</option>
+                        </select>
+                      </div>
+                      <div className="flex gap-3 pt-1">
+                        <button
+                          onClick={handleCreatePortalAccess}
+                          disabled={portalSaving || !portalCreateForm.username.trim()}
+                          className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                        >
+                          {portalSaving ? 'Wird angelegt...' : 'Anlegen'}
+                        </button>
+                        <button
+                          onClick={() => setShowCreateForm(false)}
+                          className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                        >
+                          Abbrechen
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* ── Portal access exists ── */
+              <div className="space-y-6">
+                <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+                  {/* Card header */}
+                  <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                    <div className="flex items-center gap-2">
+                      <ShieldCheck className="h-5 w-5 text-primary-600" />
+                      <span className="text-sm font-semibold text-gray-900">Portalzugang</span>
+                    </div>
+                    <button
+                      onClick={() => setPortalEditForm((f) => ({ ...f, isActive: !f.isActive }))}
+                      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${
+                        portalEditForm.isActive
+                          ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                          : 'bg-red-100 text-red-700 hover:bg-red-200'
+                      }`}
+                      title="Klicken zum Umschalten, dann Speichern"
+                    >
+                      <span className={`h-2 w-2 rounded-full ${portalEditForm.isActive ? 'bg-green-500' : 'bg-red-500'}`} />
+                      {portalEditForm.isActive ? 'Aktiv' : 'Inaktiv'}
+                    </button>
+                  </div>
+
+                  {/* Fields */}
+                  <div className="grid grid-cols-1 gap-5 p-6 md:grid-cols-2">
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Benutzername</label>
+                      <input
+                        type="text"
+                        value={portalEditForm.username}
+                        onChange={(e) => setPortalEditForm((f) => ({ ...f, username: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">E-Mail</label>
+                      <input
+                        type="email"
+                        value={portalEditForm.email}
+                        onChange={(e) => setPortalEditForm((f) => ({ ...f, email: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                        placeholder="Keine E-Mail hinterlegt"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Rolle</label>
+                      <select
+                        value={portalEditForm.role}
+                        onChange={(e) => setPortalEditForm((f) => ({ ...f, role: e.target.value }))}
+                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
+                      >
+                        <option value="USER">Benutzer</option>
+                        <option value="ADMIN">Administrator</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-700">Passwort</label>
+                      <div className="flex gap-2">
+                        <input
+                          type="password"
+                          value="placeholder"
+                          readOnly
+                          className="w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-400"
+                        />
+                        <button
+                          onClick={handleResetPassword}
+                          disabled={portalSaving}
+                          className="shrink-0 rounded-lg border border-gray-300 px-3 py-2 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          title="Passwort zurücksetzen"
+                        >
+                          Zurücksetzen
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-500">Letzter Login</label>
+                      <p className="mt-1 text-sm text-gray-700">
+                        {portalUser.lastLogin ? formatDate(portalUser.lastLogin) : 'Noch nie eingeloggt'}
+                      </p>
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-gray-500">Konto erstellt</label>
+                      <p className="mt-1 text-sm text-gray-700">{formatDate(portalUser.createdAt)}</p>
+                    </div>
+                  </div>
+
+                  {/* Footer actions */}
+                  <div className="flex items-center justify-between border-t border-gray-100 px-6 py-4">
+                    <button
+                      onClick={handleUpdatePortalAccess}
+                      disabled={portalSaving}
+                      className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+                    >
+                      <Save className="h-4 w-4" />
+                      {portalSaving ? 'Speichern...' : 'Speichern'}
+                    </button>
+                    <button
+                      onClick={() => setShowRevokeDialog(true)}
+                      className="flex items-center gap-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                    >
+                      <X className="h-4 w-4" />
+                      Zugang widerrufen
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
+
+      {/* Temp Password Modal */}
+      {tempPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-base font-semibold text-gray-900">Temporäres Passwort</h3>
+              <button
+                onClick={() => { setTempPasswordModal(null); setCopied(false); }}
+                className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mb-3 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              <Lock className="h-4 w-4 shrink-0" />
+              Dieses Passwort wird nur einmal angezeigt. Bitte jetzt notieren oder kopieren.
+            </div>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                readOnly
+                value={tempPasswordModal.password}
+                className="w-full rounded-lg border border-gray-300 bg-gray-50 px-3 py-2 font-mono text-sm text-gray-900 focus:outline-none"
+              />
+              <button
+                onClick={() => {
+                  navigator.clipboard.writeText(tempPasswordModal.password);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 2000);
+                }}
+                className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                {copied ? <Check className="h-4 w-4 text-green-600" /> : <Copy className="h-4 w-4" />}
+                {copied ? 'Kopiert' : 'Kopieren'}
+              </button>
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                onClick={() => { setTempPasswordModal(null); setCopied(false); }}
+                className="rounded-lg bg-primary-600 px-5 py-2 text-sm font-medium text-white hover:bg-primary-700"
+              >
+                Fertig
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Revoke Confirmation Dialog */}
+      {showRevokeDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h3 className="text-base font-semibold text-gray-900">Portalzugang widerrufen</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Möchten Sie den Portalzugang von{' '}
+              <strong>{portalUser?.username}</strong> wirklich löschen?
+            </p>
+            <p className="mt-1 text-xs text-red-600">
+              Der Login-Account wird endgültig gelöscht. Diese Aktion kann nicht rückgängig gemacht werden.
+            </p>
+            <div className="mt-5 flex justify-end gap-3">
+              <button
+                onClick={() => setShowRevokeDialog(false)}
+                disabled={portalDeleting}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={handleRevokePortalAccess}
+                disabled={portalDeleting}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {portalDeleting ? 'Wird gelöscht...' : 'Zugang löschen'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Upload Modal - new document */}
       <UploadDocumentModal

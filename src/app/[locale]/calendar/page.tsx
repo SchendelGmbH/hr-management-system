@@ -2,11 +2,12 @@
 
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import deLocale from '@fullcalendar/core/locales/de';
-import { Plus, List, Calendar as CalendarIcon, Trash2, ExternalLink } from 'lucide-react';
+import { Plus, List, Calendar as CalendarIcon, Trash2, ExternalLink, Pencil } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import AddVacationModal from '@/components/calendar/AddVacationModal';
 
@@ -80,7 +81,7 @@ const TYPE_LABELS: Record<string, string> = {
 const FILTER_GROUPS: { label: string; types: EventType[] }[] = [
   {
     label: 'Abwesenheiten',
-    types: ['VACATION', 'SICK', 'SPECIAL', 'SCHOOL', 'SCHOOL_BLOCK'],
+    types: ['SICK', 'VACATION', 'SPECIAL', 'SCHOOL', 'SCHOOL_BLOCK'],
   },
   {
     label: 'Fristen',
@@ -119,6 +120,8 @@ function daysBetween(start: string, end: string): number {
 export default function CalendarPage() {
   const params = useParams();
   const locale = (params?.locale as string) ?? 'de';
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   const [events, setEvents] = useState<CalendarEvent[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,6 +130,7 @@ export default function CalendarPage() {
   const [showList, setShowList] = useState(false);
   const [selected, setSelected] = useState<CalendarEvent | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [visibleTypes, setVisibleTypes] = useState<Set<EventType>>(
     new Set(Object.keys(TYPE_COLORS) as EventType[])
   );
@@ -165,6 +169,25 @@ export default function CalendarPage() {
     }
   }
 
+  async function handleSaveDates(startDate: string, endDate: string) {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/vacations/${selected.sourceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate, endDate }),
+      });
+      if (!res.ok) { alert('Fehler beim Speichern'); return; }
+      setSelected(null);
+      fetchEvents();
+    } catch {
+      alert('Fehler beim Speichern');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function toggleType(type: EventType) {
     setVisibleTypes((prev) => {
       const next = new Set(prev);
@@ -187,6 +210,10 @@ export default function CalendarPage() {
 
   const ABSENCE_TYPES = new Set(['VACATION', 'SICK', 'SPECIAL', 'SCHOOL', 'SCHOOL_BLOCK']);
 
+  const EVENT_SORT_ORDER: Partial<Record<EventType, number>> = {
+    SICK: 1, VACATION: 2, SPECIAL: 3, SCHOOL: 4, SCHOOL_BLOCK: 5,
+  };
+
   const calendarEvents = filteredEvents.map((e) => ({
     id: e.id,
     title: e.title,
@@ -200,6 +227,7 @@ export default function CalendarPage() {
     extendedProps: {
       typeLabel: ABSENCE_TYPES.has(e.type) ? (TYPE_LABELS[e.type] ?? '') : '',
       isAbsence: ABSENCE_TYPES.has(e.type),
+      sortOrder: EVENT_SORT_ORDER[e.type] ?? 99,
     },
   }));
 
@@ -224,13 +252,15 @@ export default function CalendarPage() {
             {showList ? <CalendarIcon className="h-4 w-4" /> : <List className="h-4 w-4" />}
             <span>{showList ? 'Kalenderansicht' : 'Listenansicht'}</span>
           </button>
-          <button
-            onClick={() => setIsAddModalOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-          >
-            <Plus className="h-5 w-5" />
-            <span>Abwesenheit hinzufügen</span>
-          </button>
+          {isAdmin && (
+            <button
+              onClick={() => setIsAddModalOpen(true)}
+              className="flex items-center gap-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+            >
+              <Plus className="h-5 w-5" />
+              <span>Abwesenheit hinzufügen</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -330,6 +360,9 @@ export default function CalendarPage() {
               validRange={{ start: VALID_START, end: VALID_END }}
               height="auto"
               eventDisplay="block"
+              eventOrder={(a: { extendedProps: { sortOrder?: number } }, b: { extendedProps: { sortOrder?: number } }) =>
+                (a.extendedProps?.sortOrder ?? 99) - (b.extendedProps?.sortOrder ?? 99)
+              }
               dayMaxEvents={5}
             />
           )}
@@ -341,9 +374,12 @@ export default function CalendarPage() {
         <EventDetailModal
           event={selected}
           locale={locale}
+          isAdmin={isAdmin}
           onClose={() => setSelected(null)}
           onDelete={handleDelete}
+          onSaveDates={handleSaveDates}
           deleting={deleting}
+          saving={saving}
         />
       )}
     </div>
@@ -355,19 +391,30 @@ export default function CalendarPage() {
 function EventDetailModal({
   event,
   locale,
+  isAdmin,
   onClose,
   onDelete,
+  onSaveDates,
   deleting,
+  saving,
 }: {
   event: CalendarEvent;
   locale: string;
+  isAdmin: boolean;
   onClose: () => void;
   onDelete: () => void;
+  onSaveDates: (startDate: string, endDate: string) => void;
   deleting: boolean;
+  saving: boolean;
 }) {
   const isVacation  = event.sourceType === 'vacation';
   const isMultiDay  = event.start !== event.end;
   const days        = isMultiDay ? daysBetween(event.start, event.end) : null;
+
+  const [editingDates, setEditingDates] = useState(false);
+  const [editStart, setEditStart] = useState(event.start);
+  const [editEnd, setEditEnd] = useState(event.end);
+  const [dateError, setDateError] = useState('');
 
   const dateLabel: Record<string, string> = {
     DOC_EXPIRY:          'Ablaufdatum',
@@ -452,7 +499,32 @@ function EventDetailModal({
           )}
 
           {/* Date(s) */}
-          {isMultiDay ? (
+          {isVacation && editingDates ? (
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Von</label>
+                  <input
+                    type="date"
+                    value={editStart}
+                    onChange={(e) => { setEditStart(e.target.value); setDateError(''); }}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Bis</label>
+                  <input
+                    type="date"
+                    value={editEnd}
+                    min={editStart}
+                    onChange={(e) => { setEditEnd(e.target.value); setDateError(''); }}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              {dateError && <p className="text-xs text-red-600">{dateError}</p>}
+            </div>
+          ) : isMultiDay ? (
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-gray-500">Von</p>
@@ -471,7 +543,7 @@ function EventDetailModal({
           )}
 
           {/* Duration (vacations) */}
-          {days !== null && (
+          {days !== null && !editingDates && (
             <div>
               <p className="text-xs text-gray-500">Dauer</p>
               <p className="font-medium text-gray-900">{days} {days === 1 ? 'Tag' : 'Tage'}</p>
@@ -489,32 +561,65 @@ function EventDetailModal({
 
         {/* Actions */}
         <div className="mt-6 flex flex-wrap justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Schließen
-          </button>
+          {editingDates ? (
+            <>
+              <button
+                onClick={() => { setEditingDates(false); setEditStart(event.start); setEditEnd(event.end); setDateError(''); }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+              <button
+                onClick={() => {
+                  if (editEnd < editStart) { setDateError('Enddatum muss nach dem Anfangsdatum liegen.'); return; }
+                  onSaveDates(editStart, editEnd);
+                }}
+                disabled={saving}
+                className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
+              >
+                {saving ? 'Speichern...' : 'Speichern'}
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={onClose}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Schließen
+              </button>
 
-          {event.employee && (
-            <a
-              href={`/${locale}/employees/${event.employee.id}`}
-              className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Zum Mitarbeiter
-            </a>
-          )}
+              {event.employee && (
+                <a
+                  href={`/${locale}/employees/${event.employee.id}`}
+                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  Zum Mitarbeiter
+                </a>
+              )}
 
-          {isVacation && (
-            <button
-              onClick={onDelete}
-              disabled={deleting}
-              className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-            >
-              <Trash2 className="h-4 w-4" />
-              {deleting ? 'Löschen...' : 'Löschen'}
-            </button>
+              {isVacation && isAdmin && (
+                <button
+                  onClick={() => setEditingDates(true)}
+                  className="flex items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                >
+                  <Pencil className="h-4 w-4" />
+                  Dauer ändern
+                </button>
+              )}
+
+              {isVacation && isAdmin && (
+                <button
+                  onClick={onDelete}
+                  disabled={deleting}
+                  className="flex items-center gap-2 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  {deleting ? 'Löschen...' : 'Löschen'}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -1,0 +1,46 @@
+# Abhängigkeiten (werden im Container neu installiert)
+node_modules
+npm-debug.log*
+
+# Build-Artefakte
+.next
+out
+
+# Entwicklungs-Dateien
+.env
+.env.local
+.env.development
+.env.test
+
+# Version Control
+.git
+.gitignore
+
+# IDE / Editor
+.vscode
+.idea
+*.swp
+*.swo
+
+# Betriebssystem
+.DS_Store
+Thumbs.db
+
+# Tests
+coverage
+.nyc_output
+
+# Logs
+logs
+*.log
+
+# Uploads (werden als Volume eingebunden)
+public/uploads
+
+# Prisma Migrations (nur Schema wird benötigt)
+prisma/migrations
+
+# Docker-Dateien selbst
+Dockerfile
+docker-compose.yml
+.dockerignore

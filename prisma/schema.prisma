@@ -33,6 +33,7 @@ model User {
   vacationsCreated        Vacation[]       @relation("VacationCreator")
   qualificationsCreated   Qualification[]  @relation("QualificationCreator")
   dailyPlansCreated       DailyPlan[]      @relation("DailyPlanCreator")
+  employee             Employee?
 
   @@map("users")
 }
@@ -110,12 +111,16 @@ model Employee {
   driversLicenseClass String?   @default("Nein")
   forkliftLicense     Boolean   @default(false)
 
+  // Portal-Zugang
+  userId            String?   @unique
+
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
   // Relations
   department         Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
   payGrade           PayGrade?             @relation(fields: [payGradeId], references: [id], onDelete: SetNull)
+  user               User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
   documents          Document[]
   customFieldValues  CustomFieldValue[]
   employeeSize       EmployeeSize?
@@ -601,7 +606,7 @@ model DailyPlanSite {
   name         String
   location     String?
   color        String?
-  vehiclePlate String?
+  vehiclePlates String[]
   startTime    String  @default("06:00")
   endTime      String  @default("16:00")
   sortOrder    Int     @default(0)

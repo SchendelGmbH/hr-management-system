@@ -16,64 +16,80 @@ import {
   Award,
   ClipboardList,
 } from 'lucide-react';
-import { signOut } from 'next-auth/react';
+import { signOut, useSession } from 'next-auth/react';
 
-const navigation = [
+const allNavigation = [
   {
     name: 'dashboard',
     href: '/de',
     icon: LayoutDashboard,
+    adminOnly: false,
   },
   {
     name: 'employees',
     href: '/de/employees',
     icon: Users,
+    adminOnly: false,
   },
   {
     name: 'documents',
     href: '/de/documents',
     icon: FileText,
+    adminOnly: false,
   },
   {
     name: 'orders',
     href: '/de/clothing/orders',
     icon: ShoppingCart,
+    adminOnly: false,
   },
   {
     name: 'items',
     href: '/de/clothing/items',
     icon: Package,
+    adminOnly: false,
   },
   {
     name: 'woocommerceImport',
     href: '/de/clothing/woocommerce-import',
     icon: Download,
+    adminOnly: false,
   },
   {
     name: 'calendar',
     href: '/de/calendar',
     icon: Calendar,
+    adminOnly: false,
   },
   {
     name: 'planning',
     href: '/de/planning',
     icon: ClipboardList,
+    adminOnly: false,
   },
   {
     name: 'qualifications',
     href: '/de/qualifications',
     icon: Award,
+    adminOnly: false,
   },
   {
     name: 'settings',
     href: '/de/settings',
     icon: Settings,
+    adminOnly: false,
   },
 ];
 
 export default function Sidebar() {
   const pathname = usePathname();
   const t = useTranslations('nav');
+  const { data: session } = useSession();
+  const isUser = session?.user?.role === 'USER';
+
+  const navigation = isUser
+    ? allNavigation.filter((item) => item.name === 'planning' || item.name === 'calendar')
+    : allNavigation;
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: '/login' });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
+import { NRW_HOLIDAYS, findLastWorkingDay, type WeekendMode } from '@/lib/holidays';
 
 export const dynamic = 'force-dynamic';
 
@@ -51,16 +52,33 @@ export async function GET(
 
   try {
     const date = parseDate(dateStr);
+
+    // Load planning settings
+    const settingRows = await prisma.systemSetting.findMany({
+      where: { key: { in: ['planning_auto_carry_over', 'planning_pool_departments', 'planning_weekend_mode'] } },
+    });
+    const settingMap = Object.fromEntries(settingRows.map((r) => [r.key, r.value]));
+    const autoCarryOver = (settingMap.planning_auto_carry_over ?? 'true') !== 'false';
+    const weekendMode = (settingMap.planning_weekend_mode ?? 'both') as WeekendMode;
+    const poolDepartmentIds: string[] = settingMap.planning_pool_departments
+      ? (JSON.parse(settingMap.planning_pool_departments) as string[])
+      : [];
+
+    // Feiertag-Check für den aktuellen Tag
+    const currentDateStr = date.toISOString().split('T')[0];
+    const holiday = NRW_HOLIDAYS.find((h) => h.date === currentDateStr);
+    const isHoliday = !!holiday;
+    const holidayName = holiday?.name ?? null;
+
     let plan = await loadPlan(date);
     let isTemplate = false;
 
-    // If no plan for today → use yesterday's plan as template
-    if (!plan) {
-      const yesterday = prevDay(date);
-      const yesterdayPlan = await loadPlan(yesterday);
-      if (yesterdayPlan) {
-        // Return yesterday's sites/assignments as template (not saved yet)
-        plan = yesterdayPlan;
+    // If no plan for today → optionally use last working day as template
+    if (!plan && autoCarryOver) {
+      const lastWorkingDay = findLastWorkingDay(date, weekendMode);
+      const templatePlan = await loadPlan(lastWorkingDay);
+      if (templatePlan) {
+        plan = templatePlan;
         isTemplate = true;
       }
     }
@@ -82,8 +100,11 @@ export async function GET(
       },
     });
 
-    // Get all active employees
+    // Get active employees, optionally filtered by department
     const allEmployees = await prisma.employee.findMany({
+      where: poolDepartmentIds.length > 0
+        ? { departmentId: { in: poolDepartmentIds } }
+        : undefined,
       select: {
         id: true, firstName: true, lastName: true,
         employeeNumber: true, position: true,
@@ -95,6 +116,8 @@ export async function GET(
     return NextResponse.json({
       plan: isTemplate ? null : plan,
       isTemplate,
+      isHoliday,
+      holidayName,
       sites: plan?.sites ?? [],
       absences,
       allEmployees,
@@ -122,7 +145,7 @@ export async function PUT(
         name: string;
         location?: string;
         color?: string;
-        vehiclePlate?: string;
+        vehiclePlates?: string[];
         startTime?: string;
         endTime?: string;
         sortOrder?: number;
@@ -149,7 +172,7 @@ export async function PUT(
           name: s.name,
           location: s.location ?? null,
           color: s.color ?? null,
-          vehiclePlate: s.vehiclePlate ?? null,
+          vehiclePlates: s.vehiclePlates ?? [],
           startTime: s.startTime ?? '06:00',
           endTime: s.endTime ?? '16:00',
           sortOrder: s.sortOrder ?? i,
@@ -176,21 +199,25 @@ export async function PUT(
           color: s.color ?? null,
           defaultStartTime: s.startTime ?? '06:00',
           defaultEndTime: s.endTime ?? '16:00',
-          defaultVehiclePlate: s.vehiclePlate ?? null,
+          defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
           lastUsedAt: new Date(),
         },
         update: {
           lastUsedAt: new Date(),
-          defaultVehiclePlate: s.vehiclePlate ?? null,
+          defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
           defaultStartTime: s.startTime ?? '06:00',
           defaultEndTime: s.endTime ?? '16:00',
         },
       });
     }
 
-    // Cleanup stale work sites (30+ days unused)
+    // Cleanup stale work sites (retention days from settings, default 30)
+    const retentionRow = await prisma.systemSetting.findUnique({
+      where: { key: 'planning_site_retention_days' },
+    });
+    const retentionDays = parseInt(retentionRow?.value ?? '30', 10) || 30;
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 30);
+    cutoff.setDate(cutoff.getDate() - retentionDays);
     await prisma.workSite.deleteMany({ where: { lastUsedAt: { lt: cutoff } } });
 
     // Return updated plan

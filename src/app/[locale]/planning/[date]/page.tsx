@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback, useRef, Fragment } from 'react';
 import { use } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import {
   ChevronLeft, ChevronRight, Plus, X, Pencil, Check, Trash2, Printer,
-  AlertTriangle, Car, Clock, MapPin,
+  AlertTriangle, Car, Clock, MapPin, RotateCcw,
 } from 'lucide-react';
+import { isSkippedDay, type WeekendMode } from '@/lib/holidays';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,7 +35,7 @@ interface PlanSite {
   id?: string;
   name: string;
   location?: string;
-  vehiclePlate?: string;
+  vehiclePlates: string[];
   startTime: string;
   endTime: string;
   sortOrder: number;
@@ -86,6 +87,19 @@ function formatDateDE(dateStr: string): string {
   return `${d}.${m}.${y}`;
 }
 
+function getWeekdayDE(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('de-DE', { weekday: 'long' });
+}
+
+function getCalendarWeek(dateStr: string): number {
+  const d = new Date(dateStr);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() + 3 - ((d.getDay() + 6) % 7));
+  const week1 = new Date(d.getFullYear(), 0, 4);
+  return 1 + Math.round(((d.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7);
+}
+
 function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
@@ -93,6 +107,15 @@ function todayStr(): string {
 function offsetDate(dateStr: string, days: number): string {
   const d = new Date(dateStr);
   d.setDate(d.getDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+function nextWorkingDay(dateStr: string, delta: number, weekendMode: WeekendMode): string {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(Date.UTC(year, month - 1, day));
+  do {
+    d.setUTCDate(d.getUTCDate() + delta);
+  } while (isSkippedDay(d, weekendMode));
   return d.toISOString().split('T')[0];
 }
 
@@ -104,6 +127,8 @@ function newTempId() { return `temp-${++tempIdCounter}`; }
 export default function DailyPlanningPage({ params }: { params: Promise<{ date: string }> }) {
   const { date } = use(params);
   const router = useRouter();
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
 
   const [sites, setSites] = useState<PlanSite[]>([]);
   const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
@@ -111,8 +136,12 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   const [workSites, setWorkSites] = useState<WorkSite[]>([]);
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [isTemplate, setIsTemplate] = useState(false);
+  const [isHoliday, setIsHoliday] = useState(false);
+  const [holidayName, setHolidayName] = useState<string | null>(null);
+  const [weekendMode, setWeekendMode] = useState<WeekendMode>('both');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   // Which employee is being assigned (click from pool)
   const [assigningEmployee, setAssigningEmployee] = useState<Employee | null>(null);
@@ -133,18 +162,33 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   const [dragOverAbsenceType, setDragOverAbsenceType] = useState<VacationType | null>(null);
   const [draggingFromAbsenceId, setDraggingFromAbsenceId] = useState<string | null>(null);
   const absenceDropHandledRef = useRef(false);
+  // Absence date modal
+  const [pendingAbsence, setPendingAbsence] = useState<{
+    employee: Employee;
+    type: VacationType;
+    fromSiteIdx: number | null;
+    fromAbsenceId: string | null;
+  } | null>(null);
+  const [absenceDateForm, setAbsenceDateForm] = useState({ startDate: '', endDate: '' });
+  const [absenceDateError, setAbsenceDateError] = useState('');
+  const scrollRAFRef = useRef<number | null>(null);
   // Which assignment is being noted
   const [editingNote, setEditingNote] = useState<{ siteIdx: number; empIdx: number } | null>(null);
   const [noteValue, setNoteValue] = useState('');
   // Delete site confirm
   const [deleteSiteIdx, setDeleteSiteIdx] = useState<number | null>(null);
+  // Reset plan confirm
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showResetEmployeesConfirm, setShowResetEmployeesConfirm] = useState(false);
+  const [showResetVehiclesConfirm, setShowResetVehiclesConfirm] = useState(false);
   // Autocomplete
   const [autocompleteQuery, setAutocompleteQuery] = useState('');
   const [showAutocomplete, setShowAutocomplete] = useState(false);
   const autocompleteRef = useRef<HTMLDivElement>(null);
   // New site form
   const [showNewSiteForm, setShowNewSiteForm] = useState(false);
-  const [newSiteForm, setNewSiteForm] = useState({ name: '', location: '', vehiclePlate: '', startTime: '06:00', endTime: '16:00' });
+  const [defaultTimes, setDefaultTimes] = useState({ startTime: '06:00', endTime: '16:00' });
+  const [newSiteForm, setNewSiteForm] = useState({ name: '', location: '', startTime: '06:00', endTime: '16:00' });
 
   const saveToServer = useCallback(async (updatedSites: PlanSite[]) => {
     setSaving(true);
@@ -153,7 +197,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
         sites: updatedSites.map((s, i) => ({
           name: s.name,
           location: s.location || undefined,
-          vehiclePlate: s.vehiclePlate || undefined,
+          vehiclePlates: s.vehiclePlates,
           startTime: s.startTime,
           endTime: s.endTime,
           sortOrder: i,
@@ -163,14 +207,22 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
           })),
         })),
       };
-      await fetch(`/api/daily-plans/${date}`, {
+      const res = await fetch(`/api/daily-plans/${date}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      setIsTemplate(false);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        console.error('Save error:', data);
+        setSaveError(true);
+      } else {
+        setSaveError(false);
+        setIsTemplate(false);
+      }
     } catch (err) {
       console.error('Save error:', err);
+      setSaveError(true);
     } finally {
       setSaving(false);
     }
@@ -179,14 +231,22 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   const fetchPlan = useCallback(async () => {
     setLoading(true);
     try {
-      const [planRes, wsRes, vehiclesRes] = await Promise.all([
+      const [planRes, wsRes, vehiclesRes, planningSettingsRes] = await Promise.all([
         fetch(`/api/daily-plans/${date}`),
         fetch('/api/work-sites'),
         fetch('/api/vehicles'),
+        fetch('/api/settings/planning'),
       ]);
       const planData = await planRes.json();
       const wsData = await wsRes.json();
       const vehiclesData = await vehiclesRes.json();
+      const planningSettings = await planningSettingsRes.json();
+
+      const startTime = planningSettings.defaultStartTime ?? '06:00';
+      const endTime = planningSettings.defaultEndTime ?? '16:00';
+      setDefaultTimes({ startTime, endTime });
+      setNewSiteForm((prev) => ({ ...prev, startTime, endTime }));
+      setWeekendMode((planningSettings.weekendMode ?? 'both') as WeekendMode);
 
       setWorkSites(wsData.workSites ?? []);
       setVehicles(vehiclesData.vehicles ?? []);
@@ -197,6 +257,8 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
         employee: a.employee,
       })));
       setIsTemplate(planData.isTemplate ?? false);
+      setIsHoliday(planData.isHoliday ?? false);
+      setHolidayName(planData.holidayName ?? null);
 
       // Convert API sites to local state
       const loadedSites: PlanSite[] = (planData.sites ?? []).map((s: any) => ({
@@ -204,7 +266,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
         id: s.id,
         name: s.name,
         location: s.location ?? '',
-        vehiclePlate: s.vehiclePlate ?? '',
+        vehiclePlates: s.vehiclePlates ?? [],
         startTime: s.startTime ?? '06:00',
         endTime: s.endTime ?? '16:00',
         sortOrder: s.sortOrder ?? 0,
@@ -225,6 +287,59 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   }, [date]);
 
   useEffect(() => { fetchPlan(); }, [fetchPlan]);
+
+  // Auto-scroll while dragging near viewport edges
+  useEffect(() => {
+    const ZONE = 80;  // px from edge to trigger scroll
+    const SPEED = 15; // max px per frame
+
+    const getMain = () => document.querySelector('main') as HTMLElement | null;
+
+    const onDragOver = (e: DragEvent) => {
+      const main = getMain();
+      if (!main) return;
+      const { top, bottom } = main.getBoundingClientRect();
+      const y = e.clientY;
+
+      if (scrollRAFRef.current) {
+        cancelAnimationFrame(scrollRAFRef.current);
+        scrollRAFRef.current = null;
+      }
+
+      const tick = () => {
+        const el = getMain();
+        if (!el) return;
+        if (y - top < ZONE && y - top >= 0) {
+          const intensity = 1 - (y - top) / ZONE;
+          el.scrollBy(0, -Math.ceil(SPEED * intensity));
+          scrollRAFRef.current = requestAnimationFrame(tick);
+        } else if (bottom - y < ZONE && bottom - y >= 0) {
+          const intensity = 1 - (bottom - y) / ZONE;
+          el.scrollBy(0, Math.ceil(SPEED * intensity));
+          scrollRAFRef.current = requestAnimationFrame(tick);
+        }
+      };
+
+      tick();
+    };
+
+    const stopScroll = () => {
+      if (scrollRAFRef.current) {
+        cancelAnimationFrame(scrollRAFRef.current);
+        scrollRAFRef.current = null;
+      }
+    };
+
+    document.addEventListener('dragover', onDragOver);
+    document.addEventListener('dragend', stopScroll);
+    document.addEventListener('drop', stopScroll);
+    return () => {
+      document.removeEventListener('dragover', onDragOver);
+      document.removeEventListener('dragend', stopScroll);
+      document.removeEventListener('drop', stopScroll);
+      stopScroll();
+    };
+  }, []);
 
   // Close autocomplete on outside click
   useEffect(() => {
@@ -249,9 +364,11 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     absenceByEmployee.set(a.employee.id, a.vacationType);
   }
 
-  const poolEmployees = allEmployees.filter((e) => !assignedEmployeeIds.has(e.id) && !absentEmployeeIds.has(e.id));
+  const poolEmployees = allEmployees
+    .filter((e) => !assignedEmployeeIds.has(e.id) && !absentEmployeeIds.has(e.id))
+    .sort((a, b) => a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName));
 
-  const usedVehiclePlates = new Set(sites.map((s) => s.vehiclePlate).filter(Boolean));
+  const usedVehiclePlates = new Set(sites.flatMap((s) => s.vehiclePlates));
   const poolVehicles = vehicles.filter((v) => !usedVehiclePlates.has(v.plate));
 
   const groupedAbsences: Record<VacationType, Employee[]> = {
@@ -267,10 +384,12 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     .filter(Boolean)
     .sort((a, b) => a.lastName.localeCompare(b.lastName));
 
-  // Autocomplete filter
+  // Autocomplete filter (exclude already used sites)
+  const usedSiteNames = new Set(sites.map((s) => s.name.toLowerCase()));
   const filteredWorkSites = workSites.filter((ws) =>
-    ws.name.toLowerCase().includes(autocompleteQuery.toLowerCase()) ||
-    (ws.location ?? '').toLowerCase().includes(autocompleteQuery.toLowerCase())
+    !usedSiteNames.has(ws.name.toLowerCase()) &&
+    (ws.name.toLowerCase().includes(autocompleteQuery.toLowerCase()) ||
+    (ws.location ?? '').toLowerCase().includes(autocompleteQuery.toLowerCase()))
   );
 
   // ── Actions ───────────────────────────────────────────────────────────────────
@@ -281,7 +400,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
       _tempId: newTempId(),
       name: newSiteForm.name.trim(),
       location: newSiteForm.location.trim(),
-      vehiclePlate: newSiteForm.vehiclePlate.trim(),
+      vehiclePlates: [],
       startTime: newSiteForm.startTime || '06:00',
       endTime: newSiteForm.endTime || '16:00',
       sortOrder: sites.length,
@@ -290,7 +409,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     };
     const updated = [...sites, s];
     setSites(updated);
-    setNewSiteForm({ name: '', location: '', vehiclePlate: '', startTime: '06:00', endTime: '16:00' });
+    setNewSiteForm({ name: '', location: '', startTime: defaultTimes.startTime, endTime: defaultTimes.endTime });
     setShowNewSiteForm(false);
     saveToServer(updated);
   };
@@ -300,7 +419,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
       _tempId: newTempId(),
       name: ws.name,
       location: ws.location ?? '',
-      vehiclePlate: ws.defaultVehiclePlate ?? '',
+      vehiclePlates: ws.defaultVehiclePlate ? [ws.defaultVehiclePlate] : [],
       startTime: ws.defaultStartTime,
       endTime: ws.defaultEndTime,
       sortOrder: sites.length,
@@ -313,6 +432,13 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     setShowAutocomplete(false);
     setAutocompleteQuery('');
     saveToServer(updated);
+  };
+
+  const deleteWorkSite = async (ws: WorkSite, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm(`Baustelle "${ws.name}" dauerhaft löschen?`)) return;
+    await fetch(`/api/work-sites/${ws.id}`, { method: 'DELETE' });
+    setWorkSites((prev) => prev.filter((w) => w.id !== ws.id));
   };
 
   const removeSite = (idx: number) => {
@@ -383,9 +509,11 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   };
 
   const assignVehicleToPlanSite = (vehicle: Vehicle, siteIdx: number) => {
-    const updated = sites.map((s, i) =>
-      i === siteIdx ? { ...s, vehiclePlate: vehicle.plate } : s
-    );
+    const updated = sites.map((s, i) => {
+      if (i !== siteIdx) return s;
+      if (s.vehiclePlates.includes(vehicle.plate)) return s;
+      return { ...s, vehiclePlates: [...s.vehiclePlates, vehicle.plate] };
+    });
     setSites(updated);
     saveToServer(updated);
   };
@@ -393,17 +521,20 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
   const moveVehicle = (vehicle: Vehicle, fromSiteIdx: number, toSiteIdx: number) => {
     if (fromSiteIdx === toSiteIdx) return;
     const updated = sites.map((s, i) => {
-      if (i === fromSiteIdx) return { ...s, vehiclePlate: '' };
-      if (i === toSiteIdx) return { ...s, vehiclePlate: vehicle.plate };
+      if (i === fromSiteIdx) return { ...s, vehiclePlates: s.vehiclePlates.filter((p) => p !== vehicle.plate) };
+      if (i === toSiteIdx) {
+        if (s.vehiclePlates.includes(vehicle.plate)) return s;
+        return { ...s, vehiclePlates: [...s.vehiclePlates, vehicle.plate] };
+      }
       return s;
     });
     setSites(updated);
     saveToServer(updated);
   };
 
-  const clearVehicleFromSite = (siteIdx: number) => {
+  const removeVehicleFromSite = (siteIdx: number, plate: string) => {
     const updated = sites.map((s, i) =>
-      i === siteIdx ? { ...s, vehiclePlate: '' } : s
+      i === siteIdx ? { ...s, vehiclePlates: s.vehiclePlates.filter((p) => p !== plate) } : s
     );
     setSites(updated);
     saveToServer(updated);
@@ -441,15 +572,15 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     }
   };
 
-  const createAbsenceDirectly = async (employee: Employee, type: VacationType, fromSiteIdx: number | null) => {
+  const createAbsenceDirectly = async (employee: Employee, type: VacationType, fromSiteIdx: number | null, startDate: string = date, endDate: string = date) => {
     try {
       const res = await fetch('/api/vacations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           employeeId: employee.id,
-          startDate: date,
-          endDate: date,
+          startDate,
+          endDate,
           vacationType: type,
         }),
       });
@@ -480,8 +611,29 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
     }
   };
 
+  const resetPlan = () => {
+    setSites([]);
+    setIsTemplate(false);
+    setShowResetConfirm(false);
+    saveToServer([]);
+  };
+
+  const resetEmployees = () => {
+    const updated = sites.map((s) => ({ ...s, assignments: [] }));
+    setSites(updated);
+    setShowResetEmployeesConfirm(false);
+    saveToServer(updated);
+  };
+
+  const resetVehicles = () => {
+    const updated = sites.map((s) => ({ ...s, vehiclePlates: [] }));
+    setSites(updated);
+    setShowResetVehiclesConfirm(false);
+    saveToServer(updated);
+  };
+
   const navigateDate = (delta: number) => {
-    router.push(`/de/planning/${offsetDate(date, delta)}`);
+    router.push(`/de/planning/${nextWorkingDay(date, delta, weekendMode)}`);
   };
 
   // ── Print ─────────────────────────────────────────────────────────────────────
@@ -527,7 +679,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
               <ChevronRight className="h-4 w-4" />
             </button>
             <h1 className="text-xl font-bold text-gray-900">
-              Tagesplanung – {formatDateDE(date)}
+              Tagesplanung – {getWeekdayDE(date)}, {formatDateDE(date)}
             </h1>
             {date === todayStr() && (
               <span className="rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-medium text-primary-700">Heute</span>
@@ -535,6 +687,33 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
           </div>
           <div className="flex items-center gap-2">
             {saving && <span className="text-xs text-gray-400">Speichert…</span>}
+            {saveError && !saving && (
+              <span className="text-xs text-red-600 font-medium">Speichern fehlgeschlagen – Server neu starten?</span>
+            )}
+            <button
+              onClick={() => setShowResetEmployeesConfirm(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-600"
+              title="Mitarbeiterzuweisungen zurücksetzen"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Mitarbeiter zurücksetzen
+            </button>
+            <button
+              onClick={() => setShowResetVehiclesConfirm(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-500 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-600"
+              title="Fahrzeugzuweisungen zurücksetzen"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Fahrzeuge zurücksetzen
+            </button>
+            <button
+              onClick={() => setShowResetConfirm(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-500 hover:bg-red-50 hover:border-red-300 hover:text-red-600"
+              title="Planung komplett zurücksetzen"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Komplett zurücksetzen
+            </button>
             <button
               onClick={handlePrint}
               className="flex items-center gap-1.5 rounded-lg border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
@@ -545,11 +724,19 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
           </div>
         </div>
 
+        {/* Holiday banner */}
+        {isHoliday && (
+          <div className="flex items-center gap-2 rounded-lg border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-700">
+            <AlertTriangle className="h-4 w-4 shrink-0" />
+            Feiertag{holidayName ? `: ${holidayName}` : ''}
+          </div>
+        )}
+
         {/* Template banner */}
         {isTemplate && (
           <div className="flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-2 text-sm text-yellow-800">
             <AlertTriangle className="h-4 w-4 shrink-0" />
-            Vorlage von gestern geladen – erste Änderung speichert den Plan für heute.
+            Vorlage vom letzten Arbeitstag geladen – erste Änderung speichert den Plan für heute.
           </div>
         )}
 
@@ -564,10 +751,10 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
               )}
               <div
                 className={`rounded-lg border bg-white shadow-sm transition-colors ${
-                  dragOverSiteIdx === siteIdx
-                    ? draggingVehicle
-                      ? 'border-amber-400 ring-2 ring-amber-300 bg-amber-50'
-                      : 'border-primary-400 ring-2 ring-primary-300 bg-primary-50'
+                  dragOverSiteIdx === siteIdx && draggingEmployee
+                    ? 'border-primary-400 ring-2 ring-primary-300 bg-primary-50'
+                    : dragOverSiteIdx === siteIdx && draggingVehicle
+                    ? 'border-amber-400 ring-2 ring-amber-300 bg-amber-50'
                     : 'border-gray-200'
                 }`}
                 onDragOver={(e) => { e.preventDefault(); setDragOverSiteIdx(siteIdx); }}
@@ -575,15 +762,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                 onDrop={(e) => {
                   e.preventDefault();
                   setDragOverSiteIdx(null);
-                  if (draggingVehicle) {
-                    if (draggingVehicleFromSiteIdx !== null) {
-                      moveVehicle(draggingVehicle, draggingVehicleFromSiteIdx, siteIdx);
-                    } else {
-                      assignVehicleToPlanSite(draggingVehicle, siteIdx);
-                    }
-                    setDraggingVehicle(null);
-                    setDraggingVehicleFromSiteIdx(null);
-                  } else if (draggingEmployee) {
+                  if (draggingEmployee) {
                     absenceDropHandledRef.current = true;
                     if (draggingFromAbsenceId) {
                       setAbsences((prev) => prev.filter((a) => a.id !== draggingFromAbsenceId));
@@ -597,8 +776,17 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                     }
                     setDraggingEmployee(null);
                     setDraggingFromSiteIdx(null);
+                  } else if (draggingVehicle) {
+                    if (draggingVehicleFromSiteIdx !== null) {
+                      moveVehicle(draggingVehicle, draggingVehicleFromSiteIdx, siteIdx);
+                    } else {
+                      assignVehicleToPlanSite(draggingVehicle, siteIdx);
+                    }
+                    setDraggingVehicle(null);
+                    setDraggingVehicleFromSiteIdx(null);
                   }
                 }}
+
               >
                 {/* Site header */}
                 {site.isEditing ? (
@@ -614,12 +802,6 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                       value={site.location ?? ''}
                       onChange={(e) => updateSiteField(siteIdx, 'location', e.target.value)}
                       placeholder="Ort"
-                      className="rounded border border-gray-300 px-2 py-1 text-sm w-28 focus:outline-none focus:ring-1 focus:ring-primary-400"
-                    />
-                    <input
-                      value={site.vehiclePlate ?? ''}
-                      onChange={(e) => updateSiteField(siteIdx, 'vehiclePlate', e.target.value)}
-                      placeholder="Kennzeichen"
                       className="rounded border border-gray-300 px-2 py-1 text-sm w-28 focus:outline-none focus:ring-1 focus:ring-primary-400"
                     />
                     <input
@@ -652,39 +834,40 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500">
-                        {site.vehiclePlate && (() => {
-                          const v = vehicles.find((v) => v.plate === site.vehiclePlate);
-                          const isDraggingThis = draggingVehicle?.plate === site.vehiclePlate && draggingVehicleFromSiteIdx === siteIdx;
-                          return (
-                            <span
-                              draggable
-                              onDragStart={() => {
-                                if (v) { setDraggingVehicle(v); setDraggingVehicleFromSiteIdx(siteIdx); }
-                              }}
-                              onDragEnd={() => { setDraggingVehicle(null); setDraggingVehicleFromSiteIdx(null); setDragOverSiteIdx(null); }}
-                              className={`flex items-center gap-0.5 rounded border px-1.5 py-0.5 font-medium cursor-grab active:cursor-grabbing transition-opacity ${
-                                isDraggingThis
-                                  ? 'opacity-40 bg-amber-100 border-amber-300 text-amber-700'
-                                  : 'bg-amber-50 border-amber-200 text-amber-800'
-                              }`}
-                            >
-                              <Car className="h-3 w-3" />
-                              {site.vehiclePlate}
-                              <button
-                                onMouseDown={(e) => e.stopPropagation()}
-                                onClick={(e) => { e.stopPropagation(); clearVehicleFromSite(siteIdx); }}
-                                className="ml-0.5 text-amber-400 hover:text-amber-700"
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            </span>
-                          );
-                        })()}
                         <span className="flex items-center gap-0.5">
                           <Clock className="h-3 w-3" />
                           {site.startTime}–{site.endTime}
                         </span>
                       </div>
+                      {site.vehiclePlates.map((plate) => (
+                        <span
+                          key={plate}
+                          draggable
+                          onDragStart={() => {
+                            setDraggingVehicle({ id: '', plate, description: undefined });
+                            setDraggingVehicleFromSiteIdx(siteIdx);
+                            setDragOverSiteIdx(null);
+                          }}
+                          onDragEnd={() => {
+                            setDraggingVehicle(null);
+                            setDraggingVehicleFromSiteIdx(null);
+                          }}
+                          className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium cursor-grab active:cursor-grabbing transition-opacity ${
+                            draggingVehicle?.plate === plate && draggingVehicleFromSiteIdx === siteIdx
+                              ? 'opacity-40 bg-amber-100 text-amber-700'
+                              : 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+                          }`}
+                        >
+                          <Car className="h-3 w-3" />
+                          {plate}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeVehicleFromSite(siteIdx, plate); }}
+                            className="ml-0.5 text-amber-400 hover:text-red-500"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
                     </div>
                     <div className="flex items-center gap-1">
                       <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
@@ -792,17 +975,26 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                   {showAutocomplete && filteredWorkSites.length > 0 && (
                     <div className="absolute top-full left-0 right-0 z-10 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg">
                       {filteredWorkSites.map((ws) => (
-                        <button
-                          key={ws.id}
-                          onClick={() => addSiteFromWorkSite(ws)}
-                          className="flex w-full items-center justify-between px-4 py-2 text-sm hover:bg-gray-50 text-left"
-                        >
-                          <span className="font-medium">{ws.name}</span>
-                          <span className="text-gray-500 flex items-center gap-2">
-                            {ws.location && <span className="flex items-center gap-0.5 text-primary-600"><MapPin className="h-3 w-3" />{ws.location}</span>}
-                            {ws.defaultVehiclePlate && <span className="flex items-center gap-0.5"><Car className="h-3 w-3" />{ws.defaultVehiclePlate}</span>}
-                          </span>
-                        </button>
+                        <div key={ws.id} className="flex items-center hover:bg-gray-50 group">
+                          <button
+                            onClick={() => addSiteFromWorkSite(ws)}
+                            className="flex flex-1 items-center justify-between px-4 py-2 text-sm text-left"
+                          >
+                            <span className="font-medium">{ws.name}</span>
+                            <span className="text-gray-500 flex items-center gap-2">
+                              {ws.location && <span className="flex items-center gap-0.5 text-primary-600"><MapPin className="h-3 w-3" />{ws.location}</span>}
+                            </span>
+                          </button>
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => deleteWorkSite(ws, e)}
+                              className="mr-2 rounded p-1 text-gray-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                              title="Baustelle löschen"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          )}
+                        </div>
                       ))}
                     </div>
                   )}
@@ -812,12 +1004,6 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                     value={newSiteForm.location}
                     onChange={(e) => setNewSiteForm({ ...newSiteForm, location: e.target.value })}
                     placeholder="Ort (optional)"
-                    className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
-                  />
-                  <input
-                    value={newSiteForm.vehiclePlate}
-                    onChange={(e) => setNewSiteForm({ ...newSiteForm, vehiclePlate: e.target.value })}
-                    placeholder="Kennzeichen (optional)"
                     className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
                   />
                   <input
@@ -841,7 +1027,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                     <Check className="h-4 w-4" /> Hinzufügen
                   </button>
                   <button
-                    onClick={() => { setShowNewSiteForm(false); setAutocompleteQuery(''); setNewSiteForm({ name: '', location: '', vehiclePlate: '', startTime: '06:00', endTime: '16:00' }); }}
+                    onClick={() => { setShowNewSiteForm(false); setAutocompleteQuery(''); setNewSiteForm({ name: '', location: '', startTime: defaultTimes.startTime, endTime: defaultTimes.endTime }); }}
                     className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
                   >
                     Abbrechen
@@ -860,7 +1046,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
           </div>
 
           {/* ── Right: Employee Pool + Absences ── */}
-          <div className="w-64 shrink-0 space-y-4">
+          <div className="w-64 shrink-0 space-y-4 sticky top-6">
             {/* Mitarbeiter-Pool */}
             <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
               <div className="border-b border-gray-100 px-4 py-3">
@@ -894,7 +1080,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                         }`}
                       >
                         <span className="font-medium text-gray-800">
-                          {emp.firstName} {emp.lastName}
+                          {emp.lastName} {emp.firstName}
                         </span>
                         {absType && (
                           <span className={`rounded-full px-1.5 py-0.5 text-xs ${ABSENCE_COLORS[absType]}`}>
@@ -929,7 +1115,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
               onDrop={(e) => {
                 e.preventDefault();
                 if (draggingVehicle && draggingVehicleFromSiteIdx !== null) {
-                  clearVehicleFromSite(draggingVehicleFromSiteIdx);
+                  removeVehicleFromSite(draggingVehicleFromSiteIdx, draggingVehicle.plate);
                   setDraggingVehicle(null);
                   setDraggingVehicleFromSiteIdx(null);
                 }
@@ -1054,12 +1240,17 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                         setDraggingEmployee(null);
                         setDraggingFromSiteIdx(null);
                         setDraggingFromAbsenceId(null);
-                        if (fromAbsenceId) {
-                          // Moving between absence type rows — delete old entry first
-                          setAbsences((prev) => prev.filter((a) => a.id !== fromAbsenceId));
-                          deleteAbsence(fromAbsenceId);
+                        if (type === 'SCHOOL') {
+                          if (fromAbsenceId) {
+                            setAbsences((prev) => prev.filter((a) => a.id !== fromAbsenceId));
+                            deleteAbsence(fromAbsenceId);
+                          }
+                          createAbsenceDirectly(emp, type, fromSite);
+                        } else {
+                          setPendingAbsence({ employee: emp, type, fromSiteIdx: fromSite, fromAbsenceId });
+                          setAbsenceDateForm({ startDate: date, endDate: date });
+                          setAbsenceDateError('');
                         }
-                        createAbsenceDirectly(emp, type, fromSite);
                       }
                     }}
                   >
@@ -1113,6 +1304,69 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
         </div>
       </div>
 
+      {/* ── Reset Vehicles Confirmation ──────────────────────────────── */}
+      {showResetVehiclesConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Fahrzeuge zurücksetzen</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Alle Fahrzeugzuweisungen für den <strong>{formatDateDE(date)}</strong> entfernen?
+              Baustellen und Mitarbeiter bleiben erhalten.
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button onClick={() => setShowResetVehiclesConfirm(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Abbrechen
+              </button>
+              <button onClick={resetVehicles} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
+                Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reset Employees Confirmation ─────────────────────────────── */}
+      {showResetEmployeesConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Mitarbeiter zurücksetzen</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Alle Mitarbeiterzuweisungen für den <strong>{formatDateDE(date)}</strong> entfernen?
+              Baustellen und Abwesenheiten bleiben erhalten.
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button onClick={() => setShowResetEmployeesConfirm(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Abbrechen
+              </button>
+              <button onClick={resetEmployees} className="rounded-lg bg-amber-600 px-4 py-2 text-sm font-medium text-white hover:bg-amber-700">
+                Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Reset Confirmation ───────────────────────────────────────── */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Planung zurücksetzen</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Alle Baustellen und Zuweisungen für den <strong>{formatDateDE(date)}</strong> löschen?
+              Abwesenheiten bleiben erhalten.
+            </p>
+            <div className="mt-4 flex justify-end gap-3">
+              <button onClick={() => setShowResetConfirm(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Abbrechen
+              </button>
+              <button onClick={resetPlan} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700">
+                Zurücksetzen
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Delete Confirmation ──────────────────────────────────────── */}
       {deleteSiteIdx !== null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1134,12 +1388,12 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
       )}
 
       {/* ── Print Area ────────────────────────────────────────────────── */}
-      <div id="print-area" style={{ position: 'absolute', left: '-9999px', top: 0, width: '100%' }}>
+      <div id="print-area" style={{ position: 'absolute', left: '-9999px', top: 0, width: '100%', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
         {/* Header */}
         <table style={{ width: '100%', marginBottom: 10, borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
-              <td style={{ fontWeight: 'bold', fontSize: 16 }}>Arbeiten am {formatDateDE(date)}</td>
+              <td style={{ fontWeight: 'bold', fontSize: 16 }}>Arbeiten am {formatDateDE(date)} <span style={{ fontWeight: 'normal', fontSize: 13, color: '#444' }}>– {getWeekdayDE(date)}, KW {getCalendarWeek(date)}</span></td>
               <td style={{ textAlign: 'right', fontSize: 11, color: '#555' }}>
                 Gesamt: {allAssignedSorted.length} Mitarbeiter
               </td>
@@ -1180,7 +1434,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                             {site.location && <div style={{ fontSize: 10, color: '#555' }}>{site.location}</div>}
                           </td>
                           <td style={cellStyle({ whiteSpace: 'nowrap' })}>
-                            {site.vehiclePlate || '–'}
+                            {site.vehiclePlates.length > 0 ? site.vehiclePlates.join(', ') : '–'}
                           </td>
                           <td style={cellStyle({ whiteSpace: 'nowrap' })}>
                             {site.startTime} – {site.endTime}
@@ -1203,36 +1457,12 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                 </table>
               </td>
 
-              {/* Right: numbered employee list */}
-              <td style={{ verticalAlign: 'top', minWidth: 140 }}>
-                <table style={{ borderCollapse: 'collapse', fontSize: 11, width: '100%' }}>
-                  <thead>
-                    <tr style={{ backgroundColor: '#f0f0f0' }}>
-                      <th style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>#</th>
-                      <th style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'left' }}>Name</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allAssignedSorted.map((emp, i) => (
-                      <tr key={emp.id}>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px', textAlign: 'center' }}>{i + 1}</td>
-                        <td style={{ border: '1px solid #000', padding: '3px 6px' }}>{emp.lastName}, {emp.firstName[0]}.</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {/* Total box */}
-                <div style={{ marginTop: 8, border: '2px solid #000', padding: '6px 12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, color: '#555' }}>Gesamt</div>
-                  <div style={{ fontSize: 20, fontWeight: 'bold' }}>{allAssignedSorted.length}</div>
-                </div>
-              </td>
             </tr>
           </tbody>
         </table>
 
         {/* Bottom: Absences */}
-        <table style={{ borderCollapse: 'collapse', fontSize: 11, marginTop: 14, width: 'auto' }}>
+        <table style={{ borderCollapse: 'collapse', fontSize: 11, marginTop: 'auto', width: 'auto' }}>
           <thead>
             <tr style={{ backgroundColor: '#f0f0f0' }}>
               {(['VACATION', 'SICK', 'SPECIAL', 'SCHOOL_BLOCK', 'SCHOOL'] as VacationType[]).map((t) => (
@@ -1254,6 +1484,68 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
           </tbody>
         </table>
       </div>
+
+      {/* ── Absence Date Modal ────────────────────────────────────────── */}
+      {pendingAbsence && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-sm rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">
+              Abwesenheit anlegen
+            </h3>
+            <p className="mt-1 text-sm text-gray-500">
+              <span className="font-medium text-gray-700">{pendingAbsence.employee.lastName} {pendingAbsence.employee.firstName}</span>
+              {' – '}{ABSENCE_LABELS[pendingAbsence.type]}
+            </p>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Anfangsdatum</label>
+                <input
+                  type="date"
+                  value={absenceDateForm.startDate}
+                  onChange={(e) => { setAbsenceDateForm((f) => ({ ...f, startDate: e.target.value })); setAbsenceDateError(''); }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Enddatum</label>
+                <input
+                  type="date"
+                  value={absenceDateForm.endDate}
+                  min={absenceDateForm.startDate}
+                  onChange={(e) => { setAbsenceDateForm((f) => ({ ...f, endDate: e.target.value })); setAbsenceDateError(''); }}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            {absenceDateError && <p className="mt-2 text-xs text-red-600">{absenceDateError}</p>}
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                onClick={() => setPendingAbsence(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Abbrechen
+              </button>
+                <button
+                  onClick={() => {
+                    if (absenceDateForm.endDate < absenceDateForm.startDate) {
+                      setAbsenceDateError('Enddatum muss nach dem Anfangsdatum liegen.');
+                      return;
+                    }
+                    if (pendingAbsence.fromAbsenceId) {
+                      setAbsences((prev) => prev.filter((a) => a.id !== pendingAbsence.fromAbsenceId));
+                      deleteAbsence(pendingAbsence.fromAbsenceId);
+                    }
+                    createAbsenceDirectly(pendingAbsence.employee, pendingAbsence.type, pendingAbsence.fromSiteIdx, absenceDateForm.startDate, absenceDateForm.endDate);
+                    setPendingAbsence(null);
+                  }}
+                  className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+                >
+                  Anlegen
+                </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

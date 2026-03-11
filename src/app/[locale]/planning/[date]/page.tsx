@@ -407,7 +407,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
       _tempId: newTempId(),
       name: ws.name,
       location: ws.location ?? '',
-      vehiclePlates: ws.defaultVehiclePlate ? [ws.defaultVehiclePlate] : [],
+      vehiclePlates: [],
       startTime: ws.defaultStartTime,
       endTime: ws.defaultEndTime,
       sortOrder: 0,
@@ -923,10 +923,11 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
-                        onClick={() => setDeleteSiteIdx(siteIdx)}
-                        className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                        onClick={() => removeSite(siteIdx)}
+                        className="rounded p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-700"
+                        title="In Pool zurücksetzen"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <X className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   </div>
@@ -1139,7 +1140,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                           className="ml-2 shrink-0 text-gray-300 hover:text-red-500"
                           title="Löschen"
                         >
-                          <X className="h-3.5 w-3.5" />
+                          <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
@@ -1310,7 +1311,7 @@ export default function DailyPlanningPage({ params }: { params: Promise<{ date: 
                         className="text-gray-300 hover:text-red-500"
                         title="Löschen"
                       >
-                        <X className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   ))

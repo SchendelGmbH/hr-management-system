@@ -16,6 +16,7 @@ import {
   Award,
   ClipboardList,
   MessageCircle,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -78,6 +79,12 @@ const allNavigation = [
     name: 'chat',
     href: '/de/chat',
     icon: MessageCircle,
+    adminOnly: false,
+  },
+  {
+    name: 'swaps',
+    href: '/de/swaps',
+    icon: ArrowRightLeft,
     adminOnly: false,
   },
   {

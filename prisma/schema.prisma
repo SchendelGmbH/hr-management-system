@@ -35,6 +35,10 @@ model User {
   dailyPlansCreated       DailyPlan[]      @relation("DailyPlanCreator")
   employee             Employee?
   
+  // Shift Swap Relations
+  approvedSwaps         ShiftSwap[]       @relation("SwapApprover")
+  approvedSwapResponses SwapResponse[]    @relation("SwapResponseApprover")
+  
   // Chat Relations
   chatMemberships       ChatMember[]
   chatMessages          ChatMessage[]
@@ -133,6 +137,11 @@ model Employee {
   vacations          Vacation[]
   qualifications     Qualification[]
   planAssignments    DailyPlanAssignment[]
+  
+  // Shift Swap Relations
+  swapRequests       ShiftSwap[]      @relation("SwapRequester")
+  swapRequestedFor   ShiftSwap[]      @relation("SwapRequested")
+  swapResponses      SwapResponse[]   @relation("SwapResponder")
 
   @@index([departmentId])
   @@index([payGradeId])
@@ -630,6 +639,10 @@ model DailyPlanAssignment {
   employeeId String
   note       String?
 
+  // Shift Swap Relations
+  swapRequestsAsRequester ShiftSwap[]     @relation("RequesterShift")
+  swapRequestsAsResponder SwapResponse[]  @relation("ResponderShift")
+
   site     DailyPlanSite @relation(fields: [siteId], references: [id], onDelete: Cascade)
   employee Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
 
@@ -653,6 +666,102 @@ model Vehicle {
   @@index([isActive])
   @@map("vehicles")
 }
+
+// ============================================================================
+// SHIFT SWAP SYSTEM (SCHICHT-TAUSCH)
+// ============================================================================
+
+enum SwapRequestStatus {
+  PENDING     // Ausstehend
+  APPROVED    // Genehmigt
+  REJECTED    // Abgelehnt
+  CANCELLED   // Storniert
+  COMPLETED   // Abgeschlossen (Schichten wurden getauscht)
+}
+
+model ShiftSwap {
+  id              String   @id @default(cuid())
+  
+  // Mitarbeiter, der tauschen möchte
+  requesterId     String
+  requesterShiftId String  // Verknüpfung zu DailyPlanAssignment
+  
+  // Schicht-Details des Anfragenden
+  requesterDate   DateTime
+  requesterSiteId String
+  requesterStartTime String
+  requesterEndTime   String
+  
+  // Optional: Gewünschter Tauschpartner
+  requestedEmployeeId String?
+  requestedShiftId    String?
+  
+  // Status und Zeiten
+  status          SwapRequestStatus @default(PENDING)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  expiresAt       DateTime?    // Wann läuft die Anfrage ab
+  
+  // Beschreibung/Notizen
+  note            String?      @db.Text
+  
+  // Genehmigung
+  approvedBy      String?
+  approvedAt      DateTime?
+  approvalNote    String?      @db.Text
+  
+  // Relations
+  requester       Employee     @relation("SwapRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  requested       Employee?    @relation("SwapRequested", fields: [requestedEmployeeId], references: [id], onDelete: SetNull)
+  requesterShift    DailyPlanAssignment @relation("RequesterShift", fields: [requesterShiftId], references: [id], onDelete: Cascade)
+  approvedByUser  User?        @relation("SwapApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  
+  // Antworten auf diese Anfrage
+  responses       SwapResponse[]
+  
+  @@index([requesterId])
+  @@index([requestedEmployeeId])
+  @@index([status])
+  @@index([requesterDate])
+  @@index([createdAt])
+  @@map("shift_swaps")
+}
+
+model SwapResponse {
+  id              String   @id @default(cuid())
+  swapRequestId   String
+  responderId     String   // Mitarbeiter, der antwortet
+  
+  // Schicht des Responders (die er anbietet)
+  responderShiftId String
+  responderDate   DateTime
+  responderSiteId String
+  
+  // Status der Antwort
+  status          SwapRequestStatus @default(PENDING)
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  
+  // Genehmigungs-Details
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  // Relations
+  swapRequest     ShiftSwap    @relation(fields: [swapRequestId], references: [id], onDelete: Cascade)
+  responder       Employee     @relation("SwapResponder", fields: [responderId], references: [id], onDelete: Cascade)
+  responderShift    DailyPlanAssignment @relation("ResponderShift", fields: [responderShiftId], references: [id], onDelete: Cascade)
+  approvedByUser  User?        @relation("SwapResponseApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
+  
+  @@unique([swapRequestId, responderId])
+  @@index([swapRequestId])
+  @@index([responderId])
+  @@index([status])
+  @@map("swap_responses")
+}
+
+// Erweiterung DailyPlanAssignment für Swap-Relations
+// (Hinweis: Die Relations werden oben definiert, 
+//  DailyPlanAssignment selbst bleibt unverändert)
 
 // ============================================================================
 // CHAT SYSTEM

@@ -15,6 +15,7 @@ import {
   Package,
   Award,
   ClipboardList,
+  MessageCircle,
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -71,6 +72,12 @@ const allNavigation = [
     name: 'qualifications',
     href: '/de/qualifications',
     icon: Award,
+    adminOnly: false,
+  },
+  {
+    name: 'chat',
+    href: '/de/chat',
+    icon: MessageCircle,
     adminOnly: false,
   },
   {

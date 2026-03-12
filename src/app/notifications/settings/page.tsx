@@ -1,21 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import { Separator } from '@/components/ui/separator';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Bell, Smartphone, Mail, Clock, Moon, BellOff } from 'lucide-react';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Input';
+import { Select } from '@/components/ui/Select';
 
 interface NotificationTypeSetting {
   notificationType: string;
@@ -136,11 +124,10 @@ export default function NotificationSettingsPage() {
   if (loading) {
     return (
       <div className="p-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Einstellungen laden...</CardTitle>
-          </CardHeader>
-        </Card>
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-bold mb-6">Benachrichtigungseinstellungen</h1>
+          <p>Einstellungen laden...</p>
+        </div>
       </div>
     );
   }
@@ -148,9 +135,12 @@ export default function NotificationSettingsPage() {
   if (!settings) {
     return (
       <div className="p-8">
-        <Alert variant="destructive">
-          <AlertDescription>{error || 'Einstellungen konnten nicht geladen werden'}</AlertDescription>
-        </Alert>
+        <div className="max-w-4xl mx-auto">
+          <h1 className="text-2xl font-bold mb-6">Benachrichtigungseinstellungen</h1>
+          <div className="bg-red-50 text-red-700 p-4 rounded">
+            {error || 'Einstellungen konnten nicht geladen werden'}
+          </div>
+        </div>
       </div>
     );
   }
@@ -158,15 +148,10 @@ export default function NotificationSettingsPage() {
   return (
     <div className="container mx-auto p-6 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Settings className="h-6 w-6" />
-          Benachrichtigungseinstellungen
-        </h1>
+        <h1 className="text-2xl font-bold">Benachrichtigungseinstellungen</h1>
         <div className="flex gap-2">
           {success && (
-            <Alert className="mr-4">
-              <AlertDescription>{success}</AlertDescription>
-            </Alert>
+            <span className="text-green-600 mr-4">{success}</span>
           )}
           <Button onClick={saveSettings} disabled={saving}>
             {saving ? 'Speichern...' : 'Speichern'}
@@ -175,370 +160,260 @@ export default function NotificationSettingsPage() {
       </div>
 
       {error && (
-        <Alert variant="destructive" className="mb-6">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
+        <div className="bg-red-50 text-red-700 p-4 rounded mb-6">{error}</div>
       )}
 
       <div className="space-y-6">
         {/* Global Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Globale Einstellungen
-            </CardTitle>
-            <CardDescription>
-              Grundlegende Benachrichtigungseinstellungen
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Globale Einstellungen</h2>
+          
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="pushEnabled">Push-Benachrichtigungen</Label>
-                <p className="text-sm text-gray-500">
-                  Push-Benachrichtigungen auf allen Geräten erhalten
-                </p>
+              <div>
+                <label className="font-medium">Push-Benachrichtigungen</label>
+                <p className="text-sm text-gray-500">Push-Benachrichtigungen auf allen Geräten erhalten</p>
               </div>
-              <Switch
-                id="pushEnabled"
-                checked={settings.pushEnabled}
-                onCheckedChange={(checked) =>
-                  updateGlobalSetting('pushEnabled', checked)
-                }
-              />
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={settings.pushEnabled}
+                  onChange={(e) => updateGlobalSetting('pushEnabled', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
 
-            <Separator />
-
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="emailEnabled">E-Mail-Benachrichtigungen</Label>
-                <p className="text-sm text-gray-500">
-                  Benachrichtigungen auch per E-Mail erhalten
-                </p>
+              <div>
+                <label className="font-medium">E-Mail-Benachrichtigungen</label>
+                <p className="text-sm text-gray-500">Benachrichtigungen auch per E-Mail erhalten</p>
               </div>
-              <Switch
-                id="emailEnabled"
-                checked={settings.emailEnabled}
-                onCheckedChange={(checked) =>
-                  updateGlobalSetting('emailEnabled', checked)
-                }
-              />
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={settings.emailEnabled}
+                  onChange={(e) => updateGlobalSetting('emailEnabled', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
 
-            <Separator />
-
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="soundEnabled">Benachrichtigungstöne</Label>
-                <p className="text-sm text-gray-500">
-                  Ton bei neuen Benachrichtigungen abspielen
-                </p>
+              <div>
+                <label className="font-medium">Benachrichtigungstöne</label>
+                <p className="text-sm text-gray-500">Ton bei neuen Benachrichtigungen abspielen</p>
               </div>
-              <Switch
-                id="soundEnabled"
-                checked={settings.soundEnabled}
-                onCheckedChange={(checked) =>
-                  updateGlobalSetting('soundEnabled', checked)
-                }
-              />
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={settings.soundEnabled}
+                  onChange={(e) => updateGlobalSetting('soundEnabled', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
 
-            <Separator />
-
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="hideContentInLockScreen">Inhalt verbergen</Label>
-                <p className="text-sm text-gray-500">
-                  Benachrichtigungsinhalt im Sperrbildschirm ausblenden
-                </p>
+              <div>
+                <label className="font-medium">Inhalt verbergen</label>
+                <p className="text-sm text-gray-500">Benachrichtigungsinhalt im Sperrbildschirm ausblenden</p>
               </div>
-              <Switch
-                id="hideContentInLockScreen"
-                checked={settings.hideContentInLockScreen}
-                onCheckedChange={(checked) =>
-                  updateGlobalSetting('hideContentInLockScreen', checked)
-                }
-              />
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={settings.hideContentInLockScreen}
+                  onChange={(e) => updateGlobalSetting('hideContentInLockScreen', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Do Not Disturb */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Moon className="h-5 w-5" />
-              Nicht stören
-            </CardTitle>
-            <CardDescription>
-              Zeitraum festlegen, in dem keine Benachrichtigungen angezeigt werden
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Nicht stören</h2>
+          
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="doNotDisturb">Nicht stören aktivieren</Label>
-                <p className="text-sm text-gray-500">
-                  Wichtige Benachrichtigungen werden trotzdem angezeigt
-                </p>
+              <div>
+                <label className="font-medium">Nicht stören aktivieren</label>
+                <p className="text-sm text-gray-500">Wichtige Benachrichtigungen werden trotzdem angezeigt</p>
               </div>
-              <Switch
-                id="doNotDisturb"
-                checked={settings.doNotDisturb}
-                onCheckedChange={(checked) =>
-                  updateGlobalSetting('doNotDisturb', checked)
-                }
-              />
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={settings.doNotDisturb}
+                  onChange={(e) => updateGlobalSetting('doNotDisturb', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
 
             {settings.doNotDisturb && (
-              <>
-                <Separator />
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="doNotDisturbStart">Start</Label>
-                    <Input
-                      id="doNotDisturbStart"
-                      type="time"
-                      value={settings.doNotDisturbStart || '22:00'}
-                      onChange={(e) =>
-                        updateGlobalSetting('doNotDisturbStart', e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doNotDisturbEnd">Ende</Label>
-                    <Input
-                      id="doNotDisturbEnd"
-                      type="time"
-                      value={settings.doNotDisturbEnd || '07:00'}
-                      onChange={(e) =>
-                        updateGlobalSetting('doNotDisturbEnd', e.target.value)
-                      }
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-gray-200">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start</label>
+                  <Input
+                    type="time"
+                    value={settings.doNotDisturbStart || '22:00'}
+                    onChange={(e) => updateGlobalSetting('doNotDisturbStart', e.target.value)}
+                  />
                 </div>
-              </>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Ende</label>
+                  <Input
+                    type="time"
+                    value={settings.doNotDisturbEnd || '07:00'}
+                    onChange={(e) => updateGlobalSetting('doNotDisturbEnd', e.target.value)}
+                  />
+                </div>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Quiet Hours */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="h-5 w-5" />
-              Ruhezeit (ohne Ton)
-            </CardTitle>
-            <CardDescription>
-              Zeitraum festlegen, in dem keine Benachrichtigungstöne abgespielt werden
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Ruhezeit (ohne Ton)</h2>
+          
+          <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <div className="space-y-0.5">
-                <Label htmlFor="quietHoursEnabled">Ruhezeit aktivieren</Label>
-                <p className="text-sm text-gray-500">
-                  Werden stumm empfangen, aber angezeigt
-                </p>
+              <div>
+                <label className="font-medium">Ruhezeit aktivieren</label>
+                <p className="text-sm text-gray-500">Werden stumm empfangen, aber angezeigt</p>
               </div>
-              <Switch
-                id="quietHoursEnabled"
-                checked={settings.quietHoursEnabled}
-                onCheckedChange={(checked) =>
-                  updateGlobalSetting('quietHoursEnabled', checked)
-                }
-              />
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="sr-only peer"
+                  checked={settings.quietHoursEnabled}
+                  onChange={(e) => updateGlobalSetting('quietHoursEnabled', e.target.checked)}
+                />
+                <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+              </label>
             </div>
 
             {settings.quietHoursEnabled && (
-              <>
-                <Separator />
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="quietHoursStart">Start</Label>
-                    <Input
-                      id="quietHoursStart"
-                      type="time"
-                      value={settings.quietHoursStart}
-                      onChange={(e) =>
-                        updateGlobalSetting('quietHoursStart', e.target.value)
-                      }
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="quietHoursEnd">Ende</Label>
-                    <Input
-                      id="quietHoursEnd"
-                      type="time"
-                      value={settings.quietHoursEnd}
-                      onChange={(e) =>
-                        updateGlobalSetting('quietHoursEnd', e.target.value)
-                      }
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-4 pl-6 border-l-2 border-gray-200">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start</label>
+                  <Input
+                    type="time"
+                    value={settings.quietHoursStart}
+                    onChange={(e) => updateGlobalSetting('quietHoursStart', e.target.value)}
+                  />
                 </div>
-              </>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Ende</label>
+                  <Input
+                    type="time"
+                    value={settings.quietHoursEnd}
+                    onChange={(e) => updateGlobalSetting('quietHoursEnd', e.target.value)}
+                  />
+                </div>
+              </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
         {/* Type-specific Settings */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Benachrichtigungstypen</CardTitle>
-            <CardDescription>
-              Konfigurieren Sie die Einstellungen für einzelne Benachrichtigungstypen
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {settings.typeSettings.map((typeSetting) => (
-                <div
-                  key={typeSetting.notificationType}
-                  className="border rounded-lg p-4 space-y-4"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium">
-                      {notificationTypeLabels[typeSetting.notificationType] ||
-                        typeSetting.notificationType}
+        <div className="bg-white rounded-lg shadow p-6">
+          <h2 className="text-lg font-semibold mb-4">Benachrichtigungstypen</h2>
+          
+          <div className="space-y-4">
+            {settings.typeSettings.map((typeSetting) => (
+              <div
+                key={typeSetting.notificationType}
+                className="border rounded-lg p-4"
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <span className="font-medium">
+                    {notificationTypeLabels[typeSetting.notificationType] ||
+                      typeSetting.notificationType}
+                  </span>
+                  
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      className="sr-only peer"
+                      checked={!typeSetting.muted}
+                      onChange={(e) =>
+                        updateTypeSetting(
+                          typeSetting.notificationType,
+                          'muted',
+                          !e.target.checked
+                        )
+                      }
+                    />
+                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  </label>
+                </div>
+
+                {!typeSetting.muted && (
+                  <div className="pl-6 border-l-2 border-gray-200 space-y-3">
+                    <div className="flex flex-wrap gap-4">
+                      {['inAppEnabled', 'pushEnabled', 'emailEnabled', 'smsEnabled'].map((key) => (
+                        <label key={key} className="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={typeSetting[key as keyof typeof typeSetting] as boolean}
+                            onChange={(e) =>
+                              updateTypeSetting(
+                                typeSetting.notificationType,
+                                key as keyof NotificationTypeSetting,
+                                e.target.checked
+                              )
+                            }
+                          />
+                          <span className="text-sm">
+                            {key === 'inAppEnabled' && 'In-App'}
+                            {key === 'pushEnabled' && 'Push'}
+                            {key === 'emailEnabled' && 'E-Mail'}
+                            {key === 'smsEnabled' && 'SMS'}
+                          </span>
+                        </label>
+                      ))}
                     </div>
+
                     <div className="flex items-center gap-2">
-                      <Switch
-                        checked={!typeSetting.muted}
-                        onCheckedChange={(checked) =>
+                      <span className="text-sm">Priorität:</span>
+                      <Select
+                        value={typeSetting.priority || 'NORMAL'}
+                        onChange={(value) =>
                           updateTypeSetting(
                             typeSetting.notificationType,
-                            'muted',
-                            !checked
+                            'priority',
+                            value
                           )
                         }
-                      />
-                      <span className="text-sm text-gray-500">
-                        {typeSetting.muted ? 'Stumm' : 'Aktiv'}
-                      </span>
+                        options={[
+                          { value: 'LOW', label: 'Niedrig' },
+                          { value: 'NORMAL', label: 'Normal' },
+                          { value: 'HIGH', label: 'Hoch' },
+                          { value: 'URGENT', label: 'Dringend' },
+                        ]}
+                        className="w-32"
+                      >
+                        <option value="LOW">Niedrig</option>
+                        <option value="NORMAL">Normal</option>
+                        <option value="HIGH">Hoch</option>
+                        <option value="URGENT">Dringend</option>
+                      </Select>
                     </div>
                   </div>
-
-                  {!typeSetting.muted && (
-                    <>
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id={`${typeSetting.notificationType}-inApp`}
-                            checked={typeSetting.inAppEnabled}
-                            onCheckedChange={(checked) =>
-                              updateTypeSetting(
-                                typeSetting.notificationType,
-                                'inAppEnabled',
-                                checked
-                              )
-                            }
-                          />
-                          <Label
-                            htmlFor={`${typeSetting.notificationType}-inApp`}
-                            className="text-sm cursor-pointer"
-                          >
-                            In-App
-                          </Label>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id={`${typeSetting.notificationType}-push`}
-                            checked={typeSetting.pushEnabled}
-                            onCheckedChange={(checked) =>
-                              updateTypeSetting(
-                                typeSetting.notificationType,
-                                'pushEnabled',
-                                checked
-                              )
-                            }
-                          />
-                          <Label
-                            htmlFor={`${typeSetting.notificationType}-push`}
-                            className="text-sm cursor-pointer"
-                          >
-                            Push
-                          </Label>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id={`${typeSetting.notificationType}-email`}
-                            checked={typeSetting.emailEnabled}
-                            onCheckedChange={(checked) =>
-                              updateTypeSetting(
-                                typeSetting.notificationType,
-                                'emailEnabled',
-                                checked
-                              )
-                            }
-                          />
-                          <Label
-                            htmlFor={`${typeSetting.notificationType}-email`}
-                            className="text-sm cursor-pointer"
-                          >
-                            E-Mail
-                          </Label>
-                        </div>
-
-                        <div className="flex items-center gap-2">
-                          <Switch
-                            id={`${typeSetting.notificationType}-sms`}
-                            checked={typeSetting.smsEnabled}
-                            onCheckedChange={(checked) =>
-                              updateTypeSetting(
-                                typeSetting.notificationType,
-                                'smsEnabled',
-                                checked
-                              )
-                            }
-                          />
-                          <Label
-                            htmlFor={`${typeSetting.notificationType}-sms`}
-                            className="text-sm cursor-pointer"
-                          >
-                            SMS
-                          </Label>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Label className="text-sm">Priorität:</Label>
-                        <Select
-                          value={typeSetting.priority || 'NORMAL'}
-                          onValueChange={(value) =>
-                            updateTypeSetting(
-                              typeSetting.notificationType,
-                              'priority',
-                              value
-                            )
-                          }
-                        >
-                          <SelectTrigger className="w-32">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="LOW">Niedrig</SelectItem>
-                            <SelectItem value="NORMAL">Normal</SelectItem>
-                            <SelectItem value="HIGH">Hoch</SelectItem>
-                            <SelectItem value="URGENT">Dringend</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </>
-                  )}
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
 }
-
-import { Settings } from 'lucide-react';

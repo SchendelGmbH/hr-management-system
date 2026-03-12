@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
+import { SmartReplies } from './ai-features/SmartReplies';
 import { ChatRoom as ChatRoomType, ChatMessage } from '@/types/chat';
 import { 
   MoreVertical, 
@@ -268,6 +269,15 @@ export function ChatRoom({
         
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Smart Replies */}
+      {room && !loading && messages.length > 0 && (
+        <SmartReplies
+          roomId={room.id}
+          onSelectReply={(reply) => onSendMessage(reply)}
+          disabled={loading}
+        />
+      )}
 
       {/* Input */}
       <MessageInput

@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { CheckCheck, Edit2, Trash2 } from 'lucide-react';
+import { CheckCheck, Edit2, Trash2, FileSignature, ChevronRight } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { ChatMessage } from '@/types/chat';
@@ -14,13 +14,25 @@ interface MessageBubbleProps {
   showAvatar?: boolean;
   onEdit?: (messageId: string, content: string) => void;
   onDelete?: (messageId: string) => void;
+  onSignatureClick?: (requestId: string) => void;
 }
 
-export function MessageBubble({ message, showAvatar = true, onEdit, onDelete }: MessageBubbleProps) {
+export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, onSignatureClick }: MessageBubbleProps) {
   const { data: session } = useSession();
   const isOwn = message.senderId === session?.user?.id;
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+
+  // Parse Signature Links from content
+  const signatureLinkMatch = message.content.match(/\[Zur Signatur\]\(\/sign\/([a-zA-Z0-9]+)\)/);
+  const hasSignatureLink = !!signatureLinkMatch;
+  const signatureRequestId = signatureLinkMatch?.[1];
+
+  const handleSignatureClick = () => {
+    if (signatureRequestId && onSignatureClick) {
+      onSignatureClick(signatureRequestId);
+    }
+  };
 
   const handleEdit = () => {
     if (onEdit && editContent.trim() !== message.content) {
@@ -104,7 +116,22 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete }: 
             </div>
           ) : (
             <>
-              <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+              <p className="text-sm whitespace-pre-wrap break-words">
+                {/* Remove markdown signature link from display */}
+                {message.content.replace(/\[Zur Signatur\]\(\/sign\/[a-zA-Z0-9]+\)/g, '')}
+              </p>
+              
+              {/* Signature Link Button */}
+              {hasSignatureLink && signatureRequestId && (
+                <button
+                  onClick={handleSignatureClick}
+                  className="mt-2 flex items-center bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors text-sm"
+                >
+                  <FileSignature className="w-4 h-4 mr-2" />
+                  <span>Zum Signieren</span>
+                  <ChevronRight className="w-4 h-4 ml-1" />
+                </button>
+              )}
               
               {/* Translation Button */}
               <TranslationButton text={message.content} />

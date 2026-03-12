@@ -12,6 +12,7 @@ import { useSocket } from '@/hooks/useSocket';
 import { useWebRTC } from '@/hooks/useWebRTC';
 import { VideoCallModal } from '@/components/video-call';
 import { VideoCallParticipant } from '@/types/videoCall';
+import { SignatureModal } from '@/components/chat/SignatureModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -206,6 +207,8 @@ export function ChatView() {
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Map<string, string[]>>(new Map());
   const [showVideoCall, setShowVideoCall] = useState(false);
+  const [showSignatureModal, setShowSignatureModal] = useState(false);
+  const [activeSignatureRequestId, setActiveSignatureRequestId] = useState<string | null>(null);
 
   // Socket.IO
   const { 
@@ -440,6 +443,25 @@ export function ChatView() {
     }
   }, [handleStartVideoCall, handleStartAudioCall]);
 
+  // Signature Modal Handler
+  const handleOpenSignature = useCallback((requestId: string) => {
+    setActiveSignatureRequestId(requestId);
+    setShowSignatureModal(true);
+  }, []);
+
+  const handleCloseSignature = useCallback(() => {
+    setShowSignatureModal(false);
+    setActiveSignatureRequestId(null);
+  }, []);
+
+  const handleSignatureCompleted = useCallback(() => {
+    // Refresh queries after successful signature
+    if (currentRoomId) {
+      queryClient.invalidateQueries({ queryKey: ['chat', 'messages', currentRoomId] });
+    }
+    handleCloseSignature();
+  }, [currentRoomId, queryClient, handleCloseSignature]);
+
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!currentRoomId || !content.trim()) return;
@@ -593,6 +615,7 @@ export function ChatView() {
           onStartVideoCall={handleStartVideoCall}
           onStartAudioCall={handleStartAudioCall}
           onCommand={handleCommand}
+          onSignatureClick={handleOpenSignature}
           loading={messagesLoading}
           typingUsers={currentTypingUsers}
         />
@@ -611,6 +634,14 @@ export function ChatView() {
         onToggleMute={toggleMute}
         onToggleVideo={toggleVideo}
         onToggleScreenShare={toggleScreenShare}
+      />
+
+      {/* Signature Modal */}
+      <SignatureModal
+        requestId={activeSignatureRequestId || ''}
+        isOpen={showSignatureModal}
+        onClose={handleCloseSignature}
+        onSigned={handleSignatureCompleted}
       />
     </div>
   );

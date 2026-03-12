@@ -29,6 +29,7 @@ interface ChatRoomProps {
   onStartVideoCall?: () => void;
   onStartAudioCall?: () => void;
   onCommand?: (command: string, args: string[]) => void;
+  onSignatureClick?: (requestId: string) => void;
   loading?: boolean;
   typingUsers?: string[];
   hasMoreMessages?: boolean;
@@ -46,6 +47,7 @@ export function ChatRoom({
   onStartVideoCall,
   onStartAudioCall,
   onCommand,
+  onSignatureClick,
   loading = false,
   typingUsers = [],
   hasMoreMessages = false,
@@ -262,6 +264,7 @@ export function ChatRoom({
                       showAvatar={showAvatar}
                       onEdit={onEditMessage}
                       onDelete={onDeleteMessage}
+                      onSignatureClick={onSignatureClick}
                     />
                   </div>
                 );

@@ -1,0 +1,63 @@
+{
+  "id": "clothing",
+  "name": "Arbeitskleidung",
+  "description": "Verwaltung von Schutzbekleidung und Arbeitskleidung",
+  "version": "1.0.0",
+  "tier": "hr",
+  "author": "HR Management System",
+  "dependencies": ["core", "hr-core"],
+  "optionalDependencies": ["woocommerce"],
+  "requiredPermissions": [
+    "clothing:read",
+    "clothing:write"
+  ],
+  "navigation": [
+    {
+      "id": "clothing.main",
+      "label": "navigation.clothing",
+      "href": "/clothing",
+      "icon": "Shirt",
+      "requiredPermission": "clothing:read",
+      "position": 250
+    },
+    {
+      "id": "clothing.catalog",
+      "label": "navigation.clothingCatalog",
+      "href": "/clothing/catalog",
+      "icon": "ShoppingBag",
+      "requiredPermission": "clothing:read",
+      "position": 251
+    },
+    {
+      "id": "clothing.orders",
+      "label": "navigation.clothingOrders",
+      "href": "/clothing/orders",
+      "icon": "Package",
+      "requiredPermission": "clothing:write",
+      "position": 252
+    }
+  ],
+  "settings": [
+    {
+      "key": "clothing.budgetRefreshMonth",
+      "label": "settings.clothingBudgetMonth",
+      "type": "number",
+      "defaultValue": 1,
+      "description": "Monat für Budget-Auffrischung (1-12)"
+    },
+    {
+      "key": "clothing.defaultBudget",
+      "label": "settings.clothingDefaultBudget",
+      "type": "number",
+      "defaultValue": 500,
+      "description": "Standard-Startbudget in Euro"
+    }
+  ],
+  "features": [
+    "clothing.catalog",
+    "clothing.order",
+    "clothing.budget",
+    "clothing.sizes",
+    "clothing.woocommerce"
+  ]
+}

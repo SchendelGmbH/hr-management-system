@@ -1,0 +1,70 @@
+{
+  "id": "woocommerce",
+  "name": "WooCommerce Integration",
+  "description": "WooCommerce-Shop-Integration für Arbeitskleidung",
+  "version": "1.0.0",
+  "tier": "woocommerce",
+  "author": "HR Management System",
+  "dependencies": ["core", "hr-core", "clothing"],
+  "optionalDependencies": [],
+  "requiredPermissions": [
+    "woocommerce:read",
+    "woocommerce:write"
+  ],
+  "navigation": [
+    {
+      "id": "woocommerce.settings",
+      "label": "navigation.woocommerce",
+      "href": "/settings/woocommerce",
+      "icon": "Store",
+      "requiredPermission": "woocommerce:write",
+      "position": 900
+    }
+  ],
+  "settings": [
+    {
+      "key": "woocommerce.apiUrl",
+      "label": "settings.woocommerceUrl",
+      "type": "string",
+      "defaultValue": "",
+      "description": "WooCommerce API URL"
+    },
+    {
+      "key": "woocommerce.consumerKey",
+      "label": "settings.woocommerceKey",
+      "type": "string",
+      "defaultValue": "",
+      "isSecret": true,
+      "description": "WooCommerce Consumer Key"
+    },
+    {
+      "key": "woocommerce.consumerSecret",
+      "label": "settings.woocommerceSecret",
+      "type": "string",
+      "defaultValue": "",
+      "isSecret": true,
+      "description": "WooCommerce Consumer Secret"
+    },
+    {
+      "key": "woocommerce.autoSync",
+      "label": "settings.woocommerceAutoSync",
+      "type": "boolean",
+      "defaultValue": false,
+      "description": "Automatische Synchronisierung"
+    },
+    {
+      "key": "woocommerce.syncIntervalMinutes",
+      "label": "settings.woocommerceSyncInterval",
+      "type": "number",
+      "defaultValue": 60,
+      "description": "Sync-Intervall in Minuten"
+    }
+  ],
+  "features": [
+    "woocommerce.sync",
+    "woocommerce.orders",
+    "woocommerce.products",
+    "woocommerce.inventory",
+    "woocommerce.priceSync"
+  ]
+}

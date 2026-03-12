@@ -1,0 +1,69 @@
+{
+  "id": "einsatzplanung",
+  "name": "Einsatzplanung",
+  "description": "Tages-/Wochenplanung mit Schichten und Mitarbeiterzuweisung",
+  "version": "1.0.0",
+  "tier": "planning",
+  "author": "HR Management System",
+  "dependencies": ["core", "hr-core"],
+  "optionalDependencies": ["vehicles"],
+  "requiredPermissions": [
+    "planning:read",
+    "planning:write"
+  ],
+  "navigation": [
+    {
+      "id": "einsatzplanung.calendar",
+      "label": "navigation.planning",
+      "href": "/planning",
+      "icon": "CalendarDays",
+      "requiredPermission": "planning:read",
+      "position": 600
+    },
+    {
+      "id": "einsatzplanung.sites",
+      "label": "navigation.workSites",
+      "href": "/planning/sites",
+      "icon": "MapPin",
+      "requiredPermission": "planning:write",
+      "position": 601
+    }
+  ],
+  "settings": [
+    {
+      "key": "planning.defaultStartTime",
+      "label": "settings.planningDefaultStart",
+      "type": "string",
+      "defaultValue": "06:00",
+      "description": "Standard-Startzeit (HH:MM)"
+    },
+    {
+      "key": "planning.defaultEndTime",
+      "label": "settings.planningDefaultEnd",
+      "type": "string",
+      "defaultValue": "16:00",
+      "description": "Standard-Endzeit (HH:MM)"
+    },
+    {
+      "key": "planning.weekStartsOn",
+      "label": "settings.weekStartDay",
+      "type": "select",
+      "defaultValue": 1,
+      "description": "Wochenstart-Tag",
+      "options": [
+        { "label": "Sonntag", "value": 0 },
+        { "label": "Montag", "value": 1 },
+        { "label": "Samstag", "value": 6 }
+      ]
+    }
+  ],
+  "features": [
+    "planning.daily",
+    "planning.weekly",
+    "planning.assignments",
+    "planning.sites",
+    "planning.vehicles",
+    "planning.export",
+    "planning.print"
+  ]
+}

@@ -1,0 +1,54 @@
+{
+  "id": "chat",
+  "name": "Chat",
+  "description": "Interne Chat-Funktion für Teamkommunikation",
+  "version": "1.0.0",
+  "tier": "chat",
+  "author": "HR Management System",
+  "dependencies": ["core", "hr-core"],
+  "optionalDependencies": [],
+  "requiredPermissions": [
+    "chat:read",
+    "chat:write"
+  ],
+  "navigation": [
+    {
+      "id": "chat.main",
+      "label": "navigation.chat",
+      "href": "/chat",
+      "icon": "MessageSquare",
+      "requiredPermission": "chat:read",
+      "position": 500
+    }
+  ],
+  "settings": [
+    {
+      "key": "chat.fileUploadEnabled",
+      "label": "settings.chatFileUpload",
+      "type": "boolean",
+      "defaultValue": true,
+      "description": "Datei-Upload in Chats erlauben"
+    },
+    {
+      "key": "chat.maxFileSizeMB",
+      "label": "settings.chatMaxFileSize",
+      "type": "number",
+      "defaultValue": 10,
+      "description": "Maximale Dateigröße in MB"
+    },
+    {
+      "key": "chat.retentionDays",
+      "label": "settings.chatRetention",
+      "type": "number",
+      "defaultValue": 365,
+      "description": "Nachricht-Aufbewahrung in Tagen"
+    }
+  ],
+  "features": [
+    "chat.direct",
+    "chat.group",
+    "chat.files",
+    "chat.notifications",
+    "chat.search"
+  ]
+}

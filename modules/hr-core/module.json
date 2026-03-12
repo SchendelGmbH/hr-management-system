@@ -1,0 +1,89 @@
+{
+  "id": "hr-core",
+  "name": "HR Core",
+  "description": "Mitarbeiterverwaltung, Urlaubsmanagement und Dokumentenmanagement",
+  "version": "1.0.0",
+  "tier": "hr",
+  "author": "HR Management System",
+  "dependencies": ["core"],
+  "optionalDependencies": [],
+  "requiredPermissions": [
+    "employees:read",
+    "employees:write",
+    "documents:read",
+    "documents:write",
+    "vacation:read",
+    "vacation:write"
+  ],
+  "navigation": [
+    {
+      "id": "hr-core.employees",
+      "label": "navigation.employees",
+      "href": "/employees",
+      "icon": "Users",
+      "requiredPermission": "employees:read",
+      "position": 100
+    },
+    {
+      "id": "hr-core.documents",
+      "label": "navigation.documents",
+      "href": "/documents",
+      "icon": "FolderOpen",
+      "requiredPermission": "documents:read",
+      "position": 200
+    },
+    {
+      "id": "hr-core.vacation",
+      "label": "navigation.vacation",
+      "href": "/vacation",
+      "icon": "Calendar",
+      "requiredPermission": "vacation:read",
+      "position": 300
+    },
+    {
+      "id": "hr-core.qualifications",
+      "label": "navigation.qualifications",
+      "href": "/qualifications",
+      "icon": "Award",
+      "requiredPermission": "employees:read",
+      "position": 400
+    }
+  ],
+  "settings": [
+    {
+      "key": "vacation.defaultDays",
+      "label": "settings.vacationDefaultDays",
+      "type": "number",
+      "defaultValue": 30,
+      "description": "Standard-Urlaubstage pro Jahr"
+    },
+    {
+      "key": "documents.encryptionEnabled",
+      "label": "settings.documentEncryption",
+      "type": "boolean",
+      "defaultValue": true,
+      "description": "Dokumentenverschlüsselung aktivieren"
+    },
+    {
+      "key": "employees.autoNumbering",
+      "label": "settings.employeeAutoNumbering",
+      "type": "boolean",
+      "defaultValue": true,
+      "description": "Automatische Mitarbeiternummer-Vergabe"
+    }
+  ],
+  "features": [
+    "employees.create",
+    "employees.bulk",
+    "employees.export",
+    "documents.upload",
+    "documents.ocr",
+    "documents.versioning",
+    "documents.templates",
+    "vacation.request",
+    "vacation.approval",
+    "vacation.calendar",
+    "qualifications.tracking",
+    "qualifications.expiry"
+  ]
+}

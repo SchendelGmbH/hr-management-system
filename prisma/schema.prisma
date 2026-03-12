@@ -43,6 +43,9 @@ model User {
   chatMemberships       ChatMember[]
   chatMessages          ChatMessage[]
   chatReactions         ChatReaction[]
+  
+  // WorkSite CheckIn/Out Relations
+  workSiteCheckIns      WorkSiteCheckIn[]
 
   @@map("users")
 }

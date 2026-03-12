@@ -13,6 +13,7 @@ interface UseSocketReturn {
   socket: Socket | null;
   isConnected: boolean;
   isAuthenticated: boolean;
+  userId: string | null;
   joinRoom: (roomId: string) => void;
   leaveRoom: (roomId: string) => void;
   sendTyping: (roomId: string, isTyping: boolean) => void;
@@ -117,6 +118,7 @@ export function useSocket(): UseSocketReturn {
     socket: socketRef.current,
     isConnected,
     isAuthenticated,
+    userId: session?.user?.id || null,
     joinRoom,
     leaveRoom,
     sendTyping,

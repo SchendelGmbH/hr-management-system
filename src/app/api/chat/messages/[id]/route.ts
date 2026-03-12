@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 
 // PATCH /api/chat/messages/[id] - Edit a message
 export async function PATCH(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -15,7 +15,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const body = await request.json();
+    const body = await _request.json();
     const { content } = body;
 
     if (!content || typeof content !== 'string' || content.trim().length === 0) {
@@ -57,7 +57,7 @@ export async function PATCH(
               select: {
                 firstName: true,
                 lastName: true,
-                avatarUrl: true,
+                
               },
             },
           },
@@ -84,7 +84,7 @@ export async function PATCH(
 
 // DELETE /api/chat/messages/[id] - Soft delete a message
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();

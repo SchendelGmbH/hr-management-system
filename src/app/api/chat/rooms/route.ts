@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
                   select: {
                     firstName: true,
                     lastName: true,
-                    avatarUrl: true,
+                    
                   },
                 },
               },
@@ -151,7 +151,7 @@ export async function POST(request: NextRequest) {
                     select: {
                       firstName: true,
                       lastName: true,
-                      avatarUrl: true,
+                      
                     },
                   },
                 },
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
                   select: {
                     firstName: true,
                     lastName: true,
-                    avatarUrl: true,
+                    
                   },
                 },
               },

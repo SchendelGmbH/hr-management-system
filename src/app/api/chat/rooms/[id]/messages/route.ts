@@ -52,7 +52,7 @@ export async function GET(
               select: {
                 firstName: true,
                 lastName: true,
-                avatarUrl: true,
+                
               },
             },
           },
@@ -155,7 +155,7 @@ export async function POST(
               select: {
                 firstName: true,
                 lastName: true,
-                avatarUrl: true,
+                
               },
             },
           },

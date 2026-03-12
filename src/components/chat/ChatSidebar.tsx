@@ -1,14 +1,13 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { 
   Search, 
   Plus, 
   Bell,
   MessageCircle,
   Users,
-  User,
-  Hash
+  User
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';

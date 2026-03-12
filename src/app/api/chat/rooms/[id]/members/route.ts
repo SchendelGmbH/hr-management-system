@@ -5,7 +5,7 @@ import { z } from 'zod';
 
 // GET /api/chat/rooms/[id]/members - Get room members
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -43,7 +43,7 @@ export async function GET(
               select: {
                 firstName: true,
                 lastName: true,
-                avatarUrl: true,
+                
                 position: true,
               },
             },
@@ -67,7 +67,7 @@ const addMemberSchema = z.object({
 });
 
 export async function POST(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -124,7 +124,7 @@ export async function POST(
               select: {
                 firstName: true,
                 lastName: true,
-                avatarUrl: true,
+                
               },
             },
           },

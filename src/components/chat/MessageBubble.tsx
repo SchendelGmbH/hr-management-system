@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Check, CheckCheck, Edit2, Trash2 } from 'lucide-react';
+import { CheckCheck, Edit2, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { ChatMessage } from '@/types/chat';

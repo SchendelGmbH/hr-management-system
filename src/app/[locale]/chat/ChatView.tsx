@@ -11,7 +11,6 @@ import { ChatRoom as ChatRoomType, ChatMessage, ChatUser } from '@/types/chat';
 import { useSocket } from '@/hooks/useSocket';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
-import { toast } from 'sonner';
 
 // API Response Types
 interface ApiRoom {
@@ -244,10 +243,10 @@ export function ChatView() {
     mutationFn: createRoom,
     onSuccess: (newRoom) => {
       queryClient.setQueryData(['chat', 'rooms'], (old: ApiRoom[] = []) => [newRoom, ...old]);
-      toast.success('Chat erstellt');
+      console.log('Chat erstellt');
     },
     onError: () => {
-      toast.error('Fehler beim Erstellen des Chats');
+      console.error('Fehler beim Erstellen des Chats');
     },
   });
 
@@ -260,7 +259,7 @@ export function ChatView() {
       );
     },
     onError: () => {
-      toast.error('Fehler beim Senden der Nachricht');
+      console.error('Fehler beim Senden der Nachricht');
     },
   });
 
@@ -274,7 +273,7 @@ export function ChatView() {
       );
     },
     onError: () => {
-      toast.error('Fehler beim Bearbeiten der Nachricht');
+      console.error('Fehler beim Bearbeiten der Nachricht');
     },
   });
 
@@ -287,7 +286,7 @@ export function ChatView() {
       );
     },
     onError: () => {
-      toast.error('Fehler beim Löschen der Nachricht');
+      console.error('Fehler beim Löschen der Nachricht');
     },
   });
 

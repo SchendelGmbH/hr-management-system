@@ -14,7 +14,6 @@ import {
   Loader2,
   User
 } from 'lucide-react';
-import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 
@@ -49,7 +48,6 @@ export function ChatRoom({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [showMobileHeader, setShowMobileHeader] = useState(false);
 
   // Scroll to bottom on new messages (but not if user scrolled up)
   useEffect(() => {

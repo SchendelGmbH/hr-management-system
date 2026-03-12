@@ -4,7 +4,7 @@ import prisma from '@/lib/prisma';
 
 // GET /api/chat/rooms/[id] - Get room details
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -43,7 +43,7 @@ export async function GET(
                   select: {
                     firstName: true,
                     lastName: true,
-                    avatarUrl: true,
+                    
                     position: true,
                     department: {
                       select: { name: true },
@@ -84,7 +84,7 @@ export async function GET(
 
 // PATCH /api/chat/rooms/[id] - Update room
 export async function PATCH(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -146,7 +146,7 @@ export async function PATCH(
 
 // DELETE /api/chat/rooms/[id] - Delete room
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();

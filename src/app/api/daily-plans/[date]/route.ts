@@ -12,11 +12,7 @@ function parseDate(dateStr: string): Date {
   return new Date(Date.UTC(year, month - 1, day));
 }
 
-function prevDay(date: Date): Date {
-  const d = new Date(date);
-  d.setUTCDate(d.getUTCDate() - 1);
-  return d;
-}
+// Note: prevDay function removed - not needed in current implementation
 
 async function loadPlan(date: Date) {
   return prisma.dailyPlan.findUnique({
@@ -167,52 +163,15 @@ export async function PUT(
     // Re-create sites with assignments
     for (let i = 0; i < sites.length; i++) {
       const s = sites[i];
-      const site = await prisma.dailyPlanSite.create({
-        data: {
-          planId: plan.id,
-          name: s.name,
-          location: s.location ?? null,
-          color: s.color ?? null,
-          vehiclePlates: s.vehiclePlates ?? [],
-          startTime: s.startTime ?? '06:00',
-          endTime: s.endTime ?? '16:00',
-          sortOrder: s.sortOrder ?? i,
-        },
-      });
-
-      if (s.assignments && s.assignments.length > 0) {
-        await prisma.dailyPlanAssignment.createMany({
-          data: s.assignments.map((a) => ({
-            siteId: site.id,
-            employeeId: a.employeeId,
-            note: a.note ?? null,
-          })),
-          skipDuplicates: true,
-        });
-
-        // Emit Events für jede Zuweisung (für Chat-Auto-Invite)
-        for (const assignment of s.assignments) {
-          const employee = await prisma.employee.findUnique({
-            where: { id: assignment.employeeId },
-            select: { id: true, firstName: true, lastName: true },
-          });
-
-          if (employee) {
-            eventBus.emit('baustelle.assigned', {
-              workSiteId: workSiteId,
-              dailyPlanSiteId: site.id,
-              employeeId: employee.id,
-              employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
-              planDate: date.toISOString(),
-              timestamp: new Date().toISOString(),
-            });
-          }
-        }
-      }
-
-      // Auto-upsert WorkSite (Stammbaustelle)
+      
+      // 1. Zuerst: Auto-upsert WorkSite (Stammbaustelle) - muss vor Assignments passieren
       const existingWorkSite = await prisma.workSite.findFirst({
-        where: { name_location: { name: s.name, location: s.location ?? '' } },
+        where: { 
+          AND: [
+            { name: s.name },
+            { location: s.location ?? '' }
+          ]
+        },
         select: { id: true, name: true, location: true },
       });
 
@@ -253,6 +212,52 @@ export async function PUT(
           },
         });
         workSiteId = existingWorkSite.id;
+      }
+
+      // 2. DailyPlanSite erstellen
+      const site = await prisma.dailyPlanSite.create({
+        data: {
+          planId: plan.id,
+          workSiteId: workSiteId,
+          name: s.name,
+          location: s.location ?? null,
+          color: s.color ?? null,
+          vehiclePlates: s.vehiclePlates ?? [],
+          startTime: s.startTime ?? '06:00',
+          endTime: s.endTime ?? '16:00',
+          sortOrder: s.sortOrder ?? i,
+        },
+      });
+
+      // 3. Assignments erstellen und Events emittieren
+      if (s.assignments && s.assignments.length > 0) {
+        await prisma.dailyPlanAssignment.createMany({
+          data: s.assignments.map((a) => ({
+            siteId: site.id,
+            employeeId: a.employeeId,
+            note: a.note ?? null,
+          })),
+          skipDuplicates: true,
+        });
+
+        // Emit Events für jede Zuweisung (für Chat-Auto-Invite)
+        for (const assignment of s.assignments) {
+          const employee = await prisma.employee.findUnique({
+            where: { id: assignment.employeeId },
+            select: { id: true, firstName: true, lastName: true },
+          });
+
+          if (employee && workSiteId) {
+            eventBus.emit('baustelle.assigned', {
+              workSiteId: workSiteId,
+              dailyPlanSiteId: site.id,
+              employeeId: employee.id,
+              employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
+              planDate: date.toISOString(),
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
       }
     }
 

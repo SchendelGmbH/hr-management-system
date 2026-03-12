@@ -6,6 +6,7 @@
 
 import { initializeChatEventHandlers } from './handlers/chatEvents';
 import { initializeVertretungEventHandlers } from './handlers/vertretungEvents';
+import { initializeWorkSiteEventHandlers } from './handlers/workSiteEvents';
 
 let initialized = false;
 
@@ -17,11 +18,14 @@ export function initializeEventBus() {
 
   console.log('[EventBus] Initialisiere Event-Handler...');
   
-  // Chat-Event Handler
+  // Chat-Event Handler (Willkommensnachrichten für neue Mitarbeiter)
   initializeChatEventHandlers();
   
   // Vertretungs-Event Handler
   initializeVertretungEventHandlers();
+  
+  // Baustellen-Event Handler (Auto-Chat, Check-in/out, Material)
+  initializeWorkSiteEventHandlers();
   
   initialized = true;
   console.log('[EventBus] Initialisierung abgeschlossen');

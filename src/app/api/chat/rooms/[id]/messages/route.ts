@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
+import { eventBus } from '@/lib/events/EventBus';
 
 // GET /api/chat/rooms/[id]/messages - Get messages for a room
 export async function GET(
@@ -202,6 +203,15 @@ export async function POST(
     } catch (e) {
       // Socket not available, ignore
     }
+
+    // Emit EventBus event für Chat-Befehle (/material, /checkin, etc.)
+    eventBus.emit('chat.message.received', {
+      roomId: id,
+      messageId: message.id,
+      senderId: session.user.id,
+      content: message.content,
+      timestamp: message.sentAt.toISOString(),
+    });
 
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {

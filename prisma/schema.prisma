@@ -597,7 +597,8 @@ model WorkSite {
   lastUsedAt          DateTime @default(now())
   createdAt           DateTime @default(now())
 
-  planSites DailyPlanSite[]
+  planSites        DailyPlanSite[]
+  checkIns         WorkSiteCheckIn[]
 
   @@unique([name, location])
   @@index([lastUsedAt])
@@ -778,6 +779,7 @@ enum ChatRoomType {
   GROUP       // Gruppenchat
   DEPARTMENT  // Abteilungschat (automatisch)
   SYSTEM      // System-/Willkommensnachrichten
+  WORKSITE    // Baustellen-Chat (automatisch bei Baustellen-Anlage)
 }
 
 enum ChatMemberRole {
@@ -900,4 +902,31 @@ model ChatAttachment {
   
   @@index([messageId])
   @@map("chat_attachments")
+}
+
+// ============================================================================
+// BAUSTELLEN CHECK-IN/CHECK-OUT (für Chat-Feature)
+// ============================================================================
+
+model WorkSiteCheckIn {
+  id            String    @id @default(cuid())
+  userId        String
+  workSiteId    String?   // Optional: für globale Check-ins ohne Baustelle
+  date          DateTime  @default(now()) @db.Date
+  checkedInAt   DateTime  @default(now())
+  checkedOutAt  DateTime?
+  
+  // Optional: Koordinaten für GPS-Check-in
+  latitude      Float?
+  longitude     Float?
+  
+  // Relations
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workSite      WorkSite? @relation(fields: [workSiteId], references: [id], onDelete: SetNull)
+  
+  @@index([userId])
+  @@index([workSiteId])
+  @@index([date])
+  @@index([checkedOutAt]) // Für Abfragen: wer ist noch eingecheckt
+  @@map("work_site_check_ins")
 }

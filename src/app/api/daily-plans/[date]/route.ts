@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { NRW_HOLIDAYS, findLastWorkingDay, type WeekendMode } from '@/lib/holidays';
+import { eventBus } from '@/lib/events/EventBus';
 
 export const dynamic = 'force-dynamic';
 
@@ -188,27 +189,71 @@ export async function PUT(
           })),
           skipDuplicates: true,
         });
+
+        // Emit Events für jede Zuweisung (für Chat-Auto-Invite)
+        for (const assignment of s.assignments) {
+          const employee = await prisma.employee.findUnique({
+            where: { id: assignment.employeeId },
+            select: { id: true, firstName: true, lastName: true },
+          });
+
+          if (employee) {
+            eventBus.emit('baustelle.assigned', {
+              workSiteId: workSiteId,
+              dailyPlanSiteId: site.id,
+              employeeId: employee.id,
+              employeeName: `${employee.firstName || ''} ${employee.lastName || ''}`.trim(),
+              planDate: date.toISOString(),
+              timestamp: new Date().toISOString(),
+            });
+          }
+        }
       }
 
       // Auto-upsert WorkSite (Stammbaustelle)
-      await prisma.workSite.upsert({
+      const existingWorkSite = await prisma.workSite.findFirst({
         where: { name_location: { name: s.name, location: s.location ?? '' } },
-        create: {
-          name: s.name,
-          location: s.location ?? null,
-          color: s.color ?? null,
-          defaultStartTime: s.startTime ?? '06:00',
-          defaultEndTime: s.endTime ?? '16:00',
-          defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
-          lastUsedAt: new Date(),
-        },
-        update: {
-          lastUsedAt: new Date(),
-          defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
-          defaultStartTime: s.startTime ?? '06:00',
-          defaultEndTime: s.endTime ?? '16:00',
-        },
+        select: { id: true, name: true, location: true },
       });
+
+      let workSiteId = existingWorkSite?.id;
+
+      if (!existingWorkSite) {
+        // Neue Baustelle erstellen
+        const newWorkSite = await prisma.workSite.create({
+          data: {
+            name: s.name,
+            location: s.location ?? null,
+            color: s.color ?? null,
+            defaultStartTime: s.startTime ?? '06:00',
+            defaultEndTime: s.endTime ?? '16:00',
+            defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
+            lastUsedAt: new Date(),
+          },
+        });
+        workSiteId = newWorkSite.id;
+
+        // Emit Event: Baustelle wurde erstellt → Auto-Chat wird erstellt
+        eventBus.emit('baustelle.created', {
+          workSiteId: newWorkSite.id,
+          name: newWorkSite.name,
+          location: newWorkSite.location,
+          createdBy: session.user.id,
+          timestamp: new Date().toISOString(),
+        });
+      } else {
+        // Bestehende Baustelle aktualisieren
+        await prisma.workSite.update({
+          where: { id: existingWorkSite.id },
+          data: {
+            lastUsedAt: new Date(),
+            defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
+            defaultStartTime: s.startTime ?? '06:00',
+            defaultEndTime: s.endTime ?? '16:00',
+          },
+        });
+        workSiteId = existingWorkSite.id;
+      }
     }
 
     // Cleanup stale work sites (retention days from settings, default 30)

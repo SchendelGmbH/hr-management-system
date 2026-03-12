@@ -17,6 +17,7 @@ import {
   ClipboardList,
   MessageCircle,
   ArrowRightLeft,
+  LayoutKanban,
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -88,6 +89,12 @@ const allNavigation = [
     adminOnly: false,
   },
   {
+    name: 'tasks',
+    href: '/de/tasks',
+    icon: LayoutKanban,
+    adminOnly: false,
+  },
+  {
     name: 'swaps',
     href: '/de/swaps',
     icon: ArrowRightLeft,
@@ -113,7 +120,8 @@ export default function Sidebar() {
         item.name === 'calendar' || 
         item.name === 'mySchedule' ||
         item.name === 'swaps' ||
-        item.name === 'chat'
+        item.name === 'chat' ||
+        item.name === 'tasks'
       )
     : allNavigation;
 

@@ -175,6 +175,39 @@ export default function handler(req: any, res: any) {
     }
   });
 
+  // Task events
+  onEvent('TASK_ASSIGNED', (data) => {
+    if (io) {
+      if (data.assigneeId) {
+        io.to(`user:${data.assigneeId}`).emit('task-assigned', data);
+      }
+    }
+  });
+
+  onEvent('TASK_COMPLETED', (data) => {
+    if (io) {
+      if (data.createdById) {
+        io.to(`user:${data.createdById}`).emit('task-completed', data);
+      }
+    }
+  });
+
+  onEvent('TASK_DUE_SOON', (data) => {
+    if (io) {
+      if (data.assigneeId) {
+        io.to(`user:${data.assigneeId}`).emit('task-due-soon', data);
+      }
+    }
+  });
+
+  onEvent('TASK_OVERDUE', (data) => {
+    if (io) {
+      if (data.assigneeId) {
+        io.to(`user:${data.assigneeId}`).emit('task-overdue', data);
+      }
+    }
+  });
+
   console.log('[Socket.IO] Server initialized');
   res.end();
 }

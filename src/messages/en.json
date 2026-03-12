@@ -36,6 +36,7 @@
     "planning": "Daily Planning",
     "qualifications": "Qualifications",
     "chat": "Chat",
+    "tasks": "Tasks",
     "settings": "Settings"
   },
   "dashboard": {
@@ -47,5 +48,47 @@
     "expiringDocuments": "Expiring Documents",
     "recentNotifications": "Recent Notifications",
     "lowBudgetEmployees": "Employees with Low Budget"
+  },
+  "tasks": {
+    "title": "Tasks",
+    "newTask": "New Task",
+    "editTask": "Edit Task",
+    "todo": "To Do",
+    "inProgress": "In Progress",
+    "done": "Done",
+    "title": "Title",
+    "description": "Description",
+    "assignee": "Assignee",
+    "dueDate": "Due Date",
+    "priority": "Priority",
+    "status": "Status",
+    "createdBy": "Created by",
+    "createdAt": "Created at",
+    "completedAt": "Completed at",
+    "noTasks": "No tasks",
+    "dragHere": "Drop here",
+    "createFromChat": "Create from chat",
+    "taskCreated": "Task created",
+    "taskUpdated": "Task updated",
+    "taskDeleted": "Task deleted",
+    "confirmDelete": "Delete task?",
+    "priorities": {
+      "low": "Low",
+      "medium": "Medium",
+      "high": "High",
+      "urgent": "Urgent"
+    },
+    "statuses": {
+      "todo": "To Do",
+      "inProgress": "In Progress",
+      "done": "Done",
+      "cancelled": "Cancelled"
+    }
+  },
+  "notifications": {
+    "taskAssigned": "New task",
+    "taskDueSoon": "Task due soon",
+    "taskOverdue": "Task overdue",
+    "taskCompleted": "Task completed"
   }
 }

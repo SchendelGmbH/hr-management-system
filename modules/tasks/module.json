@@ -1,0 +1,48 @@
+{
+  "id": "tasks",
+  "name": "Task Management",
+  "description": "Kanban-basiertes Task-Management für Teams",
+  "version": "1.0.0",
+  "tier": "core",
+  "author": "HR Management System",
+  "dependencies": ["core", "hr-core", "notifications"],
+  "optionalDependencies": ["chat"],
+  "requiredPermissions": [
+    "tasks:read",
+    "tasks:write",
+    "tasks:assign"
+  ],
+  "navigation": [
+    {
+      "id": "tasks.main",
+      "label": "navigation.tasks",
+      "href": "/tasks",
+      "icon": "LayoutKanban",
+      "requiredPermission": "tasks:read",
+      "position": 300
+    }
+  ],
+  "settings": [
+    {
+      "key": "tasks.defaultDueDays",
+      "label": "settings.tasksDefaultDueDays",
+      "type": "number",
+      "defaultValue": 7,
+      "description": "Standard-Frist in Tagen für neue Tasks"
+    },
+    {
+      "key": "tasks.enableChatIntegration",
+      "label": "settings.tasksChatIntegration",
+      "type": "boolean",
+      "defaultValue": true,
+      "description": "Task-Erstellung aus Chat aktivieren"
+    }
+  ],
+  "features": [
+    "tasks.kanban",
+    "tasks.assign",
+    "tasks.dueDate",
+    "tasks.notifications",
+    "tasks.chatIntegration"
+  ]
+}

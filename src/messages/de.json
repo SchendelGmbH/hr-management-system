@@ -38,6 +38,7 @@
     "mySchedule": "Mein Plan",
     "chat": "Chat",
     "swaps": "Schicht-Tausch",
+    "tasks": "Aufgaben",
     "settings": "Einstellungen"
   },
   "dashboard": {
@@ -49,5 +50,47 @@
     "expiringDocuments": "Bald ablaufende Dokumente",
     "recentNotifications": "Aktuelle Benachrichtigungen",
     "lowBudgetEmployees": "Mitarbeiter mit niedrigem Budget"
+  },
+  "tasks": {
+    "title": "Aufgaben",
+    "newTask": "Neue Aufgabe",
+    "editTask": "Aufgabe bearbeiten",
+    "todo": "Zu erledigen",
+    "inProgress": "In Bearbeitung",
+    "done": "Erledigt",
+    "title": "Titel",
+    "description": "Beschreibung",
+    "assignee": "Zugewiesen an",
+    "dueDate": "Fällig am",
+    "priority": "Priorität",
+    "status": "Status",
+    "createdBy": "Erstellt von",
+    "createdAt": "Erstellt am",
+    "completedAt": "Abgeschlossen am",
+    "noTasks": "Keine Aufgaben",
+    "dragHere": "Hierhin ziehen",
+    "createFromChat": "Aus Chat erstellen",
+    "taskCreated": "Aufgabe erstellt",
+    "taskUpdated": "Aufgabe aktualisiert",
+    "taskDeleted": "Aufgabe gelöscht",
+    "confirmDelete": "Aufgabe löschen?",
+    "priorities": {
+      "low": "Niedrig",
+      "medium": "Mittel",
+      "high": "Hoch",
+      "urgent": "Dringend"
+    },
+    "statuses": {
+      "todo": "Offen",
+      "inProgress": "In Arbeit",
+      "done": "Erledigt",
+      "cancelled": "Abgebrochen"
+    }
+  },
+  "notifications": {
+    "taskAssigned": "Neue Aufgabe",
+    "taskDueSoon": "Aufgabe fällig bald",
+    "taskOverdue": "Aufgabe überfällig",
+    "taskCompleted": "Aufgabe abgeschlossen"
   }
 }

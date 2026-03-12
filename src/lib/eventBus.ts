@@ -146,4 +146,35 @@ if (typeof window === 'undefined') {
   initializeSwapNotificationHandlers();
 }
 
-export default eventBus;
+/**
+ * Events für das Task Management System
+ */
+export const TaskEvents = {
+  TASK_CREATED: 'TASK_CREATED',
+  TASK_UPDATED: 'TASK_UPDATED',
+  TASK_ASSIGNED: 'TASK_ASSIGNED',
+  TASK_COMPLETED: 'TASK_COMPLETED',
+  TASK_DELETED: 'TASK_DELETED',
+  TASK_DUE_SOON: 'TASK_DUE_SOON',
+  TASK_OVERDUE: 'TASK_OVERDUE',
+} as const;
+
+export type TaskEventType = typeof TaskEvents[keyof typeof TaskEvents];
+
+/**
+ * Emitter für Task Events
+ */
+export function emitTaskEvent(
+  event: TaskEventType,
+  data: {
+    taskId: string;
+    title: string;
+    assigneeId?: string | null;
+    createdById?: string;
+    oldAssigneeId?: string | null;
+    message?: string;
+    [key: string]: any;
+  }
+) {
+  eventBus.emit(event, data);
+}

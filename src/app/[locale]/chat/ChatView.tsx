@@ -7,6 +7,7 @@ import {
   ChatRoom, 
   ChatSidebar 
 } from '@/components/chat';
+import { SmartReplies } from '@/components/chat/ai-features/SmartReplies';
 import { ChatRoom as ChatRoomType, ChatMessage, ChatUser } from '@/types/chat';
 import { useSocket } from '@/hooks/useSocket';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -342,6 +343,41 @@ export function ChatView() {
   const handleSendMessage = useCallback(
     async (content: string) => {
       if (!currentRoomId || !content.trim()) return;
+
+      // Check for /summarize command
+      if (content.trim().startsWith('/summarize')) {
+        try {
+          const response = await fetch('/api/ai/summarize', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ roomId: currentRoomId }),
+          });
+          
+          const result = await response.json();
+          
+          if (result.summary) {
+            // Send summary as system message
+            sendMessageMutation.mutate({ 
+              roomId: currentRoomId, 
+              content: `📋 **Zusammenfassung** (${result.messageCount} Nachrichten):\n\n${result.summary}` 
+            });
+            return;
+          } else if (result.error) {
+            sendMessageMutation.mutate({ 
+              roomId: currentRoomId, 
+              content: `⚠️ Fehler: ${result.error}` 
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error processing summarize command:', error);
+          sendMessageMutation.mutate({ 
+            roomId: currentRoomId, 
+            content: '⚠️ Zusammenfassung konnte nicht erstellt werden.' 
+          });
+          return;
+        }
+      }
 
       // Check for /task command
       if (content.trim().startsWith('/task')) {

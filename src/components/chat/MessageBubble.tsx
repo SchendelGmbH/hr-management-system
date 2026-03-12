@@ -7,6 +7,7 @@ import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { ChatMessage } from '@/types/chat';
 import { clsx } from 'clsx';
+import { TranslationButton } from './ai-features/TranslationButton';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -104,6 +105,9 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete }: 
           ) : (
             <>
               <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
+              
+              {/* Translation Button */}
+              <TranslationButton text={message.content} />
               
               {/* Status und Zeit */}
               <div className="mt-1 flex items-center gap-1">

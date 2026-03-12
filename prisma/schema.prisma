@@ -50,6 +50,11 @@ model User {
   
   // WorkSite CheckIn/Out Relations
   workSiteCheckIns      WorkSiteCheckIn[]
+  
+  // Document Signature Relations
+  createdSignatureRequests DocumentSignatureRequest[] @relation("SignatureRequestCreator")
+  signatureParticipations DocumentSignatureParticipant[]
+  documentSignatures      DocumentSignature[] @relation("DocumentSigner")
 
   @@map("users")
 }
@@ -265,6 +270,9 @@ model Document {
   // Selbst-Relation für Versionierung
   parent   Document?  @relation("DocumentVersions", fields: [parentDocumentId], references: [id], onDelete: SetNull)
   versions Document[] @relation("DocumentVersions")
+  
+  // Signatur-Workflow
+  signatureRequests DocumentSignatureRequest[] @relation("DocumentSignatureRequests")
 
   @@index([employeeId])
   @@index([expirationDate])
@@ -524,6 +532,12 @@ enum NotificationType {
   TASK_DUE_SOON
   TASK_OVERDUE
   TASK_COMPLETED
+  
+  // Document Signature Notifications
+  SIGNATURE_REQUESTED
+  SIGNATURE_APPROVED
+  SIGNATURE_SIGNED
+  SIGNATURE_REJECTED
 }
 
 // ============================================================================
@@ -900,6 +914,9 @@ model ChatRoom {
   relatedEntityType String?  // z.B. "Employee" für Willkommenschat
   relatedEntityId   String?
   
+  // Document Signature Workflow
+  signatureRequests DocumentSignatureRequest[]
+  
   @@index([type])
   @@index([isSystem])
   @@index([relatedEntityType, relatedEntityId])
@@ -1021,3 +1038,103 @@ model WorkSiteCheckIn {
   @@index([checkedOutAt]) // Für Abfragen: wer ist noch eingecheckt
   @@map("work_site_check_ins")
 }
+
+// ============================================================================
+// DOCUMENT SIGNATURE WORKFLOW
+// ============================================================================
+
+enum SignatureRequestStatus {
+  PENDING
+  APPROVED
+  SIGNED
+  REJECTED
+  CANCELLED
+}
+
+enum SignatureRequestRole {
+  REQUESTER
+  APPROVER
+  SIGNER
+}
+
+model DocumentSignatureRequest {
+  id              String                   @id @default(cuid())
+  documentId      String                   // Container-Dokument
+  document        Document                 @relation("DocumentSignatureRequests", fields: [documentId], references: [id], onDelete: Cascade)
+  
+  // Workflow
+  status          SignatureRequestStatus   @default(PENDING)
+  title           String                   // Titel der Signatur-Anfrage
+  message         String?                  // Nachricht an Empfänger
+  
+  // Creator
+  createdById     String
+  createdBy       User                     @relation("SignatureRequestCreator", fields: [createdById], references: [id], onDelete: Cascade)
+  
+  // Chat integration
+  roomId          String?                  // Chat-Raum für diese Anfrage
+  room            ChatRoom?                @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  
+  // Timestamps
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+  approvedAt      DateTime?
+  signedAt      DateTime?
+  rejectedAt    DateTime?
+  
+  // Relations
+  participants    DocumentSignatureParticipant[]
+  signatures      DocumentSignature[]
+  
+  @@index([documentId])
+  @@index([status])
+  @@index([createdById])
+  @@index([roomId])
+  @@map("document_signature_requests")
+}
+
+model DocumentSignatureParticipant {
+  id          String              @id @default(cuid())
+  requestId   String
+  request     DocumentSignatureRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  user        User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  role        SignatureRequestRole
+  actedAt     DateTime?           // Wann die Aktion ausgeführt wurde
+  note        String?             // Notiz bei Ablehnung
+  
+  @@unique([requestId, userId, role])
+  @@index([requestId])
+  @@index([userId])
+  @@map("document_signature_participants")
+}
+
+model DocumentSignature {
+  id          String                   @id @default(cuid())
+  requestId   String
+  request     DocumentSignatureRequest   @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  // Wer unterschreibt
+  signerId    String
+  signer      User                     @relation("DocumentSigner", fields: [signerId], references: [id], onDelete: Cascade)
+  
+  // Signatur-Daten
+  signatureData   String               @db.Text // Base64-encoded SVG/PNG der Signatur
+  signedAt        DateTime             @default(now())
+  ipAddress       String?
+  userAgent       String?
+  
+  // PDF-Seitennummer
+  pageNumber      Int                  @default(1)
+  positionX       Float?               // X-Koordinate in PDF (0-1)
+  positionY       Float?               // Y-Koordinate in PDF (0-1)
+  
+  @@index([requestId])
+  @@index([signerId])
+  @@map("document_signatures")
+}
+
+// Extend Document model
+// (Add to Document model: signatureRequests DocumentSignatureRequest[])

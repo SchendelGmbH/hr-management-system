@@ -7,6 +7,7 @@
 import { initializeChatEventHandlers } from './handlers/chatEvents';
 import { initializeVertretungEventHandlers } from './handlers/vertretungEvents';
 import { initializeWorkSiteEventHandlers } from './handlers/workSiteEvents';
+import { initializeDocumentSignatureEventHandlers } from './handlers/documentSignatureEvents';
 
 let initialized = false;
 
@@ -26,6 +27,9 @@ export function initializeEventBus() {
   
   // Baustellen-Event Handler (Auto-Chat, Check-in/out, Material)
   initializeWorkSiteEventHandlers();
+  
+  // Document Signature Handler (Signatur-Workflow im Chat)
+  initializeDocumentSignatureEventHandlers();
   
   initialized = true;
   console.log('[EventBus] Initialisierung abgeschlossen');

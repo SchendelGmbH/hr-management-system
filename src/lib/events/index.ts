@@ -5,6 +5,7 @@
  */
 
 import { initializeChatEventHandlers } from './handlers/chatEvents';
+import { initializeVertretungEventHandlers } from './handlers/vertretungEvents';
 
 let initialized = false;
 
@@ -19,7 +20,8 @@ export function initializeEventBus() {
   // Chat-Event Handler
   initializeChatEventHandlers();
   
-  // Weitere Handler können hier hinzugefügt werden
+  // Vertretungs-Event Handler
+  initializeVertretungEventHandlers();
   
   initialized = true;
   console.log('[EventBus] Initialisierung abgeschlossen');

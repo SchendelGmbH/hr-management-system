@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
+import { eventBus } from '@/lib/events/EventBus';
 
 const vacationSchema = z.object({
   employeeId: z.string().min(1),
@@ -92,6 +93,17 @@ export async function POST(request: NextRequest) {
         }),
       },
     });
+
+    // Emit Event für Vertretungs-Module bei Krankmeldung
+    eventBus.emit('vacation.created', {
+      vacationId: vacation.id,
+      employeeId: data.employeeId,
+      vacationType: data.vacationType,
+      startDate: data.startDate,
+      endDate: data.endDate,
+      notes: data.notes,
+      createdBy: session.user.id,
+    }, 'vacations.api');
 
     return NextResponse.json({ vacation });
   } catch (error) {

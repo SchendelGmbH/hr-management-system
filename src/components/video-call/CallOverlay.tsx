@@ -45,7 +45,7 @@ export function CallOverlay({ status, initiatorName, callType, participantCount 
       {/* Status text */}
       <div className="relative z-10 text-center">
         <h2 className="text-2xl font-semibold text-white mb-2">
-          {isRinging ? >Eingehender Anruf...' : isCalling ? 'Wird angerufen...' : 'Verbindung wird hergestellt...'}</h2>
+          {isRinging ? "Eingehender Anruf..." : isCalling ? "Wird angerufen..." : "Verbindung wird hergestellt..."}</h2>
         
         <p className="text-lg text-gray-300">
           {initiatorName}
@@ -55,7 +55,7 @@ export function CallOverlay({ status, initiatorName, callType, participantCount 
         </p>
         
         <p className="text-sm text-gray-400 mt-4">
-          {isRinging >"Wische zum Annehmen nach rechts oder lehne nach links ab" : 
+          {isRinging ? "Wische zum Annehmen nach rechts oder lehne nach links ab" : 
            callType === 'video' ? 'Videoanruf' : 'Sprachanruf'}</p>
       </div>
 

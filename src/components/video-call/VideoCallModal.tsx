@@ -96,7 +96,7 @@ export function VideoCallModal({
         {isActiveCall && (
           <div className="absolute top-4 left-4 flex items-center gap-2 px-3 py-1.5 bg-black/50 rounded-full text-white text-sm">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span>{callState.isGroupCall ? >Gruppenanruf' : 'Videoanruf'}</span>
+            <span>{callState.isGroupCall ? "Gruppenanruf" : "Videoanruf"}</span>
             <span className="text-gray-300">•</span>
             <span className="text-gray-300">{callState.participants.length + 1} Teilnehmer</span>
           </div>

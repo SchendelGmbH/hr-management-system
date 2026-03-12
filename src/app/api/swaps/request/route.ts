@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
+import { emitSwapEvent, ShiftSwapEvents } from '@/lib/eventBus';
+import { notifySwapRequested, notifySwapResponse } from '@/lib/notifications';
 
 /**
  * POST /api/swaps/request
@@ -102,8 +104,27 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Emit Event
+    emitSwapEvent(ShiftSwapEvents.SWAP_CREATED, {
+      swapId: swapRequest.id,
+      requesterId: swapRequest.requesterId,
+      requestedId: swapRequest.requestedEmployeeId,
+      requesterName: `${swapRequest.requester?.firstName} ${swapRequest.requester?.lastName}`,
+    });
+
+    // Benachrichtigung senden falls spezifischer Mitarbeiter angefragt
+    if (swapRequest.requestedEmployeeId && swapRequest.requested) {
+      await notifySwapRequested(
+        `${swapRequest.requester?.firstName} ${swapRequest.requester?.lastName}`,
+        swapRequest.requestedEmployeeId,
+        swapRequest.id,
+        new Date(requesterDate)
+      );
+    }
+
     // Revalidate
     revalidatePath('/swaps');
+    revalidatePath('/my-schedule');
 
     return NextResponse.json({
       success: true,

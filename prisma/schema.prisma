@@ -502,6 +502,12 @@ enum NotificationType {
   LOW_BUDGET
   UPCOMING_VACATION
   QUALIFICATION_EXPIRING
+  
+  // Shift Swap Notifications
+  SHIFT_SWAP
+  SHIFT_SWAP_RESPONSE
+  SHIFT_SWAP_APPROVED
+  SHIFT_SWAP_COMPLETED
 }
 
 // ============================================================================

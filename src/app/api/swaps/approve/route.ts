@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth';
 import { revalidatePath } from 'next/cache';
-import { emitEvent } from '@/lib/eventBus';
+import { emitEvent, emitSwapEvent, ShiftSwapEvents } from '@/lib/eventBus';
+import { notifySwapApproved, notifySwapCompleted } from '@/lib/notifications';
 
 /**
  * POST /api/swaps/approve
@@ -155,16 +156,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Emit Event für Realtime-Updates
-    emitEvent('SHIFT_SWAP_UPDATED', {
+    emitSwapEvent(ShiftSwapEvents.SWAP_UPDATED, {
       swapId: swap.id,
       status: newStatus,
       requesterId: swap.requesterId,
       requestedId: swap.requestedEmployeeId,
     });
 
+    // Benachrichtigungen
+    if (action === 'APPROVE' || action === 'REJECT') {
+      // Benachrichtige den Anfragenden
+      await notifySwapApproved(
+        user.username,
+        swap.requesterId,
+        swap.id,
+        swap.requesterDate,
+        action === 'APPROVE'
+      );
+
+      if (action === 'APPROVE') {
+        // Emit completed event
+        emitSwapEvent(ShiftSwapEvents.SWAP_COMPLETED, {
+          swapId: swap.id,
+          requesterId: swap.requesterId,
+          requestedId: swap.requestedEmployeeId,
+        });
+      }
+    }
+
     // Revalidate
     revalidatePath('/swaps');
     revalidatePath('/calendar');
+    revalidatePath('/my-schedule');
 
     return NextResponse.json({
       success: true,
@@ -231,6 +254,13 @@ async function executeShiftSwap(swap: any, response: any) {
       affectedEmployees: [swap.requesterId, response.responderId],
       swapId: swap.id,
     });
+
+    // Benachrichtige beide Parteien
+    await notifySwapCompleted(
+      swap.id,
+      [swap.requesterId, response.responderId],
+      swap.requesterDate
+    );
 
     console.log('Shift swap executed successfully:', swap.id);
   } catch (error) {

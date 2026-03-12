@@ -5,7 +5,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowsRightLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftRight } from 'lucide-react';
 import { SwapModal } from './SwapModal';
 
 interface SwapButtonProps {
@@ -56,7 +56,7 @@ export function SwapButton({
           `}
           title={disabled ? 'Tausch nicht verfügbar' : 'Schicht tauschen'}
         >
-          <ArrowsRightLeftIcon className="w-4 h-4" />
+          <ArrowLeftRight className="w-4 h-4" />
         </button>
         
         {isModalOpen && (
@@ -90,7 +90,7 @@ export function SwapButton({
           }
         `}
       >
-        <ArrowsRightLeftIcon className="w-4 h-4" />
+        <ArrowLeftRight className="w-4 h-4" />
         <span>Tauschen</span>
       </button>
 

@@ -6,14 +6,14 @@
 
 import { useState, useEffect } from 'react';
 import { 
-  XMarkIcon, 
-  UserIcon, 
-  MapPinIcon,
-  ClockIcon,
-  CalendarIcon,
-  CheckCircleIcon,
-  ExclamationCircleIcon,
-} from '@heroicons/react/24/outline';
+  X,
+  User,
+  MapPin,
+  Clock,
+  Calendar,
+  CheckCircle,
+  AlertCircle,
+} from 'lucide-react';
 import { useShiftSwaps } from '@/hooks/useShiftSwaps';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -152,7 +152,7 @@ export function SwapModal({
               onClick={onClose}
               className="text-white/80 hover:text-white transition-colors"
             >
-              <XMarkIcon className="w-6 h-6" />
+              <X className="w-6 h-6" />
             </button>
           </div>
         </div>
@@ -161,7 +161,7 @@ export function SwapModal({
         <div className="p-6 space-y-6">
           {success ? (
             <div className="text-center py-8">
-              <CheckCircleIcon className="w-16 h-16 text-green-500 mx-auto mb-4" />
+              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-gray-900">
                 Anfrage gesendet!
               </h3>
@@ -178,12 +178,12 @@ export function SwapModal({
                 </h3>
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-indigo-100 rounded-lg flex items-center justify-center">
-                    <MapPinIcon className="w-5 h-5 text-indigo-600" />
+                    <MapPin className="w-5 h-5 text-indigo-600" />
                   </div>
                   <div>
                     <p className="font-medium text-gray-900">{siteName}</p>
                     <div className="flex items-center gap-1 text-sm text-gray-500">
-                      <ClockIcon className="w-4 h-4" />
+                      <Clock className="w-4 h-4" />
                       <span>{startTime} - {endTime}</span>
                     </div>
                   </div>
@@ -202,7 +202,7 @@ export function SwapModal({
                   </div>
                 ) : partners.length === 0 ? (
                   <div className="text-center py-8 bg-gray-50 rounded-lg">
-                    <ExclamationCircleIcon className="w-12 h-12 text-gray-400 mx-auto mb-3" />
+                    <AlertCircle className="w-12 h-12 text-gray-400 mx-auto mb-3" />
                     <p className="text-gray-500">
                       Keine Tauschpartner verfügbar
                     </p>
@@ -270,7 +270,7 @@ export function SwapModal({
               {/* Error */}
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700">
-                  <ExclamationCircleIcon className="w-5 h-5 flex-shrink-0" />
+                  <AlertCircle className="w-5 h-5 flex-shrink-0" />
                   <span>{error}</span>
                 </div>
               )}

@@ -12,7 +12,7 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import deLocale from '@fullcalendar/core/locales/de';
-import { CalendarIcon, ChevronLeftIcon, ChevronRightIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
+import { CalendarIcon, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { SwapButton } from '@/components/swaps/SwapButton';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -184,7 +184,7 @@ export function ShiftCalendarView({ employeeId, showAllShifts = false }: ShiftCa
               onClick={goToPrev}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <ChevronLeftIcon className="w-5 h-5 text-gray-600" />
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
             </button>
             <button
               onClick={goToToday}
@@ -196,7 +196,7 @@ export function ShiftCalendarView({ employeeId, showAllShifts = false }: ShiftCa
               onClick={goToNext}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <ChevronRightIcon className="w-5 h-5 text-gray-600" />
+              <ChevronRight className="w-5 h-5 text-gray-600" />
             </button>
           </div>
         </div>

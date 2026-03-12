@@ -6,15 +6,15 @@
 
 import { useState } from 'react';
 import { 
-  ArrowRightLeftIcon,
-  ArrowPathIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ClockIcon,
-  UserIcon,
-  ChevronDownIcon,
-  ChevronUpIcon,
-} from '@heroicons/react/24/outline';
+  ArrowLeftRight,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  Clock,
+  User,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { useShiftSwaps } from '@/hooks/useShiftSwaps';
 import { format, parseISO, isPast } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -31,27 +31,27 @@ const statusConfig = {
   PENDING: {
     label: 'Ausstehend',
     color: 'amber',
-    icon: ClockIcon,
+    icon: Clock,
   },
   APPROVED: {
     label: 'Genehmigt',
     color: 'emerald',
-    icon: CheckCircleIcon,
+    icon: CheckCircle,
   },
   REJECTED: {
     label: 'Abgelehnt',
     color: 'red',
-    icon: XCircleIcon,
+    icon: XCircle,
   },
   COMPLETED: {
     label: 'Abgeschlossen',
     color: 'blue',
-    icon: CheckCircleIcon,
+    icon: CheckCircle,
   },
   CANCELLED: {
     label: 'Storniert',
     color: 'gray',
-    icon: XCircleIcon,
+    icon: XCircle,
   },
 };
 
@@ -165,7 +165,7 @@ export function SwapRequestsOverview({ employeeId }: SwapRequestsOverviewProps) 
         <div className="divide-y divide-gray-200">
           {swaps.length === 0 ? (
             <div className="p-12 text-center">
-              <ArrowPathIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+              <RefreshCw className="w-12 h-12 text-gray-300 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 mb-2">
                 Keine Tauschanfragen
               </h3>
@@ -236,9 +236,9 @@ export function SwapRequestsOverview({ employeeId }: SwapRequestsOverviewProps) 
                           className="text-gray-400 hover:text-gray-600"
                         >
                           {isExpanded ? (
-                            <ChevronUpIcon className="w-5 h-5" />
+                            <ChevronUp className="w-5 h-5" />
                           ) : (
-                            <ChevronDownIcon className="w-5 h-5" />
+                            <ChevronDown className="w-5 h-5" />
                           )}
                         </button>
                       </div>
@@ -290,14 +290,14 @@ export function SwapRequestsOverview({ employeeId }: SwapRequestsOverviewProps) 
                                     onClick={() => handleApprove(swap.id)}
                                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
                                   >
-                                    <CheckCircleIcon className="w-4 h-4" /
+                                    <CheckCircle className="w-4 h-4" /
                                     <span>Genehmigen</span>
                                   </button>
                                   <button
                                     onClick={() => handleReject(swap.id)}
                                     className="flex-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center justify-center gap-2"
                                   >
-                                    <XCircleIcon className="w-4 h-4" /
+                                    <XCircle className="w-4 h-4" /
                                     <span>Ablehnen</span>
                                   </button>
                                 </>
@@ -316,7 +316,7 @@ export function SwapRequestsOverview({ employeeId }: SwapRequestsOverviewProps) 
                           {/* Approved Info */}
                           {swap.status === 'APPROVED' && swap.approvedByUser && (
                             <div className="p-3 bg-emerald-50 rounded-lg flex items-center gap-2 text-emerald-700">
-                              <CheckCircleIcon className="w-5 h-5 flex-shrink-0" />
+                              <CheckCircle className="w-5 h-5 flex-shrink-0" />
                               <p className="text-sm">
                                 Genehmigt von {swap.approvedByUser.username}
                                 {swap.approvedAt && (

@@ -34,6 +34,11 @@ model User {
   qualificationsCreated   Qualification[]  @relation("QualificationCreator")
   dailyPlansCreated       DailyPlan[]      @relation("DailyPlanCreator")
   employee             Employee?
+  
+  // Chat Relations
+  chatMemberships       ChatMember[]
+  chatMessages          ChatMessage[]
+  chatReactions         ChatReaction[]
 
   @@map("users")
 }
@@ -647,4 +652,137 @@ model Vehicle {
 
   @@index([isActive])
   @@map("vehicles")
+}
+
+// ============================================================================
+// CHAT SYSTEM
+// ============================================================================
+
+enum ChatRoomType {
+  DIRECT      // Direktchat zwischen 2 Personen
+  GROUP       // Gruppenchat
+  DEPARTMENT  // Abteilungschat (automatisch)
+  SYSTEM      // System-/Willkommensnachrichten
+}
+
+enum ChatMemberRole {
+  MEMBER
+  ADMIN
+  OWNER
+}
+
+model ChatRoom {
+  id          String       @id @default(cuid())
+  name        String?
+  type        ChatRoomType
+  isSystem    Boolean      @default(false)
+  description String?
+  avatarUrl   String?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Relations
+  members     ChatMember[]
+  messages    ChatMessage[]
+  
+  // Für Gruppen: Wer hat sie erstellt
+  createdBy   String?
+  
+  // Für System-Räume: Verknüpfung zu Entities
+  relatedEntityType String?  // z.B. "Employee" für Willkommenschat
+  relatedEntityId   String?
+  
+  @@index([type])
+  @@index([isSystem])
+  @@index([relatedEntityType, relatedEntityId])
+  @@map("chat_rooms")
+}
+
+model ChatMember {
+  id         String         @id @default(cuid())
+  roomId     String
+  userId     String
+  role       ChatMemberRole @default(MEMBER)
+  joinedAt   DateTime       @default(now())
+  lastReadAt DateTime?      // Zeitpunkt der letzten Lesebestätigung
+  isMuted    Boolean        @default(false)
+  
+  // Relations
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([roomId, userId])
+  @@index([roomId])
+  @@index([userId])
+  @@index([joinedAt])
+  @@map("chat_members")
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  roomId    String
+  senderId  String?  // null für Systemnachrichten
+  content   String   @db.Text
+  
+  // Metadata
+  sentAt    DateTime @default(now())
+  editedAt  DateTime?
+  isSystem  Boolean  @default(false)
+  isDeleted Boolean  @default(false)
+  
+  // Reply functionality
+  replyToId String?
+  
+  // Relations
+  room     ChatRoom       @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender   User?            @relation(fields: [senderId], references: [id], onDelete: SetNull)
+  replyTo  ChatMessage?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies  ChatMessage[]    @relation("MessageReplies")
+  reactions ChatReaction[]
+  attachments ChatAttachment[]
+  
+  @@index([roomId])
+  @@index([roomId, sentAt])
+  @@index([senderId])
+  @@index([replyToId])
+  @@map("chat_messages")
+}
+
+model ChatReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String   // Unicode emoji oder shortcode
+  reactedAt DateTime @default(now())
+  
+  // Relations
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, userId, emoji])
+  @@index([messageId])
+  @@index([userId])
+  @@map("chat_reactions")
+}
+
+model ChatAttachment {
+  id          String   @id @default(cuid())
+  messageId   String
+  filePath    String   // Upload path
+  fileName    String
+  fileSize    Int
+  mimeType    String
+  
+  // Für Bilder
+  width       Int?
+  height      Int?
+  thumbnailPath String?
+  
+  uploadedAt  DateTime @default(now())
+  
+  // Relations
+  message ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  
+  @@index([messageId])
+  @@map("chat_attachments")
 }

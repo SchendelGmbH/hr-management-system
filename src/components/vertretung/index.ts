@@ -1,0 +1,1 @@
+export { VertretungVorschlaege } from './VertretungVorschlaege';

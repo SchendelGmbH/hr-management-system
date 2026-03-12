@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
+import { VertretungVorschlaege } from '@/components/vertretung/VertretungVorschlaege';
 
 interface Employee {
   id: string;
@@ -26,6 +27,8 @@ export default function AddVacationModal({
 }: AddVacationModalProps) {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(false);
+  const [showVertretung, setShowVertretung] = useState(false);
+  const [savedVacation, setSavedVacation] = useState<{employeeId: string; startDate: string; endDate: string; vacationType: string} | null>(null);
   const [formData, setFormData] = useState({
     employeeId: '',
     startDate: '',
@@ -63,6 +66,19 @@ export default function AddVacationModal({
 
       if (!response.ok) {
         throw new Error('Failed to create vacation');
+      }
+
+      // Bei Krankmeldung: Zeige Vertretungs-Finder
+      if (formData.vacationType === 'SICK') {
+        setSavedVacation({
+          employeeId: formData.employeeId,
+          startDate: formData.startDate,
+          endDate: formData.endDate,
+          vacationType: formData.vacationType,
+        });
+        setShowVertretung(true);
+        setLoading(false);
+        return;
       }
 
       onSuccess();
@@ -215,10 +231,28 @@ export default function AddVacationModal({
             disabled={loading}
             className="rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700 disabled:opacity-50"
           >
-            {loading ? 'Wird erstellt...' : 'Erstellen'}
+            {loading ? 'Wird erstellt...' : formData.vacationType === 'SICK' ? 'Speichern & Vertretung suchen →' : 'Erstellen'}
           </button>
         </div>
       </form>
+
+      {/* Vertretung-Finder Overlay */}
+      {showVertretung && savedVacation && (
+        <div className="mt-6 border-t pt-6">
+          <VertretungVorschlaege
+            krankerMitarbeiterId={savedVacation.employeeId}
+            startDatum={savedVacation.startDate}
+            endDatum={savedVacation.endDate}
+            onClose={() => {
+              setShowVertretung(false);
+              setSavedVacation(null);
+              onSuccess();
+              onClose();
+              resetForm();
+            }}
+          />
+        </div>
+      )}
     </Modal>
   );
 }

@@ -340,8 +340,40 @@ export function ChatView() {
   }, []);
 
   const handleSendMessage = useCallback(
-    (content: string) => {
+    async (content: string) => {
       if (!currentRoomId || !content.trim()) return;
+
+      // Check for /task command
+      if (content.trim().startsWith('/task')) {
+        try {
+          const response = await fetch('/api/chat/commands/task', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: content, roomId: currentRoomId }),
+          });
+          
+          const result = await response.json();
+          
+          if (result.success) {
+            // Send confirmation message in chat
+            sendMessageMutation.mutate({ 
+              roomId: currentRoomId, 
+              content: result.message 
+            });
+            return;
+          } else if (result.error) {
+            // Send error message in chat
+            sendMessageMutation.mutate({ 
+              roomId: currentRoomId, 
+              content: `⚠️ ${result.error}${result.help ? `\n${result.help}` : ''}` 
+            });
+            return;
+          }
+        } catch (error) {
+          console.error('Error processing task command:', error);
+        }
+      }
+
       sendMessageMutation.mutate({ roomId: currentRoomId, content: content.trim() });
     },
     [currentRoomId, sendMessageMutation]

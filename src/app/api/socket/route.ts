@@ -2,6 +2,7 @@ import { Server as NetServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '@/lib/prisma';
 import { onEvent, emitEvent as emitToEventBus } from '@/lib/eventBus';
+import { emitUnreadCount } from '@/lib/notifications';
 
 export const config = {
   api: {
@@ -131,6 +132,77 @@ export default function handler(req: any, res: any) {
       console.log(`[Socket.IO] User unsubscribed from swaps for employee ${employeeId}`);
     });
 
+    // Notification subscription
+    socket.on('subscribe-notifications', async () => {
+      const userId = socket.data.userId;
+      if (!userId) {
+        socket.emit('error', { message: 'Not authenticated' });
+        return;
+      }
+
+      socket.join(`user:${userId}`);
+      console.log(`[Socket.IO] User ${userId} subscribed to notifications`);
+
+      // Send initial unread count
+      const count = await prisma.notification.count({
+        where: {
+          userId,
+          isRead: false,
+          isArchived: false,
+        },
+      });
+      socket.emit('notification:unread-count', { count });
+    });
+
+    // Mark notification as read via socket
+    socket.on('notification:mark-read', async (notificationId: string) => {
+      const userId = socket.data.userId;
+      if (!userId) return;
+
+      await prisma.notification.updateMany({
+        where: { id: notificationId, userId },
+        data: { isRead: true, readAt: new Date() },
+      });
+
+      const count = await prisma.notification.count({
+        where: {
+          userId,
+          isRead: false,
+          isArchived: false,
+        },
+      });
+      socket.emit('notification:unread-count', { count });
+    });
+
+    // Mark all notifications as read via socket
+    socket.on('notification:mark-all-read', async () => {
+      const userId = socket.data.userId;
+      if (!userId) return;
+
+      await prisma.notification.updateMany({
+        where: { userId, isRead: false },
+        data: { isRead: true, readAt: new Date() },
+      });
+
+      socket.emit('notification:unread-count', { count: 0 });
+      socket.emit('notification:all-read', { success: true });
+    });
+
+    // Request unread count
+    socket.on('notification:get-unread-count', async () => {
+      const userId = socket.data.userId;
+      if (!userId) return;
+
+      const count = await prisma.notification.count({
+        where: {
+          userId,
+          isRead: false,
+          isArchived: false,
+        },
+      });
+      socket.emit('notification:unread-count', { count });
+    });
+
     socket.on('disconnect', () => {
       console.log('[Socket.IO] Client disconnected:', socket.id);
     });
@@ -205,6 +277,52 @@ export default function handler(req: any, res: any) {
       if (data.assigneeId) {
         io.to(`user:${data.assigneeId}`).emit('task-overdue', data);
       }
+    }
+  });
+
+  // Document events
+  onEvent('DOCUMENT_EXPIRING', (data) => {
+    if (io) {
+      io.to(`user:${data.userId}`).emit('document-expiring', data);
+    }
+  });
+
+  onEvent('DOCUMENT_EXPIRED', (data) => {
+    if (io) {
+      io.to(`user:${data.userId}`).emit('document-expired', data);
+    }
+  });
+
+  // Signature events
+  onEvent('SIGNATURE_REQUESTED', (data) => {
+    if (io) {
+      io.to(`user:${data.userId}`).emit('signature-requested', data);
+    }
+  });
+
+  onEvent('SIGNATURE_SIGNED', (data) => {
+    if (io) {
+      io.to(`user:${data.userId}`).emit('signature-signed', data);
+    }
+  });
+
+  onEvent('SIGNATURE_APPROVED', (data) => {
+    if (io) {
+      io.to(`user:${data.userId}`).emit('signature-approved', data);
+    }
+  });
+
+  onEvent('SIGNATURE_REJECTED', (data) => {
+    if (io) {
+      io.to(`user:${data.userId}`).emit('signature-rejected', data);
+    }
+  });
+
+  // Notification sync events - Listen for notification service events
+  onEvent('NOTIFICATION_CREATED', async (data) => {
+    if (io && data.userId) {
+      io.to(`user:${data.userId}`).emit('notification:new', data.notification);
+      await emitUnreadCount(data.userId);
     }
   });
 

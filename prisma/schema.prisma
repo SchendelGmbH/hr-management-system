@@ -55,6 +55,10 @@ model User {
   createdSignatureRequests DocumentSignatureRequest[] @relation("SignatureRequestCreator")
   signatureParticipations DocumentSignatureParticipant[]
   documentSignatures      DocumentSignature[] @relation("DocumentSigner")
+  
+  // Notification Relations
+  notificationSettings    NotificationSettings?
+  pushSubscriptions       PushSubscription[]
 
   @@map("users")
 }
@@ -494,24 +498,167 @@ model Qualification {
 // ============================================================================
 
 model Notification {
-  id                String           @id @default(cuid())
+  id                String              @id @default(cuid())
   userId            String
   type              NotificationType
   title             String
-  message           String           @db.Text
-  isRead            Boolean          @default(false)
-  relatedEntityType String?          // e.g., "Document", "Employee"
+  message           String              @db.Text
+  isRead            Boolean             @default(false)
+  isArchived        Boolean             @default(false)
+  deliveredVia      NotificationChannel[]  @default([IN_APP])
+  priority          NotificationPriority   @default(NORMAL)
+  relatedEntityType String?             // e.g., "Document", "Employee"
   relatedEntityId   String?
-  createdAt         DateTime         @default(now())
+  actionUrl         String?             // Deep link for mobile/web
+  imageUrl          String?             // Optional notification image
+  createdAt         DateTime            @default(now())
   readAt            DateTime?
+  archivedAt        DateTime?
+  expiresAt         DateTime?           // When notification should auto-expire
 
   // Relations
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
+  @@index([isArchived])
   @@index([createdAt])
+  @@index([userId, isArchived, createdAt])
+  @@index([userId, isRead, createdAt])
   @@map("notifications")
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+  SMS
+}
+
+// ============================================================================
+// NOTIFICATION SETTINGS (Per-User Preferences)
+// ============================================================================
+
+model NotificationSettings {
+  id                    String   @id @default(cuid())
+  userId                String   @unique
+  
+  // Global Settings
+  pushEnabled           Boolean  @default(true)
+  emailEnabled          Boolean  @default(true)
+  smsEnabled            Boolean  @default(false) // Usually false by default
+  doNotDisturb          Boolean  @default(false)
+  doNotDisturbStart     String?  // HH:mm format, e.g., "22:00"
+  doNotDisturbEnd       String?  // HH:mm format, e.g., "07:00"
+  timezone              String   @default("Europe/Berlin")
+  
+  // Quiet hours: Don't play sounds
+  quietHoursEnabled     Boolean  @default(true)
+  quietHoursStart       String   @default("22:00")
+  quietHoursEnd         String   @default("07:00")
+  
+  // Notification Batching
+  batchNotifications    Boolean  @default(false)
+  batchIntervalMinutes  Int      @default(30)  // Send batched every X minutes
+  
+  // Sound/Vibration settings
+  soundEnabled          Boolean  @default(true)
+  vibrationEnabled      Boolean  @default(true)
+  
+  // Privacy (hide content in notifications)
+  hideContentInLockScreen Boolean @default(false)
+  
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  // Relations
+  user                  User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  typeSettings          NotificationTypeSettings[]
+
+  @@map("notification_settings")
+}
+
+model NotificationTypeSettings {
+  id              String           @id @default(cuid())
+  settingsId      String
+  notificationType NotificationType
+  
+  // Channel preferences for this type
+  inAppEnabled    Boolean          @default(true)
+  pushEnabled     Boolean          @default(true)
+  emailEnabled    Boolean          @default(true)
+  smsEnabled      Boolean          @default(false)
+  
+  // Priority override
+  priority        NotificationPriority?
+  
+  // Mute specific types
+  muted           Boolean          @default(false)
+  mutedUntil      DateTime?        // Temporary mute
+  
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  // Relations
+  settings        NotificationSettings @relation(fields: [settingsId], references: [id], onDelete: Cascade)
+
+  @@unique([settingsId, notificationType])
+  @@map("notification_type_settings")
+}
+
+// ============================================================================
+// PUSH NOTIFICATION SUBSCRIPTIONS (Web Push / Mobile)
+// ============================================================================
+
+model PushSubscription {
+  id           String   @id @default(cuid())
+  userId       String
+  
+  // Web Push Subscription data (VAPID)
+  endpoint     String   @db.Text
+  p256dh       String
+  auth         String
+  
+  // Device Info
+  deviceId     String?  @unique   // Device identifier
+  deviceType   DeviceType @default(WEB)
+  deviceName   String?           // e.g., "iPhone 15 Pro", "Chrome on Mac"
+  platform     String?           // "iOS", "Android", "Web"
+  appVersion   String?           // App/Client version
+  
+  // Location (for timezone-aware notifications)
+  timezone     String   @default("Europe/Berlin")
+  language     String   @default("de")
+  
+  // Status
+  isActive     Boolean  @default(true)
+  lastUsedAt   DateTime @default(now())
+  
+  // Timestamps
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime?         // Subscription expiration
+
+  // Relations
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isActive])
+  @@index([deviceId])
+  @@map("push_subscriptions")
+}
+
+enum DeviceType {
+  WEB
+  IOS
+  ANDROID
+  DESKTOP
 }
 
 enum NotificationType {

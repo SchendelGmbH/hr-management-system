@@ -54,14 +54,14 @@ export function SmartReplies({ roomId, onSelectReply, disabled }: SmartRepliesPr
   if (replies.length === 0 && !loading) return null;
 
   return (
-    <div className='flex items-center gap-2 px-4 py-2 bg-gray-50 border-t'>
-      <div className='flex items-center gap-1 text-xs text-gray-500'>
-        <Sparkles className='h-3 w-3 text-primary-600' />
+    <div className='flex items-center gap-2 px-4 py-2 bg-gray-50 border-t dark:bg-gray-800/50 dark:border-gray-700'>
+      <div className='flex items-center gap-1 text-xs text-gray-500 dark:text-gray-400'>
+        <Sparkles className='h-3 w-3 text-primary-600 dark:text-primary-400' />
         <span>Vorschläge:</span>
       </div>
       
       {loading ? (
-        <Loader2 className='h-4 w-4 animate-spin text-primary-600' />
+        <Loader2 className='h-4 w-4 animate-spin text-primary-600 dark:text-primary-400' />
       ) : (
         <div className='flex gap-2'>
           {replies.map((reply, index) => (
@@ -71,7 +71,10 @@ export function SmartReplies({ roomId, onSelectReply, disabled }: SmartRepliesPr
               disabled={disabled}
               className='px-3 py-1 text-xs bg-white border border-gray-200 rounded-full 
                          text-gray-700 hover:bg-primary-50 hover:border-primary-300
-                         hover:text-primary-700 transition-colors truncate max-w-[150px]'
+                         hover:text-primary-700 transition-colors truncate max-w-[150px]
+                         dark:bg-gray-800 dark:border-gray-600 dark:text-gray-300
+                         dark:hover:bg-primary-900/30 dark:hover:border-primary-700
+                         dark:hover:text-primary-300'
               title={reply}
             >
               {reply}

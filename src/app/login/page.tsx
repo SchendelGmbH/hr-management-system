@@ -3,6 +3,7 @@
 import { signIn } from 'next-auth/react';
 import { useState, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { ThemeToggle } from '@/components/ui/ThemeToggle';
 
 function LoginForm() {
   const router = useRouter();
@@ -43,9 +44,9 @@ function LoginForm() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 via-white to-primary-100 dark:from-gray-900 dark:via-gray-900 dark:to-gray-800">
       <div className="w-full max-w-md">
-        <div className="bg-white shadow-2xl rounded-2xl p-8 border border-gray-100">
+        <div className="bg-white shadow-2xl rounded-2xl p-8 border border-gray-100 dark:bg-gray-800 dark:border-gray-700">
           {/* Logo/Title */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 bg-primary-600 rounded-xl mb-4">
@@ -63,21 +64,26 @@ function LoginForm() {
                 />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold text-gray-900">HR Management System</h1>
-            <p className="text-gray-500 mt-2">Melden Sie sich an, um fortzufahren</p>
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">HR Management System</h1>
+            <p className="text-gray-500 mt-2 dark:text-gray-400">Melden Sie sich an, um fortzufahren</p>
+            
+            {/* Theme Toggle */}
+            <div className="flex justify-center mt-4">
+              <ThemeToggle />
+            </div>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg dark:bg-red-900/20 dark:border-red-800">
+              <p className="text-sm text-red-700 dark:text-red-400">{error}</p>
             </div>
           )}
 
           {/* Login Form */}
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                 Benutzername
               </label>
               <input
@@ -86,13 +92,13 @@ function LoginForm() {
                 type="text"
                 required
                 autoComplete="username"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                 placeholder="Benutzername eingeben"
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2 dark:text-gray-300">
                 Passwort
               </label>
               <input
@@ -101,7 +107,7 @@ function LoginForm() {
                 type="password"
                 required
                 autoComplete="current-password"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent transition-all outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-white dark:placeholder-gray-400"
                 placeholder="Passwort eingeben"
               />
             </div>
@@ -111,9 +117,9 @@ function LoginForm() {
                 id="remember"
                 name="remember"
                 type="checkbox"
-                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded"
+                className="h-4 w-4 text-primary-600 focus:ring-primary-500 border-gray-300 rounded dark:bg-gray-700 dark:border-gray-600"
               />
-              <label htmlFor="remember" className="ml-2 block text-sm text-gray-700">
+              <label htmlFor="remember" className="ml-2 block text-sm text-gray-700 dark:text-gray-300">
                 Angemeldet bleiben
               </label>
             </div>
@@ -121,7 +127,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all dark:focus:ring-offset-gray-800"
             >
               {loading ? (
                 <svg
@@ -151,10 +157,10 @@ function LoginForm() {
           </form>
 
           {/* Info */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-xs text-center text-gray-500">
-              Standard-Login: <span className="font-medium text-gray-700">admin</span> /
-              <span className="font-medium text-gray-700"> Admin123!</span>
+          <div className="mt-8 pt-6 border-t border-gray-200 dark:border-gray-700">
+            <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+              Standard-Login: <span className="font-medium text-gray-700 dark:text-gray-300">admin</span> /
+              <span className="font-medium text-gray-700 dark:text-gray-300"> Admin123!</span>
             </p>
           </div>
         </div>
@@ -165,7 +171,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={<div className="flex h-screen items-center justify-center">Laden...</div>}>
+    <Suspense fallback={<div className="flex h-screen items-center justify-center dark:bg-gray-900 dark:text-white">Laden...</div>}>
       <LoginForm />
     </Suspense>
   );

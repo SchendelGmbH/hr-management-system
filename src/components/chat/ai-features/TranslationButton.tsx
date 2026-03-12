@@ -63,15 +63,15 @@ export function TranslationButton({ messageId, text, onTranslate }: TranslationB
   // Zeige Übersetzung an
   if (translation) {
     return (
-      <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg">
+      <div className="mt-2 p-2 bg-blue-50 border border-blue-100 rounded-lg dark:bg-blue-900/20 dark:border-blue-800">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1">
-            <p className="text-xs text-blue-600 font-medium mb-1">Übersetzung:</p>
-            <p className="text-sm text-gray-700">{translation}</p>
+            <p className="text-xs text-blue-600 font-medium mb-1 dark:text-blue-400">Übersetzung:</p>
+            <p className="text-sm text-gray-700 dark:text-gray-200">{translation}</p>
           </div>
           <button
             onClick={clearTranslation}
-            className="p-1 text-blue-400 hover:text-blue-600 rounded"
+            className="p-1 text-blue-400 hover:text-blue-600 rounded dark:text-blue-400 dark:hover:text-blue-300"
             title="Übersetzung schließen"
           >
             <X className="h-3 w-3" />
@@ -85,10 +85,10 @@ export function TranslationButton({ messageId, text, onTranslate }: TranslationB
   if (error) {
     return (
       <div className="mt-1 flex items-center gap-1">
-        <span className="text-xs text-red-500">{error}</span>
+        <span className="text-xs text-red-500 dark:text-red-400">{error}</span>
         <button
           onClick={() => setError(null)}
-          className="text-xs text-gray-400 hover:text-gray-600"
+          className="text-xs text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300"
         >
           <X className="h-3 w-3" />
         </button>
@@ -103,7 +103,7 @@ export function TranslationButton({ messageId, text, onTranslate }: TranslationB
         onClick={() => setShowOptions(!showOptions)}
         disabled={loading}
         className="mt-1 flex items-center gap-1 text-xs text-gray-400 hover:text-primary-600 
-                   transition-colors"
+                   transition-colors dark:text-gray-500 dark:hover:text-primary-400"
         title="Übersetzen"
       >
         {loading ? (
@@ -119,11 +119,12 @@ export function TranslationButton({ messageId, text, onTranslate }: TranslationB
       {/* Language Options */}
       {showOptions && (
         <div className="absolute bottom-full left-0 mb-1 bg-white border border-gray-200 
-                        rounded-lg shadow-lg py-1 z-10 min-w-[120px]">
+                        rounded-lg shadow-lg py-1 z-10 min-w-[120px]
+                        dark:bg-gray-800 dark:border-gray-600">
           <button
             onClick={() => handleTranslate('de')}
             className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50
-                       flex items-center gap-2"
+                       flex items-center gap-2 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <span>🇩🇪</span>
             <span>Auf Deutsch</span>
@@ -131,7 +132,7 @@ export function TranslationButton({ messageId, text, onTranslate }: TranslationB
           <button
             onClick={() => handleTranslate('pl')}
             className="w-full px-3 py-1.5 text-left text-xs text-gray-700 hover:bg-gray-50
-                       flex items-center gap-2"
+                       flex items-center gap-2 dark:text-gray-200 dark:hover:bg-gray-700"
           >
             <span>🇵🇱</span>
             <span>Na polski</span>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Smile } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { clsx } from 'clsx';
 
 interface MessageInputProps {
@@ -64,7 +64,7 @@ export function MessageInput({
       return;
     }
     
-    // Check for commands (e.g., /call)
+    // Check for commands (e.g. /call)
     if (trimmedContent.startsWith('/')) {
       const parts = trimmedContent.slice(1).split(' ');
       const command = parts[0].toLowerCase();
@@ -110,8 +110,8 @@ export function MessageInput({
 
   return (
     <div className={clsx(
-      'border-t bg-white px-4 py-3',
-      isFocused && 'ring-1 ring-inset ring-primary-200'
+      'border-t bg-white px-4 py-3 dark:bg-gray-900 dark:border-gray-700',
+      isFocused && 'ring-1 ring-inset ring-primary-200 dark:ring-primary-800'
     )}>
       {/* Input Area */}
       <div className="flex items-end gap-2">
@@ -123,7 +123,7 @@ export function MessageInput({
               'rounded-full p-2 transition-colors',
               disabled
                 ? 'text-gray-300 cursor-not-allowed'
-                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-gray-700 dark:hover:text-gray-200'
             )}
             title="Befehle: /call - Videoanruf starten"
           >
@@ -148,7 +148,8 @@ export function MessageInput({
               'text-sm text-gray-900 placeholder:text-gray-400',
               'focus:ring-2 focus:ring-inset focus:ring-primary-500',
               'disabled:cursor-not-allowed disabled:opacity-50',
-              'max-h-[120px] min-h-[40px]'
+              'max-h-[120px] min-h-[40px]',
+              'dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500'
             )}
           />
         </div>
@@ -160,7 +161,7 @@ export function MessageInput({
           className={clsx(
             'flex-shrink-0 rounded-full p-2.5 transition-all',
             isSendDisabled
-              ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+              ? 'bg-gray-100 text-gray-400 cursor-not-allowed dark:bg-gray-800'
               : 'bg-primary-600 text-white hover:bg-primary-700 hover:shadow-md active:scale-95'
           )}
         >
@@ -170,7 +171,7 @@ export function MessageInput({
       
       {/* Quick send hint */}
       <div className="mt-1 text-center">
-        <span className="text-[10px] text-gray-400">
+        <span className="text-[10px] text-gray-400 dark:text-gray-500">
           Enter zum Senden · Shift+Enter für neue Zeile
         </span>
       </div>

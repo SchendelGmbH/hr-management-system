@@ -62,7 +62,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
       {/* Avatar */}
       {showAvatar && !isOwn && (
         <div className="flex-shrink-0">
-          <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center text-xs font-medium text-primary-700">
+          <div className="h-8 w-8 rounded-full bg-primary-100 dark:bg-primary-900 flex items-center justify-center text-xs font-medium text-primary-700 dark:text-primary-300">
             {message.sender?.name?.charAt(0).toUpperCase() || '?'}
           </div>
         </div>
@@ -72,7 +72,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
       <div className={clsx('flex max-w-[70%] flex-col', isOwn ? 'items-end' : 'items-start')}>
         {/* Sender Name */}
         {!isOwn && showAvatar && (
-          <span className="mb-1 text-xs text-gray-500">
+          <span className="mb-1 text-xs text-gray-500 dark:text-gray-400">
             {message.sender?.name || 'Unbekannt'}
           </span>
         )}
@@ -83,7 +83,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
             'relative rounded-2xl px-4 py-2',
             isOwn
               ? 'bg-primary-600 text-white rounded-br-md'
-              : 'bg-gray-100 text-gray-900 rounded-bl-md'
+              : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md'
           )}
         >
           {isEditing ? (
@@ -92,7 +92,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="w-full resize-none rounded bg-white/10 border-0 px-2 py-1 text-sm focus:ring-2 focus:ring-white/50"
+                className="w-full resize-none rounded bg-white/10 border-0 px-2 py-1 text-sm focus:ring-2 focus:ring-white/50 dark:bg-gray-800 dark:text-white"
                 rows={2}
                 autoFocus
               />
@@ -102,13 +102,13 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
                     setIsEditing(false);
                     setEditContent(message.content);
                   }}
-                  className="text-xs px-2 py-1 rounded bg-white/20 hover:bg-white/30"
+                  className="text-xs px-2 py-1 rounded bg-white/20 hover:bg-white/30 dark:bg-gray-700 dark:hover:bg-gray-600"
                 >
                   Abbrechen
                 </button>
                 <button
                   onClick={handleEdit}
-                  className="text-xs px-2 py-1 rounded bg-white text-primary-600 hover:bg-gray-100"
+                  className="text-xs px-2 py-1 rounded bg-white text-primary-600 hover:bg-gray-100 dark:bg-primary-500 dark:text-white dark:hover:bg-primary-400"
                 >
                   Speichern
                 </button>
@@ -125,7 +125,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
               {hasSignatureLink && signatureRequestId && (
                 <button
                   onClick={handleSignatureClick}
-                  className="mt-2 flex items-center bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors text-sm"
+                  className="mt-2 flex items-center bg-blue-50 hover:bg-blue-100 text-blue-700 px-3 py-1.5 rounded-lg border border-blue-200 transition-colors text-sm dark:bg-blue-900/30 dark:hover:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800"
                 >
                   <FileSignature className="w-4 h-4 mr-2" />
                   <span>Zum Signieren</span>
@@ -138,13 +138,13 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
               
               {/* Status und Zeit */}
               <div className="mt-1 flex items-center gap-1">
-                <span className={clsx('text-[10px]', isOwn ? 'text-primary-200' : 'text-gray-400')}>
+                <span className={clsx('text-[10px]', isOwn ? 'text-primary-200' : 'text-gray-400 dark:text-gray-500')}>
                   {format(new Date(message.createdAt), 'HH:mm', { locale: de })}
                 </span>
                 {isOwn && (
                   <>
                     {message.isEdited && (
-                      <span className={clsx('text-[10px]', isOwn ? 'text-primary-200' : 'text-gray-400')}>
+                      <span className={clsx('text-[10px]', isOwn ? 'text-primary-200' : 'text-gray-400')} >
                         · Bearbeitet
                       </span>
                     )}
@@ -161,7 +161,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
           <div className="mt-1 flex items-center gap-1 opacity-0 group-hover/message:opacity-100 transition-opacity">
             <button
               onClick={() => setIsEditing(true)}
-              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100"
+              className="p-1 rounded text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300"
               title="Bearbeiten"
             >
               <Edit2 className="h-3 w-3" />
@@ -169,7 +169,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
             {onDelete && (
               <button
                 onClick={() => onDelete(message.id)}
-                className="p-1 rounded text-gray-400 hover:text-danger-600 hover:bg-danger-50"
+                className="p-1 rounded text-gray-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/30"
                 title="Löschen"
               >
                 <Trash2 className="h-3 w-3" />

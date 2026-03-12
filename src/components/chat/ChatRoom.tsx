@@ -119,23 +119,23 @@ export function ChatRoom({
 
   if (loading && !room) {
     return (
-      <div className="flex flex-col h-full items-center justify-center">
+      <div className="flex flex-col h-full items-center justify-center bg-white dark:bg-gray-900">
         <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
-        <p className="mt-4 text-sm text-gray-500">Lade Chat...</p>
+        <p className="mt-4 text-sm text-gray-500 dark:text-gray-400">Lade Chat...</p>
       </div>
     );
   }
 
   if (!room) {
     return (
-      <div className="flex flex-col h-full items-center justify-center text-center px-8">
-        <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center">
-          <Users className="h-8 w-8 text-primary-600" />
+      <div className="flex flex-col h-full items-center justify-center text-center px-8 bg-white dark:bg-gray-900">
+        <div className="h-16 w-16 rounded-full bg-primary-100 flex items-center justify-center dark:bg-primary-900/30">
+          <Users className="h-8 w-8 text-primary-600 dark:text-primary-400" />
         </div>
-        <h3 className="mt-4 text-lg font-semibold text-gray-900">
+        <h3 className="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
           Chat
         </h3>
-        <p className="mt-1 text-sm text-gray-500 max-w-md">
+        <p className="mt-1 text-sm text-gray-500 max-w-md dark:text-gray-400">
           Wähle einen Chat aus der Liste oder starte eine neue Unterhaltung.
         </p>
       </div>
@@ -151,15 +151,15 @@ export function ChatRoom({
   const isOnline = otherParticipants.some(p => p.status === 'online');
 
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full bg-white dark:bg-gray-900">
       {/* Header */}
-      <div className="flex items-center justify-between border-b px-4 py-3">
+      <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
         <div className="flex items-center gap-3">
           {/* Back button (mobile) */}
           {onBack && (
             <button
               onClick={onBack}
-              className="lg:hidden -ml-2 rounded-full p-2 text-gray-600 hover:bg-gray-100"
+              className="lg:hidden -ml-2 rounded-full p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -167,28 +167,28 @@ export function ChatRoom({
           
           {/* Avatar */}
           <div className="relative">
-            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center">
+            <div className="h-10 w-10 rounded-full bg-primary-100 flex items-center justify-center dark:bg-primary-900/30">
               {room.avatar ? (
                 <img src={room.avatar} alt="" className="h-full w-full rounded-full object-cover" />
               ) : room.type === 'direct' ? (
-                <User className="h-5 w-5 text-primary-600" />
+                <User className="h-5 w-5 text-primary-600 dark:text-primary-400" />
               ) : (
-                <Users className="h-5 w-5 text-primary-600" />
+                <Users className="h-5 w-5 text-primary-600 dark:text-primary-400" />
               )}
             </div>
             {room.type === 'direct' && isOnline && (
-              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-success-500" />
+              <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-success-500 dark:border-gray-800" />
             )}
           </div>
           
           {/* Info */}
           <div className="min-w-0">
-            <h2 className="text-sm font-semibold text-gray-900 truncate">
+            <h2 className="text-sm font-semibold text-gray-900 truncate dark:text-white">
               {displayName}
             </h2>
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-gray-500 dark:text-gray-400">
               {typingUsers.length > 0 ? (
-                <span className="text-primary-600">
+                <span className="text-primary-600 dark:text-primary-400">
                   {typingUsers.join(', ')} schreibt{typingUsers.length > 1 ? 'en' : ''}...
                 </span>
               ) : room.type === 'direct' ? (
@@ -204,19 +204,19 @@ export function ChatRoom({
         <div className="flex items-center gap-1">
           <button 
             onClick={onStartAudioCall}
-            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors"
+            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-primary-400"
             title="Audioanruf"
           >
             <Phone className="h-5 w-5" />
           </button>
           <button 
             onClick={onStartVideoCall}
-            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors"
+            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-primary-400"
             title="Videoanruf"
           >
             <Video className="h-5 w-5" />
           </button>
-          <button className="rounded-full p-2 text-gray-600 hover:bg-gray-100">
+          <button className="rounded-full p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
             <MoreVertical className="h-5 w-5" />
           </button>
         </div>
@@ -226,13 +226,14 @@ export function ChatRoom({
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4">
+        className="flex-1 overflow-y-auto px-4 py-4 dark:bg-gray-900"
+      >
         {/* Load More */}
         {hasMoreMessages && (
           <div className="mb-4 text-center">
             <button
               onClick={onLoadMore}
-              className="text-xs text-primary-600 hover:underline"
+              className="text-xs text-primary-600 hover:underline dark:text-primary-400"
             >
               Ältere Nachrichten laden
             </button>
@@ -244,11 +245,11 @@ export function ChatRoom({
           <div key={dateKey}>
             {/* Date Divider */}
             <div className="flex items-center justify-center my-4">
-              <div className="flex-1 border-t border-gray-200" />
-              <span className="mx-4 px-2 py-1 rounded-full bg-gray-100 text-xs text-gray-500">
+              <div className="flex-1 border-t border-gray-200 dark:border-gray-700" />
+              <span className="mx-4 px-2 py-1 rounded-full bg-gray-100 text-xs text-gray-500 dark:bg-gray-800 dark:text-gray-400">
                 {formatDateLabel(dateKey)}
               </span>
-              <div className="flex-1 border-t border-gray-200" />
+              <div className="flex-1 border-t border-gray-200 dark:border-gray-700" />
             </div>
             
             {/* Messages */}
@@ -275,10 +276,10 @@ export function ChatRoom({
         
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
               Noch keine Nachrichten.
             </p>
-            <p className="text-xs text-gray-400 mt-1">
+            <p className="text-xs text-gray-400 mt-1 dark:text-gray-500">
               Schreib die erste Nachricht!
             </p>
           </div>

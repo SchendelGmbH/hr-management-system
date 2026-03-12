@@ -76,6 +76,12 @@ const allNavigation = [
     adminOnly: false,
   },
   {
+    name: 'mySchedule',
+    href: '/de/my-schedule',
+    icon: CalendarIcon,
+    adminOnly: false,
+  },
+  {
     name: 'chat',
     href: '/de/chat',
     icon: MessageCircle,
@@ -102,7 +108,13 @@ export default function Sidebar() {
   const isUser = session?.user?.role === 'USER';
 
   const navigation = isUser
-    ? allNavigation.filter((item) => item.name === 'planning' || item.name === 'calendar')
+    ? allNavigation.filter((item) => 
+        item.name === 'planning' || 
+        item.name === 'calendar' || 
+        item.name === 'mySchedule' ||
+        item.name === 'swaps' ||
+        item.name === 'chat'
+      )
     : allNavigation;
 
   const handleLogout = async () => {

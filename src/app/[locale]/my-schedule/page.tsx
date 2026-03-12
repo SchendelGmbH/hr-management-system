@@ -5,7 +5,7 @@
 import { requireAuth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { ShiftCalendarView } from '@/components/swaps/ShiftCalendarView';
-import { InformationCircleIcon, ArrowRightLeftIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftRight, Info } from 'lucide-react';
 import Link from 'next/link';
 
 export const metadata = {
@@ -49,7 +49,7 @@ export default async function MySchedulePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="w-12 h-12 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center text-white">
-                <ArrowRightLeftIcon className="w-6 h-6" />
+                <ArrowLeftRight className="w-6 h-6" />
               </div>
               <div>
                 <h1 className="text-2xl font-bold text-gray-900">
@@ -65,14 +65,14 @@ export default async function MySchedulePage() {
               href="/de/swaps"
               className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
             >
-              <ArrowRightLeftIcon className="w-4 h-4" />
+              <ArrowLeftRight className="w-4 h-4" />
               <span>Tausch-Anfragen ({pendingSwaps})</span>
             </Link>
           </div>
 
           {/* Info Box */}
           <div className="mt-6 bg-emerald-50 border border-emerald-200 rounded-lg p-4 flex items-start gap-3">
-            <InformationCircleIcon className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-emerald-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-emerald-800">
               <p>
                 <strong>Tauschen Sie Ihre Schicht:</strong> Klicken Sie auf das Tausch-Icon 

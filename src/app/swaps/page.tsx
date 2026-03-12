@@ -6,7 +6,7 @@
 import { requireAuth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
 import { SwapRequestsOverview } from '@/components/swaps/SwapRequestsOverview';
-import { ArrowRightLeftIcon, InformationCircleIcon } from '@heroicons/react/24/outline';
+import { ArrowLeftRight, Info } from 'lucide-react';
 
 export const metadata = {
   title: 'Schicht-Tausch | HR Management',
@@ -38,7 +38,7 @@ export default async function SwapsPage() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-12 h-12 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl flex items-center justify-center text-white">
-              <ArrowRightLeftIcon className="w-6 h-6" />
+              <ArrowLeftRight className="w-6 h-6" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-900">
@@ -52,7 +52,7 @@ export default async function SwapsPage() {
 
           {/* Info Box */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 flex items-start gap-3">
-            <InformationCircleIcon className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+            <Info className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
             <div className="text-sm text-blue-800">
               <p>
                 <strong>Wie funktioniert der Schicht-Tausch?</strong>

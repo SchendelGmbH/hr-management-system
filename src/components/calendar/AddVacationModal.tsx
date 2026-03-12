@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Modal from '@/components/ui/Modal';
-import { VertretungVorschlaege } from '@/components/vertretung/VertretungVorschlaege';
+// import { VertretungVorschlaege } from '@/components/vertretung/VertretungVorschlaege';
 
 interface Employee {
   id: string;
@@ -236,7 +236,8 @@ export default function AddVacationModal({
         </div>
       </form>
 
-      {/* Vertretung-Finder Overlay */}
+      {/* Vertretung-Finder Overlay - temporär deaktiviert */}
+      {/*
       {showVertretung && savedVacation && (
         <div className="mt-6 border-t pt-6">
           <VertretungVorschlaege
@@ -253,6 +254,7 @@ export default function AddVacationModal({
           />
         </div>
       )}
+      */}
     </Modal>
   );
 }

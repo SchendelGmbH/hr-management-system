@@ -5,8 +5,11 @@ import { useSession } from 'next-auth/react';
 import { 
   ChatLayout, 
   ChatRoom, 
-  ChatSidebar 
+  ChatSidebar,
+  MobileChatLayout,
+  OfflineIndicator 
 } from '@/components/chat';
+import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { ChatRoom as ChatRoomType, ChatMessage, ChatUser } from '@/types/chat';
 import { useSocket } from '@/hooks/useSocket';
 import { useWebRTC } from '@/hooks/useWebRTC';
@@ -209,6 +212,19 @@ export function ChatView() {
   const [showVideoCall, setShowVideoCall] = useState(false);
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [activeSignatureRequestId, setActiveSignatureRequestId] = useState<string | null>(null);
+
+  // Offline Sync Hook
+  const {
+    isOnline,
+    queue,
+    pendingCount,
+    isSyncing,
+    queueMessage,
+    markAsSent,
+    retryMessage,
+    syncMessages,
+    removeFromQueue,
+  } = useOfflineSync();
 
   // Socket.IO
   const { 
@@ -532,9 +548,35 @@ export function ChatView() {
         }
       }
 
+      // Check if online - if offline, queue message
+      if (!isOnline) {
+        await queueMessage(currentRoomId, content.trim());
+        // Optimistically add message to UI
+        const optimisticMessage = {
+          id: `optimistic-${Date.now()}`,
+          content: content.trim(),
+          senderId: session?.user?.id || 'unknown',
+          sender: {
+            id: session?.user?.id || 'unknown',
+            name: session?.user?.name || 'Du',
+            avatar: session?.user?.image || undefined,
+            status: 'online' as const,
+          },
+          roomId: currentRoomId,
+          createdAt: new Date(),
+          isOptimistic: true,
+        };
+        // Add to messages via query client
+        queryClient.setQueryData(
+          ['chat', 'messages', currentRoomId],
+          (old: any[] = []) => [...old, optimisticMessage]
+        );
+        return;
+      }
+
       sendMessageMutation.mutate({ roomId: currentRoomId, content: content.trim() });
     },
-    [currentRoomId, sendMessageMutation]
+    [currentRoomId, sendMessageMutation, isOnline, queueMessage, session?.user?.id, session?.user?.name, session?.user?.image, queryClient]
   );
 
   const handleEditMessage = useCallback(
@@ -594,7 +636,19 @@ export function ChatView() {
 
   return (
     <div className="h-full flex flex-col">
-      <ChatLayout
+      {/* Offline Status Indicator */}
+      <OfflineIndicator
+        isOnline={isOnline}
+        pendingCount={pendingCount}
+        isSyncing={isSyncing}
+        onSync={syncMessages}
+        queue={queue}
+        onRetryMessage={retryMessage}
+        onRemoveMessage={removeFromQueue}
+      />
+
+      {/* Mobile-Optimized Chat Layout */}
+      <MobileChatLayout
         sidebar={
           <ChatSidebar
             rooms={rooms}
@@ -604,6 +658,11 @@ export function ChatView() {
             loading={roomsLoading}
           />
         }
+        rooms={rooms}
+        currentRoom={currentRoom}
+        onSelectRoom={handleSelectRoom}
+        onCreateDirectChat={handleCreateDirectChat}
+        loading={roomsLoading}
       >
         <ChatRoom
           room={currentRoom}
@@ -618,8 +677,9 @@ export function ChatView() {
           onSignatureClick={handleOpenSignature}
           loading={messagesLoading}
           typingUsers={currentTypingUsers}
+          isOffline={!isOnline}
         />
-      </ChatLayout>
+      </MobileChatLayout>
 
       {/* Video Call Modal */}
       <VideoCallModal

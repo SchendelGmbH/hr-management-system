@@ -4,7 +4,9 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
+import { MessageInputMobile } from './MessageInputMobile';
 import { SmartReplies } from './ai-features/SmartReplies';
+import { ConnectionStatus } from './OfflineIndicator';
 import { ChatRoom as ChatRoomType, ChatMessage } from '@/types/chat';
 import { 
   MoreVertical, 
@@ -17,6 +19,7 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { clsx } from 'clsx';
 
 interface ChatRoomProps {
   room: ChatRoomType | null;
@@ -34,6 +37,7 @@ interface ChatRoomProps {
   typingUsers?: string[];
   hasMoreMessages?: boolean;
   onLoadMore?: () => void;
+  isOffline?: boolean;
 }
 
 export function ChatRoom({
@@ -52,6 +56,7 @@ export function ChatRoom({
   typingUsers = [],
   hasMoreMessages = false,
   onLoadMore,
+  isOffline = false,
 }: ChatRoomProps) {
   const { data: session } = useSession();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -152,14 +157,15 @@ export function ChatRoom({
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-gray-900">
-      {/* Header */}
+      {/* Header - Mobile-optimized */}
       <div className="flex items-center justify-between border-b border-gray-200 px-4 py-3 dark:border-gray-700">
         <div className="flex items-center gap-3">
           {/* Back button (mobile) */}
           {onBack && (
             <button
               onClick={onBack}
-              className="lg:hidden -ml-2 rounded-full p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700"
+              className="lg:hidden -ml-2 rounded-full p-2.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 touch-manipulation"
+              style={{ WebkitTapHighlightColor: 'transparent' }}
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
@@ -200,23 +206,41 @@ export function ChatRoom({
           </div>
         </div>
         
-        {/* Actions */}
-        <div className="flex items-center gap-1">
+        {/* Actions - Touch-optimized */}
+        <div className="flex items-center gap-0.5">
+          <ConnectionStatus isOnline={!isOffline} />
           <button 
             onClick={onStartAudioCall}
-            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-primary-400"
+            disabled={isOffline}
+            className={clsx(
+              'rounded-full p-2.5 transition-colors touch-manipulation min-h-[44px] min-w-[44px]',
+              isOffline 
+                ? 'text-gray-300 cursor-not-allowed' 
+                : 'text-gray-600 hover:bg-gray-100 hover:text-primary-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-primary-400'
+            )}
+            style={{ WebkitTapHighlightColor: 'transparent' }}
             title="Audioanruf"
           >
-            <Phone className="h-5 w-5" />
+            <Phone className="h-5 w-5" strokeWidth={isOffline ? 1.5 : 2} />
           </button>
           <button 
             onClick={onStartVideoCall}
-            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-primary-400"
+            disabled={isOffline}
+            className={clsx(
+              'rounded-full p-2.5 transition-colors touch-manipulation min-h-[44px] min-w-[44px]',
+              isOffline 
+                ? 'text-gray-300 cursor-not-allowed' 
+                : 'text-gray-600 hover:bg-gray-100 hover:text-primary-600 dark:text-gray-300 dark:hover:bg-gray-700 dark:hover:text-primary-400'
+            )}
+            style={{ WebkitTapHighlightColor: 'transparent' }}
             title="Videoanruf"
           >
-            <Video className="h-5 w-5" />
+            <Video className="h-5 w-5" strokeWidth={isOffline ? 1.5 : 2} />
           </button>
-          <button className="rounded-full p-2 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700">
+          <button 
+            className="rounded-full p-2.5 text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-gray-700 touch-manipulation min-h-[44px] min-w-[44px]"
+            style={{ WebkitTapHighlightColor: 'transparent' }}
+          >
             <MoreVertical className="h-5 w-5" />
           </button>
         </div>
@@ -226,7 +250,7 @@ export function ChatRoom({
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
-        className="flex-1 overflow-y-auto px-4 py-4 dark:bg-gray-900"
+        className="flex-1 overflow-y-auto px-4 py-4 dark:bg-gray-900 lg:px-6 lg:py-6"
       >
         {/* Load More */}
         {hasMoreMessages && (
@@ -253,7 +277,7 @@ export function ChatRoom({
             </div>
             
             {/* Messages */}
-            <div className="space-y-1">
+            <div className="space-y-1 lg:space-y-2">
               {dateMessages.map((message, index) => {
                 const prevMessage = dateMessages[index - 1];
                 const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
@@ -297,14 +321,28 @@ export function ChatRoom({
         />
       )}
 
-      {/* Input */}
-      <MessageInput
-        onSend={onSendMessage}
-        onTyping={handleTyping}
-        onCommand={onCommand}
-        disabled={loading}
-        placeholder={`Nachricht an ${displayName}...`}
-      />
+      {/* Input - Desktop */}
+      <div className="hidden lg:block">
+        <MessageInput
+          onSend={onSendMessage}
+          onTyping={handleTyping}
+          onCommand={onCommand}
+          disabled={loading}
+          placeholder={`Nachricht an ${displayName}...`}
+        />
+      </div>
+
+      {/* Input - Mobile */}
+      <div className="lg:hidden">
+        <MessageInputMobile
+          onSend={onSendMessage}
+          onTyping={handleTyping}
+          onCommand={onCommand}
+          disabled={loading}
+          placeholder={`Nachricht...`}
+          isOffline={isOffline}
+        />
+      </div>
     </div>
   );
 }

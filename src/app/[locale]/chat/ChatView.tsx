@@ -7,7 +7,6 @@ import {
   ChatRoom, 
   ChatSidebar 
 } from '@/components/chat';
-import { SmartReplies } from '@/components/chat/ai-features/SmartReplies';
 import { ChatRoom as ChatRoomType, ChatMessage, ChatUser } from '@/types/chat';
 import { useSocket } from '@/hooks/useSocket';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';

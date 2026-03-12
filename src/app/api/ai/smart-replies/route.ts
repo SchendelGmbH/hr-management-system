@@ -87,8 +87,7 @@ export async function POST(request: NextRequest) {
     // Extract participant names
     const participantNames = room.members
       .filter((m) => m.userId !== session.user.id)
-      .map((m) =
-003e
+      .map((m) =>
         m.user.employee
           ? `${m.user.employee.firstName} ${m.user.employee.lastName}`
           : 'Unbekannt'
@@ -97,9 +96,9 @@ export async function POST(request: NextRequest) {
     // Format messages for AI
     const formattedMessages = recentMessages.map((msg) => ({
       content: msg.content,
-      sender: msg.sender.employee
+      sender: msg.sender?.employee
         ? `${msg.sender.employee.firstName} ${msg.sender.employee.lastName}`
-        : msg.sender.username,
+        : msg.sender?.username || 'Unbekannt',
     }));
 
     // Generate smart replies

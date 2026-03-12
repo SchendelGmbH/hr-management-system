@@ -91,9 +91,9 @@ export async function POST(request: NextRequest) {
     // Format messages for AI
     const formattedMessages = messages.map((msg) => ({
       content: msg.content,
-      sender: msg.sender.employee
+      sender: msg.sender?.employee
         ? `${msg.sender.employee.firstName} ${msg.sender.employee.lastName}`
-        : msg.sender.username,
+        : msg.sender?.username || 'Unbekannt',
     }));
 
     // Generate summary

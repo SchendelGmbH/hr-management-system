@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { useSession } from 'next-auth/react';
 import { 
   ChatLayout, 
@@ -13,43 +13,119 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { toast } from 'sonner';
 
-// API-Funktionen
-const fetchRooms = async (): Promise<ChatRoomType[]> => {
+// API Response Types
+interface ApiRoom {
+  id: string;
+  name: string | null;
+  type: 'DIRECT' | 'GROUP' | 'DEPARTMENT';
+  description: string | null;
+  createdBy: string;
+  createdAt: string;
+  updatedAt: string;
+  members: ApiMember[];
+  messages: ApiMessage[];
+  unreadCount: number;
+  lastMessage?: ApiMessage;
+}
+
+interface ApiMember {
+  id: string;
+  userId: string;
+  role: 'OWNER' | 'ADMIN' | 'MEMBER';
+  isMuted: boolean;
+  lastReadAt: string | null;
+  joinedAt: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    employee?: {
+      firstName: string;
+      lastName: string;
+      avatarUrl: string | null;
+    } | null;
+  };
+}
+
+interface ApiMessage {
+  id: string;
+  content: string;
+  senderId: string;
+  roomId: string;
+  sentAt: string;
+  editedAt: string | null;
+  isDeleted: boolean;
+  replyToId: string | null;
+  sender: {
+    id: string;
+    username: string;
+    employee?: {
+      firstName: string;
+      lastName: string;
+      avatarUrl: string | null;
+    } | null;
+  };
+  reactions?: Array<{
+    id: string;
+    emoji: string;
+    userId: string;
+    user: {
+      id: string;
+      username: string;
+    };
+  }>;
+  attachments?: Array<{
+    id: string;
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }>;
+  replyTo?: {
+    id: string;
+    content: string;
+    sender: {
+      id: string;
+      username: string;
+    };
+  } | null;
+}
+
+// API Functions
+const fetchRooms = async (): Promise<ApiRoom[]> => {
   const { data } = await axios.get('/api/chat/rooms');
-  return data;
+  return data.rooms || [];
 };
 
-const fetchMessages = async (roomId: string): Promise<ChatMessage[]> => {
+const fetchMessages = async (roomId: string): Promise<ApiMessage[]> => {
   const { data } = await axios.get(`/api/chat/rooms/${roomId}/messages`);
-  return data;
+  // Return in chronological order (API returns newest first)
+  return (data.messages || []).reverse();
 };
 
 const createRoom = async (roomData: { 
-  name: string; 
-  type: 'direct' | 'group'; 
-  participantIds: string[] 
-}): Promise<ChatRoomType> => {
+  name?: string; 
+  type: 'DIRECT' | 'GROUP'; 
+  memberIds: string[] 
+}): Promise<ApiRoom> => {
   const { data } = await axios.post('/api/chat/rooms', roomData);
-  return data;
+  return data.room;
 };
 
 const sendMessageApi = async ({ 
   roomId, 
   content, 
-  attachments 
+  replyToId 
 }: { 
   roomId: string; 
   content: string; 
-  attachments?: File[] 
-}): Promise<ChatMessage> => {
-  const formData = new FormData();
-  formData.append('content', content);
-  attachments?.forEach((file) => formData.append('attachments', file));
-  
-  const { data } = await axios.post(`/api/chat/rooms/${roomId}/messages`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  replyToId?: string 
+}): Promise<ApiMessage> => {
+  const { data } = await axios.post(`/api/chat/rooms/${roomId}/messages`, { 
+    content, 
+    replyToId 
   });
-  return data;
+  return data.message;
 };
 
 const editMessageApi = async ({ 
@@ -58,14 +134,69 @@ const editMessageApi = async ({
 }: { 
   messageId: string; 
   content: string 
-}): Promise<ChatMessage> => {
+}): Promise<ApiMessage> => {
   const { data } = await axios.patch(`/api/chat/messages/${messageId}`, { content });
-  return data;
+  return data.message;
 };
 
 const deleteMessageApi = async (messageId: string): Promise<void> => {
   await axios.delete(`/api/chat/messages/${messageId}`);
 };
+
+// Transform Functions
+const transformApiUser = (apiUser: ApiMember['user']): ChatUser => ({
+  id: apiUser.id,
+  name: apiUser.employee 
+    ? `${apiUser.employee.firstName} ${apiUser.employee.lastName}`
+    : apiUser.username,
+  avatar: apiUser.employee?.avatarUrl || undefined,
+  status: 'offline',
+  lastSeen: undefined,
+});
+
+const transformApiMessage = (apiMsg: ApiMessage): ChatMessage => ({
+  id: apiMsg.id,
+  content: apiMsg.content,
+  senderId: apiMsg.senderId,
+  sender: {
+    id: apiMsg.sender.id,
+    name: apiMsg.sender.employee
+      ? `${apiMsg.sender.employee.firstName} ${apiMsg.sender.employee.lastName}`
+      : apiMsg.sender.username,
+    avatar: apiMsg.sender.employee?.avatarUrl || undefined,
+    status: 'offline',
+  },
+  roomId: apiMsg.roomId,
+  createdAt: new Date(apiMsg.sentAt),
+  updatedAt: apiMsg.editedAt ? new Date(apiMsg.editedAt) : undefined,
+  isEdited: !!apiMsg.editedAt,
+  attachments: apiMsg.attachments?.map(att => ({
+    id: att.id,
+    name: att.name,
+    url: att.url,
+    type: att.type.startsWith('image/') ? 'image' : att.type.includes('pdf') ? 'document' : 'file',
+    size: att.size,
+  })),
+});
+
+const transformApiRoom = (apiRoom: ApiRoom): ChatRoomType => ({
+  id: apiRoom.id,
+  name: apiRoom.name || apiRoom.members
+    .filter(m => m.userId !== apiRoom.createdBy)
+    .map(m => m.user.employee 
+      ? `${m.user.employee.firstName} ${m.user.employee.lastName}`
+      : m.user.username
+    )
+    .join(', ') || 'Unbekannt',
+  description: apiRoom.description || undefined,
+  type: apiRoom.type === 'DIRECT' ? 'direct' : apiRoom.type === 'GROUP' ? 'group' : 'channel',
+  participants: apiRoom.members.map(m => transformApiUser(m.user)),
+  lastMessage: apiRoom.lastMessage ? transformApiMessage(apiRoom.lastMessage) : undefined,
+  unreadCount: apiRoom.unreadCount || 0,
+  createdAt: new Date(apiRoom.createdAt),
+  updatedAt: new Date(apiRoom.updatedAt),
+  isPrivate: apiRoom.type === 'DIRECT',
+});
 
 export function ChatView() {
   const { data: session } = useSession();
@@ -76,6 +207,7 @@ export function ChatView() {
   // Socket.IO
   const { 
     isConnected, 
+    isAuthenticated,
     joinRoom, 
     leaveRoom, 
     sendTyping, 
@@ -85,7 +217,7 @@ export function ChatView() {
 
   // Queries
   const { 
-    data: rooms = [], 
+    data: apiRooms = [], 
     isLoading: roomsLoading 
   } = useQuery({
     queryKey: ['chat', 'rooms'],
@@ -93,10 +225,11 @@ export function ChatView() {
     enabled: !!session?.user?.id,
   });
 
+  const rooms = useMemo(() => apiRooms.map(transformApiRoom), [apiRooms]);
   const currentRoom = rooms.find(r => r.id === currentRoomId) || null;
 
   const { 
-    data: messages = [], 
+    data: apiMessages = [], 
     isLoading: messagesLoading 
   } = useQuery({
     queryKey: ['chat', 'messages', currentRoomId],
@@ -104,11 +237,13 @@ export function ChatView() {
     enabled: !!currentRoomId && !!session?.user?.id,
   });
 
+  const messages = useMemo(() => apiMessages.map(transformApiMessage), [apiMessages]);
+
   // Mutations
   const createRoomMutation = useMutation({
     mutationFn: createRoom,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['chat', 'rooms'] });
+    onSuccess: (newRoom) => {
+      queryClient.setQueryData(['chat', 'rooms'], (old: ApiRoom[] = []) => [newRoom, ...old]);
       toast.success('Chat erstellt');
     },
     onError: () => {
@@ -121,7 +256,7 @@ export function ChatView() {
     onSuccess: (newMessage) => {
       queryClient.setQueryData(
         ['chat', 'messages', currentRoomId],
-        (old: ChatMessage[] = []) => [...old, newMessage]
+        (old: ApiMessage[] = []) => [...old, newMessage]
       );
     },
     onError: () => {
@@ -134,7 +269,7 @@ export function ChatView() {
     onSuccess: (updatedMessage) => {
       queryClient.setQueryData(
         ['chat', 'messages', currentRoomId],
-        (old: ChatMessage[] = []) =>
+        (old: ApiMessage[] = []) =>
           old.map((msg) => (msg.id === updatedMessage.id ? updatedMessage : msg))
       );
     },
@@ -148,7 +283,7 @@ export function ChatView() {
     onSuccess: (_, messageId) => {
       queryClient.setQueryData(
         ['chat', 'messages', currentRoomId],
-        (old: ChatMessage[] = []) => old.filter((msg) => msg.id !== messageId)
+        (old: ApiMessage[] = []) => old.filter((msg) => msg.id !== messageId)
       );
     },
     onError: () => {
@@ -156,26 +291,25 @@ export function ChatView() {
     },
   });
 
-  // Socket-Effekte
+  // Socket-Effects
   useEffect(() => {
-    if (!currentRoomId || !isConnected) return;
+    if (!currentRoomId || !isConnected || !isAuthenticated) return;
 
     joinRoom(currentRoomId);
 
-    const unsubscribeMessage = onMessage((message: ChatMessage) => {
-      if (message.roomId === currentRoomId) {
+    const unsubscribeMessage = onMessage((data: { roomId: string; message: ApiMessage }) => {
+      if (data.roomId === currentRoomId) {
         queryClient.setQueryData(
           ['chat', 'messages', currentRoomId],
-          (old: ChatMessage[] = []) => {
-            // Verhindere Duplikate
-            if (old.some((m) => m.id === message.id)) return old;
-            return [...old, message];
+          (old: ApiMessage[] = []) => {
+            if (old.some((m) => m.id === data.message.id)) return old;
+            return [...old, data.message];
           }
         );
       }
     });
 
-    const unsubscribeTyping = onTyping((data) => {
+    const unsubscribeTyping = onTyping((data: { roomId: string; userId: string; isTyping: boolean }) => {
       if (data.roomId === currentRoomId) {
         setTypingUsers((prev) => {
           const newMap = new Map(prev);
@@ -199,7 +333,7 @@ export function ChatView() {
       unsubscribeMessage();
       unsubscribeTyping();
     };
-  }, [currentRoomId, isConnected, joinRoom, leaveRoom, onMessage, onTyping, queryClient]);
+  }, [currentRoomId, isConnected, isAuthenticated, joinRoom, leaveRoom, onMessage, onTyping, queryClient]);
 
   // Handler
   const handleSelectRoom = useCallback((room: ChatRoomType) => {
@@ -207,9 +341,9 @@ export function ChatView() {
   }, []);
 
   const handleSendMessage = useCallback(
-    (content: string, attachments?: File[]) => {
-      if (!currentRoomId) return;
-      sendMessageMutation.mutate({ roomId: currentRoomId, content, attachments });
+    (content: string) => {
+      if (!currentRoomId || !content.trim()) return;
+      sendMessageMutation.mutate({ roomId: currentRoomId, content: content.trim() });
     },
     [currentRoomId, sendMessageMutation]
   );
@@ -240,25 +374,33 @@ export function ChatView() {
 
   const handleCreateDirectChat = useCallback(
     (userId: string) => {
-      const existingRoom = rooms.find(
-        (r) => r.type === 'direct' && r.participants.some((p) => p.id === userId)
+      const existingRoom = apiRooms.find(
+        (r) => r.type === 'DIRECT' && r.members.some((m) => m.userId === userId)
       );
       
       if (existingRoom) {
         setCurrentRoomId(existingRoom.id);
       } else {
         createRoomMutation.mutate({
-          name: 'Direktnachricht',
-          type: 'direct',
-          participantIds: [userId],
+          type: 'DIRECT',
+          memberIds: [userId],
         });
       }
     },
-    [rooms, createRoomMutation]
+    [apiRooms, createRoomMutation]
   );
 
   const currentTypingUsers = currentRoomId
-    ? typingUsers.get(currentRoomId) || []
+    ? (typingUsers.get(currentRoomId) || [])
+        .filter(id => id !== session?.user?.id)
+        .map(id => {
+          const member = apiRooms
+            .find(r => r.id === currentRoomId)?.members
+            .find(m => m.userId === id);
+          return member?.user.employee 
+            ? `${member.user.employee.firstName} ${member.user.employee.lastName}`
+            : member?.user.username || 'Unbekannt';
+        })
     : [];
 
   return (

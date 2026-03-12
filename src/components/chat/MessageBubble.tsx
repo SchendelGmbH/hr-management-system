@@ -2,7 +2,7 @@
 
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { Check, CheckCheck, Edit2, Trash2, FileText, Image as ImageIcon, Paperclip } from 'lucide-react';
+import { Check, CheckCheck, Edit2, Trash2 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import { useState } from 'react';
 import { ChatMessage } from '@/types/chat';
@@ -37,24 +37,6 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete }: 
       setIsEditing(false);
       setEditContent(message.content);
     }
-  };
-
-  const getAttachmentIcon = (type: string) => {
-    switch (type) {
-      case 'image':
-        return <ImageIcon className="h-4 w-4" />;
-      case 'document':
-        return <FileText className="h-4 w-4" />;
-      default:
-        return <Paperclip className="h-4 w-4" />;
-    }
-  };
-
-  const formatFileSize = (bytes?: number) => {
-    if (!bytes) return '';
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${sizes[i]}`;
   };
 
   return (
@@ -122,32 +104,6 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete }: 
           ) : (
             <>
               <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
-              
-              {/* Attachments */}
-              {message.attachments && message.attachments.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {message.attachments.map((attachment) => (
-                    <a
-                      key={attachment.id}
-                      href={attachment.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={clsx(
-                        'flex items-center gap-2 rounded-lg px-2 py-1.5 text-xs transition-colors',
-                        isOwn
-                          ? 'bg-primary-700 hover:bg-primary-800'
-                          : 'bg-gray-200 hover:bg-gray-300'
-                      )}
-                    >
-                      {getAttachmentIcon(attachment.type)}
-                      <span className="truncate max-w-[150px]">{attachment.name}</span>
-                      {attachment.size && (
-                        <span className="text-gray-400">({formatFileSize(attachment.size)})</span>
-                      )}
-                    </a>
-                  ))}
-                </div>
-              )}
               
               {/* Status und Zeit */}
               <div className="mt-1 flex items-center gap-1">

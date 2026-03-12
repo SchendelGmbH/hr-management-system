@@ -12,7 +12,6 @@ interface SmartRepliesProps {
 export function SmartReplies({ roomId, onSelectReply, disabled }: SmartRepliesProps) {
   const [replies, setReplies] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!roomId) return;
@@ -28,7 +27,6 @@ export function SmartReplies({ roomId, onSelectReply, disabled }: SmartRepliesPr
     if (!roomId) return;
     
     setLoading(true);
-    setError(null);
 
     try {
       const response = await fetch('/api/ai/smart-replies', {
@@ -46,8 +44,8 @@ export function SmartReplies({ roomId, onSelectReply, disabled }: SmartRepliesPr
         setReplies([]);
       }
     } catch (err) {
-      setError('Fehler beim Laden');
       console.error('Smart replies error:', err);
+      setReplies([]);
     } finally {
       setLoading(false);
     }

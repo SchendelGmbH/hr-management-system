@@ -9,9 +9,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  let originalText = '';
+
   try {
     const body = await request.json();
     const { text, targetLang, roomId } = body;
+    originalText = text || '';
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'Text is required' }, { status: 400 });
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       {
         error: 'Failed to translate text',
-        translation: body?.text || '', // Return original on error
+        translation: originalText, // Return original on error
       },
       { status: 500 }
     );

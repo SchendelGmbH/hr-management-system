@@ -7,6 +7,7 @@ import { clsx } from 'clsx';
 interface MessageInputProps {
   onSend: (content: string) => void;
   onTyping?: (isTyping: boolean) => void;
+  onCommand?: (command: string, args: string[]) => void;
   disabled?: boolean;
   placeholder?: string;
 }
@@ -14,6 +15,7 @@ interface MessageInputProps {
 export function MessageInput({ 
   onSend, 
   onTyping, 
+  onCommand,
   disabled = false,
   placeholder = 'Nachricht schreiben...'
 }: MessageInputProps) {
@@ -62,6 +64,24 @@ export function MessageInput({
       return;
     }
     
+    // Check for commands (e.g., /call)
+    if (trimmedContent.startsWith('/')) {
+      const parts = trimmedContent.slice(1).split(' ');
+      const command = parts[0].toLowerCase();
+      const args = parts.slice(1).filter(Boolean);
+      
+      if (onCommand) {
+        onCommand(command, args);
+        setContent('');
+        
+        // Reset textarea height
+        if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+        }
+        return;
+      }
+    }
+    
     onSend(trimmedContent);
     setContent('');
     
@@ -77,7 +97,7 @@ export function MessageInput({
         clearTimeout(typingTimeoutRef.current);
       }
     }
-  }, [content, disabled, onSend, onTyping]);
+  }, [content, disabled, onSend, onTyping, onCommand]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -95,18 +115,21 @@ export function MessageInput({
     )}>
       {/* Input Area */}
       <div className="flex items-end gap-2">
-        {/* Emoji Button */}
-        <button
-          disabled={disabled}
-          className={clsx(
-            'flex-shrink-0 rounded-full p-2 transition-colors',
-            disabled
-              ? 'text-gray-300 cursor-not-allowed'
-              : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
-          )}
-        >
-          <Smile className="h-5 w-5" />
-        </button>
+        {/* Commands hint */}
+        <div className="flex-shrink-0">
+          <button
+            disabled={disabled}
+            className={clsx(
+              'rounded-full p-2 transition-colors',
+              disabled
+                ? 'text-gray-300 cursor-not-allowed'
+                : 'text-gray-500 hover:bg-gray-100 hover:text-gray-700'
+            )}
+            title="Befehle: /call - Videoanruf starten"
+          >
+            <span className="text-lg font-bold">/</span>
+          </button>
+        </div>
         
         {/* Textarea */}
         <div className="relative flex-1">

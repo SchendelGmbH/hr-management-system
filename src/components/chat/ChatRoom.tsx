@@ -26,6 +26,9 @@ interface ChatRoomProps {
   onDeleteMessage?: (messageId: string) => void;
   onTyping?: (isTyping: boolean) => void;
   onBack?: () => void;
+  onStartVideoCall?: () => void;
+  onStartAudioCall?: () => void;
+  onCommand?: (command: string, args: string[]) => void;
   loading?: boolean;
   typingUsers?: string[];
   hasMoreMessages?: boolean;
@@ -40,6 +43,9 @@ export function ChatRoom({
   onDeleteMessage,
   onTyping,
   onBack,
+  onStartVideoCall,
+  onStartAudioCall,
+  onCommand,
   loading = false,
   typingUsers = [],
   hasMoreMessages = false,
@@ -194,10 +200,18 @@ export function ChatRoom({
         
         {/* Actions */}
         <div className="flex items-center gap-1">
-          <button className="hidden rounded-full p-2 text-gray-600 hover:bg-gray-100">
+          <button 
+            onClick={onStartAudioCall}
+            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors"
+            title="Audioanruf"
+          >
             <Phone className="h-5 w-5" />
           </button>
-          <button className="hidden rounded-full p-2 text-gray-600 hover:bg-gray-100">
+          <button 
+            onClick={onStartVideoCall}
+            className="rounded-full p-2 text-gray-600 hover:bg-gray-100 hover:text-primary-600 transition-colors"
+            title="Videoanruf"
+          >
             <Video className="h-5 w-5" />
           </button>
           <button className="rounded-full p-2 text-gray-600 hover:bg-gray-100">
@@ -283,6 +297,7 @@ export function ChatRoom({
       <MessageInput
         onSend={onSendMessage}
         onTyping={handleTyping}
+        onCommand={onCommand}
         disabled={loading}
         placeholder={`Nachricht an ${displayName}...`}
       />

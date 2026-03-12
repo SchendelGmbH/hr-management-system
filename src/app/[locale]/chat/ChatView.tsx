@@ -9,6 +9,9 @@ import {
 } from '@/components/chat';
 import { ChatRoom as ChatRoomType, ChatMessage, ChatUser } from '@/types/chat';
 import { useSocket } from '@/hooks/useSocket';
+import { useWebRTC } from '@/hooks/useWebRTC';
+import { VideoCallModal } from '@/components/video-call';
+import { VideoCallParticipant } from '@/types/videoCall';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
@@ -202,6 +205,7 @@ export function ChatView() {
   const queryClient = useQueryClient();
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Map<string, string[]>>(new Map());
+  const [showVideoCall, setShowVideoCall] = useState(false);
 
   // Socket.IO
   const { 
@@ -213,6 +217,22 @@ export function ChatView() {
     onMessage, 
     onTyping 
   } = useSocket();
+
+  // WebRTC Video Call
+  const {
+    callState,
+    localStream,
+    isScreenSharing,
+    isMuted,
+    isVideoEnabled,
+    initiateCall,
+    acceptCall,
+    declineCall,
+    endCall,
+    toggleMute,
+    toggleVideo,
+    toggleScreenShare,
+  } = useWebRTC();
 
   // Queries
   const { 
@@ -338,6 +358,87 @@ export function ChatView() {
   const handleSelectRoom = useCallback((room: ChatRoomType) => {
     setCurrentRoomId(room.id);
   }, []);
+
+  // Video Call Handlers
+  const handleStartVideoCall = useCallback(async () => {
+    if (!currentRoom) return;
+    
+    const participants: VideoCallParticipant[] = currentRoom.participants
+      .filter(p => p.id !== session?.user?.id)
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        avatar: p.avatar,
+      }));
+      
+    if (participants.length === 0) {
+      console.error('No participants available for call');
+      return;
+    }
+    
+    setShowVideoCall(true);
+    
+    try {
+      await initiateCall(currentRoom.id, 'video', participants);
+    } catch (error) {
+      console.error('Failed to start video call:', error);
+    }
+  }, [currentRoom, session?.user?.id, initiateCall]);
+
+  const handleStartAudioCall = useCallback(async () => {
+    if (!currentRoom) return;
+    
+    const participants: VideoCallParticipant[] = currentRoom.participants
+      .filter(p => p.id !== session?.user?.id)
+      .map(p => ({
+        id: p.id,
+        name: p.name,
+        avatar: p.avatar,
+      }));
+      
+    if (participants.length === 0) {
+      console.error('No participants available for call');
+      return;
+    }
+    
+    setShowVideoCall(true);
+    
+    try {
+      await initiateCall(currentRoom.id, 'audio', participants);
+    } catch (error) {
+      console.error('Failed to start audio call:', error);
+    }
+  }, [currentRoom, session?.user?.id, initiateCall]);
+
+  const handleAcceptCall = useCallback(() => {
+    setShowVideoCall(true);
+    acceptCall({});
+  }, [acceptCall]);
+
+  const handleDeclineCall = useCallback(() => {
+    declineCall(callState?.callId || '');
+    setShowVideoCall(false);
+  }, [declineCall, callState?.callId]);
+
+  const handleEndCall = useCallback(() => {
+    endCall();
+    setShowVideoCall(false);
+  }, [endCall]);
+
+  // Command Handler
+  const handleCommand = useCallback((command: string, args: string[]) => {
+    switch (command) {
+      case 'call':
+      case 'video':
+        handleStartVideoCall();
+        break;
+      case 'audio':
+        handleStartAudioCall();
+        break;
+      default:
+        console.log('Unknown command:', command);
+    }
+  }, [handleStartVideoCall, handleStartAudioCall]);
 
   const handleSendMessage = useCallback(
     async (content: string) => {
@@ -489,10 +590,28 @@ export function ChatView() {
           onEditMessage={handleEditMessage}
           onDeleteMessage={handleDeleteMessage}
           onTyping={handleTyping}
+          onStartVideoCall={handleStartVideoCall}
+          onStartAudioCall={handleStartAudioCall}
+          onCommand={handleCommand}
           loading={messagesLoading}
           typingUsers={currentTypingUsers}
         />
       </ChatLayout>
+
+      {/* Video Call Modal */}
+      <VideoCallModal
+        callState={callState}
+        localStream={localStream}
+        isScreenSharing={isScreenSharing}
+        isMuted={isMuted}
+        isVideoEnabled={isVideoEnabled}
+        onAccept={handleAcceptCall}
+        onDecline={handleDeclineCall}
+        onEnd={handleEndCall}
+        onToggleMute={toggleMute}
+        onToggleVideo={toggleVideo}
+        onToggleScreenShare={toggleScreenShare}
+      />
     </div>
   );
 }

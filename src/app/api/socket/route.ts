@@ -209,5 +209,133 @@ export default function handler(req: any, res: any) {
   });
 
   console.log('[Socket.IO] Server initialized');
+  
+  // Setup video call handlers
+  setupVideoCallHandlers(io);
+  
   res.end();
+}
+
+// Video Call Signaling Handlers
+// Store active calls: Map<roomId, Set<userId>>
+const activeCalls = new Map<string, Set<string>>();
+
+export function setupVideoCallHandlers(io: SocketIOServer) {
+  io.on('connection', (socket) => {
+    // Handle video call signaling
+    socket.on('call-started', (data: {
+      callId: string;
+      roomId: string;
+      initiatorId: string;
+      participants: { id: string; name: string; avatar?: string }[];
+      callType: 'video' | 'audio';
+      timestamp: Date;
+    }) => {
+      const userId = socket.data.userId;
+      if (!userId) return;
+
+      // Track active call
+      if (!activeCalls.has(data.roomId)) {
+        activeCalls.set(data.roomId, new Set());
+      }
+      activeCalls.get(data.roomId)?.add(userId);
+
+      // Notify all participants
+      data.participants.forEach((participant) => {
+        socket.to(`user:${participant.id}`).emit('call-started', {
+          ...data,
+          participants: data.participants.filter(p => p.id !== participant.id).concat([{
+            id: userId,
+            name: 'Calling...', // Will be resolved by client
+          }]),
+        });
+      });
+      
+      console.log(`[Socket.IO] Call started: ${data.callId}, room: ${data.roomId}`);
+    });
+
+    socket.on('call-accepted', (data: { callId: string; userId: string; timestamp: Date }) => {
+      const roomId = data.callId.split('-').slice(0, 2).join('-');
+      activeCalls.get(roomId)?.add(data.userId);
+      
+      // Notify all participants
+      socket.to(`room:${roomId}`).emit('call-accepted', data);
+      console.log(`[Socket.IO] Call accepted: ${data.callId} by ${data.userId}`);
+    });
+
+    socket.on('signaling', (message: {
+      type: 'offer' | 'answer' | 'ice-candidate' | 'call-ended' | 'call-declined' | 'screen-share' | 'mute-state' | 'participant-joined' | 'participant-left';
+      callId: string;
+      roomId: string;
+      senderId: string;
+      targetId?: string;
+      payload?: any;
+      timestamp: Date;
+    }) => {
+      const userId = socket.data.userId;
+      if (!userId) return;
+
+      // Ensure sender is set
+      const msg = { ...message, senderId: userId };
+
+      switch (message.type) {
+        case 'call-ended':
+          // Cleanup call
+          activeCalls.get(message.roomId)?.delete(userId);
+          if (activeCalls.get(message.roomId)?.size === 0) {
+            activeCalls.delete(message.roomId);
+          }
+          // Broadcast to room
+          socket.to(`room:${message.roomId}`).emit('signaling', msg);
+          break;
+        
+        case 'call-declined':
+          // Notify initiator
+          socket.to(`room:${message.roomId}`).emit('signaling', msg);
+          break;
+        
+        case 'offer':
+        case 'answer':
+        case 'ice-candidate':
+          // Targeted signaling
+          if (message.targetId) {
+            socket.to(`user:${message.targetId}`).emit('signaling', msg);
+          }
+          break;
+        
+        case 'screen-share':
+        case 'mute-state':
+        case 'participant-joined':
+        case 'participant-left':
+          // Broadcast to room
+          socket.to(`room:${message.roomId}`).emit('signaling', msg);
+          break;
+      }
+
+      console.log(`[Socket.IO] Signaling: ${message.type} from ${userId}`);
+    });
+
+    // Cleanup on disconnect
+    socket.on('disconnect', () => {
+      const userId = socket.data.userId;
+      if (userId) {
+        // Remove user from all active calls
+        activeCalls.forEach((participants, roomId) => {
+          if (participants.has(userId)) {
+            participants.delete(userId);
+            // Notify others
+            io.to(`room:${roomId}`).emit('signaling', {
+              type: 'participant-left',
+              roomId,
+              senderId: userId,
+              timestamp: new Date(),
+            });
+            if (participants.size === 0) {
+              activeCalls.delete(roomId);
+            }
+          }
+        });
+      }
+    });
+  });
 }

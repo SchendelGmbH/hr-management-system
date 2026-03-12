@@ -290,14 +290,14 @@ export function SwapRequestsOverview({ employeeId }: SwapRequestsOverviewProps) 
                                     onClick={() => handleApprove(swap.id)}
                                     className="flex-1 px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors flex items-center justify-center gap-2"
                                   >
-                                    <CheckCircle className="w-4 h-4" /
+                                    <CheckCircle className="w-4 h-4" />
                                     <span>Genehmigen</span>
                                   </button>
                                   <button
                                     onClick={() => handleReject(swap.id)}
                                     className="flex-1 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center justify-center gap-2"
                                   >
-                                    <XCircle className="w-4 h-4" /
+                                    <XCircle className="w-4 h-4" />
                                     <span>Ablehnen</span>
                                   </button>
                                 </>

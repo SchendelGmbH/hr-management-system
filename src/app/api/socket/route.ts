@@ -1,6 +1,7 @@
 import { Server as NetServer } from 'http';
 import { Server as SocketIOServer } from 'socket.io';
 import { prisma } from '@/lib/prisma';
+import { onEvent, emitEvent as emitToEventBus } from '@/lib/eventBus';
 
 export const config = {
   api: {
@@ -118,9 +119,60 @@ export default function handler(req: any, res: any) {
       });
     });
 
+    // Join swap updates
+    socket.on('subscribe-swaps', (employeeId: string) => {
+      socket.join(`swaps:${employeeId}`);
+      console.log(`[Socket.IO] User subscribed to swaps for employee ${employeeId}`);
+    });
+
+    // Unsubscribe from swap updates
+    socket.on('unsubscribe-swaps', (employeeId: string) => {
+      socket.leave(`swaps:${employeeId}`);
+      console.log(`[Socket.IO] User unsubscribed from swaps for employee ${employeeId}`);
+    });
+
     socket.on('disconnect', () => {
       console.log('[Socket.IO] Client disconnected:', socket.id);
     });
+  });
+
+  // Listen for swap events and emit to connected clients
+  onEvent('SHIFT_SWAP_CREATED', (data) => {
+    if (io) {
+      // Notify requester
+      io.to(`swaps:${data.requesterId}`).emit('swap-created', data);
+      // Notify requested person if specific
+      if (data.requestedId) {
+        io.to(`swaps:${data.requestedId}`).emit('swap-request', data);
+      }
+    }
+  });
+
+  onEvent('SHIFT_SWAP_UPDATED', (data) => {
+    if (io) {
+      io.to(`swaps:${data.requesterId}`).emit('swap-updated', data);
+      if (data.requestedId) {
+        io.to(`swaps:${data.requestedId}`).emit('swap-updated', data);
+      }
+    }
+  });
+
+  onEvent('SHIFT_SWAP_COMPLETED', (data) => {
+    if (io) {
+      io.to(`swaps:${data.requesterId}`).emit('swap-completed', data);
+      if (data.responderId) {
+        io.to(`swaps:${data.responderId}`).emit('swap-completed', data);
+      }
+    }
+  });
+
+  onEvent('SCHEDULE_CHANGED', (data) => {
+    if (io) {
+      // Notify all affected employees
+      data.affectedEmployees?.forEach((employeeId: string) => {
+        io.to(`swaps:${employeeId}`).emit('schedule-changed', data);
+      });
+    }
   });
 
   console.log('[Socket.IO] Server initialized');

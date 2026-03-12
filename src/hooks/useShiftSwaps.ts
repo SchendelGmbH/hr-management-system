@@ -6,6 +6,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { onSwapEvent, ShiftSwapEvents } from '@/lib/eventBus';
+import { useSocketSwap } from './useSocketSwap';
 
 export interface SwapRequest {
   id: string;
@@ -113,30 +114,26 @@ export function useShiftSwaps(options: UseShiftSwapsOptions = {}) {
     }
   }, [options.employeeId, options.status, options.type]);
 
+  // Socket.IO für Realtime-Updates
+  useSocketSwap(options.employeeId, {
+    onSwapCreated: () => {
+      fetchSwaps();
+    },
+    onSwapUpdated: () => {
+      fetchSwaps();
+    },
+    onSwapCompleted: () => {
+      fetchSwaps();
+    },
+    onScheduleChanged: () => {
+      // Schedule wurde geändert, lade neu
+      fetchSwaps();
+    },
+  });
+
   // Lade Initialdaten
   useEffect(() => {
     fetchSwaps();
-  }, [fetchSwaps]);
-
-  // Abonniere Realtime-Updates
-  useEffect(() => {
-    const unsubscribeUpdate = onSwapEvent(ShiftSwapEvents.SWAP_UPDATED, () => {
-      fetchSwaps();
-    });
-
-    const unsubscribeResponse = onSwapEvent(ShiftSwapEvents.SWAP_RESPONSE_CREATED, () => {
-      fetchSwaps();
-    });
-
-    const unsubscribeCompleted = onSwapEvent(ShiftSwapEvents.SWAP_COMPLETED, () => {
-      fetchSwaps();
-    });
-
-    return () => {
-      unsubscribeUpdate();
-      unsubscribeResponse();
-      unsubscribeCompleted();
-    };
   }, [fetchSwaps]);
 
   const createSwapRequest = async (data: {

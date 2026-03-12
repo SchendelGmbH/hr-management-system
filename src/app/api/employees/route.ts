@@ -208,6 +208,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // Emit event for chat module (welcome chat)
+    const { eventBus } = await import('@/lib/events/EventBus');
+    eventBus.emit('hr.employee.created', {
+      employeeId: employee.id,
+      employeeNumber: employee.employeeNumber,
+      firstName: employee.firstName,
+      lastName: employee.lastName,
+      email: employee.email,
+      departmentId: employee.departmentId,
+      createdBy: session.user.id,
+    });
+
     return NextResponse.json(employee, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {

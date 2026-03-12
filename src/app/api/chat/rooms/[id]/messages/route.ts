@@ -192,6 +192,17 @@ export async function POST(
       data: { updatedAt: new Date() },
     });
 
+    // Emit real-time event via Socket.IO (if available)
+    try {
+      const { getSocketIO } = await import('@/app/api/socket/route');
+      const io = getSocketIO();
+      if (io) {
+        io.to(`room:${id}`).emit('new-message', { roomId: id, message });
+      }
+    } catch (e) {
+      // Socket not available, ignore
+    }
+
     return NextResponse.json({ message }, { status: 201 });
   } catch (error) {
     console.error('Error sending message:', error);

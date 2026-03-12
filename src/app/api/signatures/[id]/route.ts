@@ -5,7 +5,7 @@ import { eventBus } from '@/lib/events/EventBus';
 
 // GET /api/signatures/[id] - Einzelne Anfrage abrufen
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -110,7 +110,7 @@ export async function GET(
 
 // PATCH /api/signatures/[id] - Anfrage aktualisieren
 export async function PATCH(
-  _request: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
@@ -121,7 +121,7 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const body = await request.json();
+    const body = await req.json();
     const { status, note } = body;
 
     const signatureRequest = await prisma.documentSignatureRequest.findUnique({

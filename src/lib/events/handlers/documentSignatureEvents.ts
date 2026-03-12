@@ -18,14 +18,20 @@ export function initializeDocumentSignatureEventHandlers() {
   eventBus.subscribe(
     'chat.message.received',
     async (event) => {
-      const { roomId, senderId, content, messageId } = event.payload;
+      const payload = event.payload as { 
+        roomId: string; 
+        senderId: string; 
+        content: string; 
+        messageId: string 
+      };
+      const { roomId, senderId, content } = payload;
       
       if (!content || !content.trim().toLowerCase().startsWith('/sign')) {
         return; // Kein Signatur-Befehl
       }
 
       try {
-        await handleSignCommand(roomId, senderId, content, messageId);
+        await handleSignCommand(roomId, senderId, content, payload.messageId);
       } catch (error) {
         console.error('[DocumentSignatureEvents] Fehler bei /sign Befehl:', error);
       }
@@ -37,7 +43,11 @@ export function initializeDocumentSignatureEventHandlers() {
   eventBus.subscribe(
     'document.signature.requested',
     async (event) => {
-      const { requestId, roomId } = event.payload;
+      const payload = event.payload as { 
+        requestId: string; 
+        roomId?: string | null; 
+      };
+      const { requestId, roomId } = payload;
       console.log(`[DocumentSignatureEvents] Signatur-Anfrage erstellt: ${requestId}`);
       
       // Sende Benachrichtigung an Empfänger (roomId wird verwendet)
@@ -52,9 +62,9 @@ export function initializeDocumentSignatureEventHandlers() {
   eventBus.subscribe(
     'document.signature.approved',
     async (event) => {
-      const { requestId } = event.payload;
-      console.log(`[DocumentSignatureEvents] Anfrage genehmigt: ${requestId}`);
-      await notifySignatureApproved(requestId);
+      const payload = event.payload as { requestId: string };
+      console.log(`[DocumentSignatureEvents] Anfrage genehmigt: ${payload.requestId}`);
+      await notifySignatureApproved(payload.requestId);
     },
     { priority: 'normal' }
   );
@@ -62,9 +72,12 @@ export function initializeDocumentSignatureEventHandlers() {
   eventBus.subscribe(
     'document.signature.signed',
     async (event) => {
-      const { requestId, signatureId } = event.payload;
-      console.log(`[DocumentSignatureEvents] Dokument signiert: ${requestId}`);
-      await notifySigned(requestId, signatureId);
+      const payload = event.payload as { 
+        requestId: string; 
+        signatureId: string 
+      };
+      console.log(`[DocumentSignatureEvents] Dokument signiert: ${payload.requestId}`);
+      await notifySigned(payload.requestId, payload.signatureId);
     },
     { priority: 'normal' }
   );

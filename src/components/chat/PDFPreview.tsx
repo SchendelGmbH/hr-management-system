@@ -229,7 +229,7 @@ export function PDFPreviewCard({
         <p className="text-sm font-medium text-gray-900 truncate">
           {fileName}
         </p>
-        {fileSize &c (
+        {fileSize && (
           <p className="text-xs text-gray-500">
             {fileSize}
           </p>

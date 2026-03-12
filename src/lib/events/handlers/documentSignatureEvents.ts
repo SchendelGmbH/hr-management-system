@@ -37,10 +37,13 @@ export function initializeDocumentSignatureEventHandlers() {
   eventBus.subscribe(
     'document.signature.requested',
     async (event) => {
-      const { requestId, documentId, roomId } = event.payload;
+      const { requestId, roomId } = event.payload;
       console.log(`[DocumentSignatureEvents] Signatur-Anfrage erstellt: ${requestId}`);
       
-      // Sende Benachrichtigung an Empfänger
+      // Sende Benachrichtigung an Empfänger (roomId wird verwendet)
+      if (roomId) {
+        console.log(`[DocumentSignatureEvents] Anfrage im Raum: ${roomId}`);
+      }
       await notifySignatureRequested(requestId);
     },
     { priority: 'normal' }
@@ -77,7 +80,7 @@ async function handleSignCommand(
   roomId: string,
   senderId: string,
   content: string,
-  messageId: string
+  _messageId: string
 ) {
   // Parse Befehl
   const args = content.trim().split(/\s+/);
@@ -280,9 +283,10 @@ async function notifySignatureApproved(requestId: string) {
 
   if (!request || !request.roomId) return;
 
-  const creatorName = request.createdBy.employee
-    ? `${request.createdBy.employee.firstName} ${request.createdBy.employee.lastName}`
-    : request.createdBy.username;
+  // Creator-Info für zukünftige Erweiterungen
+  // const creatorName = request.createdBy.employee
+  //   ? `${request.createdBy.employee.firstName} ${request.createdBy.employee.lastName}`
+  //   : request.createdBy.username;
 
   const signerNames = request.participants
     .map(p => p.user.employee 
@@ -292,19 +296,14 @@ async function notifySignatureApproved(requestId: string) {
     .join(', ');
 
   await sendSystemMessage(request.roomId, 
-    `✅ **Signatur-Anfrage genehmigt**
-
-📄 ${request.document.fileName || 'Dokument'}
-✍️ Warte auf Unterschrift von: ${signerNames}
-
-[Zur Signatur](/sign/${requestId})`
+    `✅ **Signatur-Anfrage genehmigt**\n\n📄 ${request.document.fileName || 'Dokument'}\n✍️ Warte auf Unterschrift von: ${signerNames}\n\n[Zur Signatur](/sign/${requestId})`
   );
 }
 
 /**
  * Benachrichtigung bei erfolgreicher Unterschrift
  */
-async function notifySigned(requestId: string, signatureId: string) {
+async function notifySigned(requestId: string, _signatureId: string) {
   const request = await prisma.documentSignatureRequest.findUnique({
     where: { id: requestId },
     include: {

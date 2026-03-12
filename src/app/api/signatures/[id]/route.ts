@@ -110,7 +110,7 @@ export async function GET(
 
 // PATCH /api/signatures/[id] - Anfrage aktualisieren
 export async function PATCH(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();

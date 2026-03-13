@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
-import { eventBus } from '@/lib/events/EventBus';
+import { eventBus } from '@/lib/eventBus';
 import { extractMentions, createMentions } from '@/lib/chat/mentions';
 
 // GET /api/chat/rooms/[id]/messages - Get messages for a room
@@ -246,6 +246,20 @@ export async function POST(
     } catch (e) {
       // Socket not available, ignore
     }
+
+    // Emit EventBus event for Socket.IO handler to broadcast
+    // Get room members for unread count updates
+    const roomMembers = await prisma.chatMember.findMany({
+      where: { roomId: id },
+      select: { userId: true },
+    });
+    
+    eventBus.emit('CHAT_MESSAGE_CREATED', {
+      roomId: id,
+      message,
+      senderId: session.user.id,
+      memberIds: roomMembers.map(m => m.userId),
+    });
 
     // Process mentions if any
     if (content) {

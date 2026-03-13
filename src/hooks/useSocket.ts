@@ -32,13 +32,21 @@ export function useSocket(): UseSocketReturn {
       return;
     }
 
-    // Initialize socket connection
-    const socket = io({
-      path: '/api/socket',
+    // Trigger Socket.IO initialization on server first
+    fetch('/api/socket')
+      .then(() => console.log('[Socket] Server initialized'))
+      .catch(err => console.error('[Socket] Server init failed:', err));
+
+    // Initialize socket connection to separate Socket.IO server
+    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
+    const socket = io(socketUrl, {
+      transports: ['websocket', 'polling'],
       autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      randomizationFactor: 0.5,
     });
 
     socketRef.current = socket;

@@ -294,7 +294,7 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
               
               {/* Attachments */}
               {hasAttachments && (
-                <div className={clsx(hasContent && "mt-2")>
+                <div className={clsx(hasContent && "mt-2")}>
                   {message.attachments?.map((attachment) => (
                     <AttachmentPreview
                       key={attachment.id}

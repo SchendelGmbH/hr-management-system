@@ -7,8 +7,10 @@ import {
   Bell,
   MessageCircle,
   Users,
-  User
+  User,
+  MessageSquare
 } from 'lucide-react';
+import { NewChatDialog } from './NewChatDialog';
 import { clsx } from 'clsx';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -28,12 +30,14 @@ export function ChatSidebar({
   rooms,
   currentRoom,
   onSelectRoom,
+  onCreateDirectChat,
   onCreateGroupChat,
   loading = false,
 }: ChatSidebarProps) {
   const { data: session } = useSession();
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'direct' | 'group' | 'channel'>('all');
+  const [isNewChatOpen, setIsNewChatOpen] = useState(false);
 
   const filteredRooms = rooms.filter((room) => {
     const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -62,11 +66,20 @@ export function ChatSidebar({
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Chat</h1>
           <div className="flex items-center gap-1">
+            {onCreateDirectChat && (
+              <button
+                onClick={() => setIsNewChatOpen(true)}
+                className="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
+                title="Neue Direktnachricht"
+              >
+                <MessageSquare className="h-5 w-5" />
+              </button>
+            )}
             {onCreateGroupChat && (
               <button
                 onClick={onCreateGroupChat}
                 className="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
-                title="Neuer Chat"
+                title="Neue Gruppe"
               >
                 <Plus className="h-5 w-5" />
               </button>
@@ -253,6 +266,14 @@ export function ChatSidebar({
           </div>
         )}
       </div>
+      {/* New Chat Dialog */}
+      {onCreateDirectChat && (
+        <NewChatDialog
+          isOpen={isNewChatOpen}
+          onClose={() => setIsNewChatOpen(false)}
+          onSelectEmployee={onCreateDirectChat}
+        />
+      )}
     </div>
   );
 }

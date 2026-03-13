@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
+    "@fullcalendar/core": "^6.1.20",
     "@fullcalendar/daygrid": "^6.1.15",
     "@fullcalendar/interaction": "^6.1.15",
     "@fullcalendar/react": "^6.1.15",
@@ -48,7 +49,7 @@
     "openai": "^6.27.0",
     "pdf-lib": "^1.17.1",
     "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^5.5.207",
+    "pdfjs-dist": "^3.11.174",
     "prisma-field-encryption": "^1.6.0",
     "puppeteer": "^24.37.5",
     "react": "^19.0.0",

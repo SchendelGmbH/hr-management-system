@@ -91,7 +91,7 @@ export function PDFPreview({
         className={`pdf-preview-content ${className}`}
         style={{ height: typeof height === 'number' ? `${height}px` : height }}
       >
-        <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js">
+        <Worker workerUrl="https://unpkg.com/pdfjs-dist@5.5.207/build/pdf.worker.min.js">
           <div className="rpv-core__viewer" style={{ height: '100%' }}>
             <Viewer
               fileUrl={pdfUrl}

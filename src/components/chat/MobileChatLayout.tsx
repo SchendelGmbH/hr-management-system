@@ -48,12 +48,18 @@ export function MobileChatLayout({
   }, []);
 
   return (
-    <div className={clsx(
-      'flex flex-col h-full bg-white dark:bg-gray-900',
-      className
-    )}>
+    <div 
+      suppressHydrationWarning
+      className={clsx(
+        'flex flex-col h-full bg-white dark:bg-gray-900',
+        className
+      )}
+    >
       {/* Mobile Header - nur auf kleinen Screens sichtbar */}
-      <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700">
+      <div 
+        suppressHydrationWarning
+        className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700"
+      >
         {activeView === 'chat' && currentRoom ? (
           <>
             <button

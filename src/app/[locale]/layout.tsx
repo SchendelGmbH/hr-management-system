@@ -1,6 +1,7 @@
 import { NextIntlClientProvider } from 'next-intl';
 import { getMessages } from 'next-intl/server';
 import { SessionProvider } from 'next-auth/react';
+import { QueryProvider } from '@/components/providers/QueryProvider';
 import Sidebar from '@/components/layout/Sidebar';
 import Header from '@/components/layout/Header';
 
@@ -16,15 +17,17 @@ export default async function LocaleLayout({
 
   return (
     <SessionProvider>
-      <NextIntlClientProvider messages={messages}>
-        <div className="flex h-screen overflow-hidden bg-gray-50">
-          <Sidebar />
-          <div className="flex flex-1 flex-col overflow-hidden">
-            <Header />
-            <main className="flex-1 overflow-y-auto p-6">{children}</main>
+      <QueryProvider>
+        <NextIntlClientProvider messages={messages}>
+          <div className="flex h-screen overflow-hidden bg-gray-50">
+            <Sidebar />
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <Header />
+              <main className="flex-1 overflow-y-auto p-6">{children}</main>
+            </div>
           </div>
-        </div>
-      </NextIntlClientProvider>
+        </NextIntlClientProvider>
+      </QueryProvider>
     </SessionProvider>
   );
 }

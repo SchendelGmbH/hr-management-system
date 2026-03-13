@@ -17,7 +17,7 @@ import {
   ClipboardList,
   MessageCircle,
   ArrowRightLeft,
-  LayoutKanban,
+  CheckSquare,
 } from 'lucide-react';
 import { signOut, useSession } from 'next-auth/react';
 
@@ -79,7 +79,7 @@ const allNavigation = [
   {
     name: 'mySchedule',
     href: '/de/my-schedule',
-    icon: CalendarIcon,
+    icon: Calendar,
     adminOnly: false,
   },
   {
@@ -91,7 +91,7 @@ const allNavigation = [
   {
     name: 'tasks',
     href: '/de/tasks',
-    icon: LayoutKanban,
+    icon: CheckSquare,
     adminOnly: false,
   },
   {

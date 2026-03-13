@@ -6,7 +6,7 @@ import { useSession } from 'next-auth/react';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import deLocale from '@fullcalendar/core/locales/de';
+import deLocale from '@fullcalendar/core/locales/de.js';
 import { Plus, List, Calendar as CalendarIcon, Trash2, ExternalLink, Pencil } from 'lucide-react';
 import { formatDate } from '@/lib/utils';
 import AddVacationModal from '@/components/calendar/AddVacationModal';

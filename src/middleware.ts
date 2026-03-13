@@ -4,7 +4,7 @@ import { auth } from '@/lib/auth';
 // Public routes that don't require authentication
 const publicRoutes = ['/login', '/api/auth'];
 
-// API routes that USER role is allowed to access (for Tagesplanung)
+// API routes that USER role is allowed to access
 const userAllowedApiPrefixes = [
   '/api/daily-plans',
   '/api/work-sites',
@@ -13,6 +13,9 @@ const userAllowedApiPrefixes = [
   '/api/employees',
   '/api/settings/planning',
   '/api/calendar',
+  '/api/chat',
+  '/api/tasks',
+  '/api/swaps',
 ];
 
 export default auth((req) => {
@@ -54,12 +57,11 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  // USER role: only allow /[locale]/planning routes, redirect everything else
+  // USER role: only allow specific routes
   if (req.auth.user.role === 'USER') {
-    // Match /<locale>/planning or /<locale>/planning/...
-    const isPlanningRoute = pathname.match(/^\/[a-z]{2}\/(planning|calendar)(\/|$)/);
-    // Also allow the locale root to redirect properly
-    if (!isPlanningRoute) {
+    // Match allowed routes: planning, calendar, chat, tasks, my-schedule, swaps
+    const isAllowedRoute = pathname.match(/^\/[a-z]{2}\/(planning|calendar|chat|tasks|my-schedule|swaps)(\/|$)/);
+    if (!isAllowedRoute) {
       const planningUrl = new URL('/de/planning', req.url);
       return NextResponse.redirect(planningUrl);
     }

@@ -3,7 +3,7 @@
 import { useState, useCallback } from 'react';
 import { useTranslations } from 'next-intl';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, LayoutKanban } from 'lucide-react';
+import { Plus, CheckSquare } from 'lucide-react';
 import { Task, TaskStatus } from '@/types/task';
 import { KanbanColumn } from './KanbanColumn';
 import { TaskModal } from './TaskModal';
@@ -88,7 +88,7 @@ export function TasksKanban() {
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3">
-          <LayoutKanban className="h-6 w-6 text-blue-600" />
+          <CheckSquare className="h-6 w-6 text-blue-600" />
           <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
             {t('title')}
           </h1>

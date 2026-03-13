@@ -74,6 +74,8 @@
     "taskUpdated": "Aufgabe aktualisiert",
     "taskDeleted": "Aufgabe gelöscht",
     "confirmDelete": "Aufgabe löschen?",
+    "cancel": "Abbrechen",
+    "save": "Speichern",
     "priorities": {
       "low": "Niedrig",
       "medium": "Mittel",

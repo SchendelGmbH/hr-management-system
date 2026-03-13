@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { SignatureCanvas } from './SignatureCanvas';
-import { PDFPreview, PDFPreviewCard } from './PDFPreview';
+// PDF Preview temporarily disabled due to version compatibility issues
+// import { PDFPreview, PDFPreviewCard } from './PDFPreview';
 import { useRouter } from 'next/navigation';
 
 interface SignatureRequest {
@@ -238,10 +239,14 @@ export function SignatureModal({
                 </div>
               </div>
 
-              {/* PDF Preview Card */}
+              {/* PDF Preview Card - temporarily disabled */}
               {request.document && request.document.fileName && (
                 <div>
                   <h5 className="text-sm font-medium text-gray-700 mb-2">Dokument</h5>
+                  <div className="p-3 bg-gray-100 rounded text-sm text-gray-600">
+                    📄 {request.document.fileName} (Vorschau nicht verfügbar)
+                  </div>
+                  {/* 
                   <PDFPreviewCard
                     fileName={request.document.fileName}
                     filePath={request.document.filePath}
@@ -258,6 +263,7 @@ export function SignatureModal({
                       />
                     </div>
                   )}
+                  */}
                 </div>
               )}
 

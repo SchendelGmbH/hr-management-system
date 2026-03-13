@@ -72,6 +72,8 @@
     "taskUpdated": "Task updated",
     "taskDeleted": "Task deleted",
     "confirmDelete": "Delete task?",
+    "cancel": "Cancel",
+    "save": "Save",
     "priorities": {
       "low": "Low",
       "medium": "Medium",

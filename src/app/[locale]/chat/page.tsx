@@ -1,11 +1,22 @@
-import { Metadata } from 'next';
+'use client';
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useState } from 'react';
 import { ChatView } from './ChatView';
 
-export const metadata: Metadata = {
-  title: 'Chat | HR Management',
-  description: 'Interner Chat für Team-Kommunikation',
-};
-
 export default function ChatPage() {
-  return <ChatView />;
+  const [queryClient] = useState(() => new QueryClient({
+    defaultOptions: {
+      queries: {
+        staleTime: 60 * 1000,
+        refetchOnWindowFocus: false,
+      },
+    },
+  }));
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <ChatView />
+    </QueryClientProvider>
+  );
 }

@@ -11,7 +11,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import timeGridPlugin from '@fullcalendar/timegrid';
-import deLocale from '@fullcalendar/core/locales/de';
+import deLocale from '@fullcalendar/core/locales/de.js';
 import { CalendarIcon, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { SwapButton } from '@/components/swaps/SwapButton';
 import { format, parseISO } from 'date-fns';

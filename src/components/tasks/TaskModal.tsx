@@ -56,7 +56,7 @@ export function TaskModal({ isOpen, onClose, task }: TaskModalProps) {
   }, [task, isOpen]);
 
   // Fetch employees for assignee dropdown
-  const { data: employees = [] } = useQuery({
+  const { data: employeesData } = useQuery({
     queryKey: ['employees', 'dropdown'],
     queryFn: async () => {
       const res = await fetch('/api/employees?limit=1000');
@@ -65,6 +65,8 @@ export function TaskModal({ isOpen, onClose, task }: TaskModalProps) {
     },
     enabled: isOpen,
   });
+  
+  const employees = employeesData?.employees || [];
 
   // Create mutation
   const createMutation = useMutation({

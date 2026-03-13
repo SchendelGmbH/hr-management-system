@@ -11,4 +11,5 @@ export { MentionNotifications } from './MentionNotifications';
 export { BottomNavigation } from './BottomNavigation';
 export { MobileChatLayout } from './MobileChatLayout';
 export { MobileRoomList } from './MobileRoomList';
+export { NewChatDialog } from './NewChatDialog';
 export { OfflineIndicator } from './OfflineIndicator';

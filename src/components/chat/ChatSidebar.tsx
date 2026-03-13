@@ -77,16 +77,26 @@ export function ChatSidebar({
           </div>
         </div>
         
-        {/* Search */}
-        <div className="relative">
+        {/* Search with Global Shortcut Hint */}
+        <div className="relative group">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
-            placeholder="Chats suchen..."
+            placeholder="Chats durchsuchen..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+            onKeyDown={(e) => {
+              if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                // Dispatch custom event to open global search
+                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
+              }
+            }}
+            className="w-full pl-10 pr-14 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
           />
+          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 hidden sm:block">
+            Ctrl+K
+          </span>
         </div>
         
         {/* Filter */}

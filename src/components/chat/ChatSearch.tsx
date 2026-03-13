@@ -94,6 +94,8 @@ export function ChatSearch() {
   });
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const selectedItemRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -167,6 +169,16 @@ export function ChatSearch() {
     debouncedSearch(query, filters);
   }, [query, filters, debouncedSearch]);
 
+  // Scroll selected item into view
+  useEffect(() => {
+    if (selectedItemRef.current) {
+      selectedItemRef.current.scrollIntoView({
+        behavior: 'smooth',
+        block: 'nearest',
+      });
+    }
+  }, [selectedIndex, activeTab]);
+
   const getTotalItems = () => {
     switch (activeTab) {
       case 'messages': return messages.length;
@@ -182,11 +194,17 @@ export function ChatSearch() {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault();
-        setSelectedIndex(prev => (prev + 1) % Math.max(total, 1));
+        setSelectedIndex(prev => {
+          const newIndex = (prev + 1) % Math.max(total, 1);
+          return newIndex;
+        });
         break;
       case 'ArrowUp':
         e.preventDefault();
-        setSelectedIndex(prev => (prev - 1 + Math.max(total, 1)) % Math.max(total, 1));
+        setSelectedIndex(prev => {
+          const newIndex = (prev - 1 + Math.max(total, 1)) % Math.max(total, 1);
+          return newIndex;
+        });
         break;
       case 'Enter':
         e.preventDefault();

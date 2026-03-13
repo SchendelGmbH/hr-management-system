@@ -336,6 +336,7 @@ export function ChatRoom({
       {/* Input - Mobile */}
       <div className="lg:hidden">
         <MessageInputMobile
+          roomId={room.id}
           onSend={onSendMessage}
           onTyping={handleTyping}
           onCommand={onCommand}

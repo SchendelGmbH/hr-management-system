@@ -121,15 +121,27 @@ const createRoom = async (roomData: {
 const sendMessageApi = async ({ 
   roomId, 
   content, 
-  replyToId 
+  replyToId,
+  attachments
 }: { 
   roomId: string; 
   content: string; 
-  replyToId?: string 
+  replyToId?: string;
+  attachments?: Array<{
+    name: string;
+    size: number;
+    type: 'image' | 'file';
+    mimeType: string;
+    url: string;
+    thumbnailUrl?: string;
+    width?: number;
+    height?: number;
+  }>;
 }): Promise<ApiMessage> => {
   const { data } = await axios.post(`/api/chat/rooms/${roomId}/messages`, { 
     content, 
-    replyToId 
+    replyToId,
+    attachments
   });
   return data.message;
 };
@@ -180,8 +192,14 @@ const transformApiMessage = (apiMsg: ApiMessage): ChatMessage => ({
     id: att.id,
     name: att.name,
     url: att.url,
+    filePath: att.url,
+    mimeType: att.type,
     type: att.type.startsWith('image/') ? 'image' : att.type.includes('pdf') ? 'document' : 'file',
     size: att.size,
+    width: (att as any).width,
+    height: (att as any).height,
+    thumbnailPath: (att as any).thumbnailPath,
+    thumbnailUrl: (att as any).thumbnailPath,
   })),
 });
 
@@ -479,8 +497,18 @@ export function ChatView() {
   }, [currentRoomId, queryClient, handleCloseSignature]);
 
   const handleSendMessage = useCallback(
-    async (content: string) => {
-      if (!currentRoomId || !content.trim()) return;
+    async (content: string, attachments?: Array<{
+      name: string;
+      size: number;
+      type: 'image' | 'file';
+      mimeType: string;
+      url: string;
+      thumbnailUrl?: string;
+      width?: number;
+      height?: number;
+    }>) => {
+      if (!currentRoomId) return;
+      if (!content.trim() && (!attachments || attachments.length === 0)) return;
 
       // Check for /summarize command
       if (content.trim().startsWith('/summarize')) {
@@ -494,7 +522,6 @@ export function ChatView() {
           const result = await response.json();
           
           if (result.summary) {
-            // Send summary as system message
             sendMessageMutation.mutate({ 
               roomId: currentRoomId, 
               content: `📋 **Zusammenfassung** (${result.messageCount} Nachrichten):\n\n${result.summary}` 
@@ -529,14 +556,12 @@ export function ChatView() {
           const result = await response.json();
           
           if (result.success) {
-            // Send confirmation message in chat
             sendMessageMutation.mutate({ 
               roomId: currentRoomId, 
               content: result.message 
             });
             return;
           } else if (result.error) {
-            // Send error message in chat
             sendMessageMutation.mutate({ 
               roomId: currentRoomId, 
               content: `⚠️ ${result.error}${result.help ? `\n${result.help}` : ''}` 
@@ -548,10 +573,14 @@ export function ChatView() {
         }
       }
 
-      // Check if online - if offline, queue message
+      // Check if online - if offline, queue message (without attachments)
       if (!isOnline) {
+        if (attachments && attachments.length > 0) {
+          // Can't queue messages with attachments offline
+          console.error('Cannot queue messages with attachments');
+          return;
+        }
         await queueMessage(currentRoomId, content.trim());
-        // Optimistically add message to UI
         const optimisticMessage = {
           id: `optimistic-${Date.now()}`,
           content: content.trim(),
@@ -565,8 +594,8 @@ export function ChatView() {
           roomId: currentRoomId,
           createdAt: new Date(),
           isOptimistic: true,
+          attachments: [],
         };
-        // Add to messages via query client
         queryClient.setQueryData(
           ['chat', 'messages', currentRoomId],
           (old: any[] = []) => [...old, optimisticMessage]
@@ -574,7 +603,11 @@ export function ChatView() {
         return;
       }
 
-      sendMessageMutation.mutate({ roomId: currentRoomId, content: content.trim() });
+      sendMessageMutation.mutate({ 
+        roomId: currentRoomId, 
+        content: content.trim(),
+        attachments 
+      });
     },
     [currentRoomId, sendMessageMutation, isOnline, queueMessage, session?.user?.id, session?.user?.name, session?.user?.image, queryClient]
   );

@@ -1,11 +1,29 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Plus, Mic, Image, Paperclip } from 'lucide-react';
+import { Send, Plus, Mic, Image, FileText, File, X, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
 
+interface FileAttachment {
+  file: File;
+  preview?: string;
+  uploading?: boolean;
+}
+
+interface UploadResult {
+  name: string;
+  size: number;
+  type: 'image' | 'file';
+  mimeType: string;
+  url: string;
+  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+}
+
 interface MessageInputMobileProps {
-  onSend: (content: string) => void;
+  roomId: string;
+  onSend: (content: string, attachments?: UploadResult[]) => void;
   onTyping?: (isTyping: boolean) => void;
   onCommand?: (command: string, args: string[]) => void;
   disabled?: boolean;
@@ -13,7 +31,23 @@ interface MessageInputMobileProps {
   isOffline?: boolean;
 }
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_TYPES = [
+  'image/jpeg',
+  'image/jpg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/plain',
+];
+
 export function MessageInputMobile({ 
+  roomId,
   onSend, 
   onTyping, 
   onCommand,
@@ -24,7 +58,10 @@ export function MessageInputMobile({
   const [content, setContent] = useState('');
   const [isFocused, setIsFocused] = useState(false);
   const [showAttachmentMenu, setShowAttachmentMenu] = useState(false);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Cleanup typing timeout on unmount
@@ -33,71 +70,150 @@ export function MessageInputMobile({
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
+      // Cleanup object URLs
+      attachments.forEach(att => {
+        if (att.preview) URL.revokeObjectURL(att.preview);
+      });
     };
   }, []);
+
+  const validateFile = (file: File): { valid: boolean; error?: string } => {
+    if (file.size > MAX_FILE_SIZE) {
+      return { valid: false, error: `${file.name} ist zu groß (max. 10MB)` };
+    }
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return { valid: false, error: 'Nicht unterstützte Datei' };
+    }
+    return { valid: true };
+  };
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    setUploadError(null);
+    const filesArray = Array.from(files);
+    const newAttachments: FileAttachment[] = [];
+
+    for (const file of filesArray) {
+      const validation = validateFile(file);
+      if (!validation.valid) {
+        setUploadError(validation.error!);
+        continue;
+      }
+
+      const attachment: FileAttachment = { file };
+      if (file.type.startsWith('image/')) {
+        attachment.preview = URL.createObjectURL(file);
+      }
+      newAttachments.push(attachment);
+    }
+
+    if (newAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newAttachments]);
+    }
+    setShowAttachmentMenu(false);
+  };
+
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => {
+      const attachment = prev[index];
+      if (attachment.preview) URL.revokeObjectURL(attachment.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const uploadFiles = async (): Promise<UploadResult[]> => {
+    const results: UploadResult[] = [];
+    
+    for (let i = 0; i < attachments.length; i++) {
+      const attachment = attachments[i];
+      if (!attachment.file) continue;
+
+      setAttachments(prev => prev.map((att, idx) => 
+        idx === i ? { ...att, uploading: true } : att
+      ));
+
+      try {
+        const formData = new FormData();
+        formData.append('file', attachment.file);
+        formData.append('roomId', roomId);
+
+        const response = await fetch('/api/chat/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.error || 'Upload failed');
+        }
+
+        const data = await response.json();
+        results.push(data.file);
+      } catch (error) {
+        console.error('Upload error:', error);
+        throw error;
+      } finally {
+        setAttachments(prev => prev.map((att, idx) => 
+          idx === i ? { ...att, uploading: false } : att
+        ));
+      }
+    }
+
+    return results;
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
     setContent(newContent);
     
-    // Auto-resize for mobile (kleiner max-height)
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 100)}px`;
     }
     
-    // Typing indicator
     if (onTyping) {
       onTyping(true);
-      
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
-      
-      typingTimeoutRef.current = setTimeout(() => {
-        onTyping(false);
-      }, 2000);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = setTimeout(() => onTyping(false), 2000);
     }
   };
 
-  const handleSend = useCallback(() => {
+  const handleSend = useCallback(async () => {
     const trimmedContent = content.trim();
     
-    if (!trimmedContent || disabled) {
-      return;
-    }
+    if ((!trimmedContent && attachments.length === 0) || disabled) return;
     
-    // Check for commands
-    if (trimmedContent.startsWith('/')) {
+    if (trimmedContent.startsWith('/') && onCommand) {
       const parts = trimmedContent.slice(1).split(' ');
       const command = parts[0].toLowerCase();
       const args = parts.slice(1).filter(Boolean);
-      
-      if (onCommand) {
-        onCommand(command, args);
-        setContent('');
-        
-        if (textareaRef.current) {
-          textareaRef.current.style.height = 'auto';
-        }
+      onCommand(command, args);
+      setContent('');
+      setAttachments([]);
+      if (textareaRef.current) textareaRef.current.style.height = 'auto';
+      return;
+    }
+
+    let uploadedAttachments: UploadResult[] = [];
+    if (attachments.length > 0) {
+      try {
+        uploadedAttachments = await uploadFiles();
+      } catch (error) {
+        setUploadError('Upload fehlgeschlagen');
         return;
       }
     }
     
-    onSend(trimmedContent);
+    onSend(trimmedContent, uploadedAttachments);
     setContent('');
-    
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
-    
+    setAttachments([]);
+    setUploadError(null);
+    if (textareaRef.current) textareaRef.current.style.height = 'auto';
     if (onTyping) {
       onTyping(false);
-      if (typingTimeoutRef.current) {
-        clearTimeout(typingTimeoutRef.current);
-      }
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     }
-  }, [content, disabled, onSend, onTyping, onCommand]);
+  }, [content, attachments, disabled, onSend, onTyping, onCommand, roomId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -106,7 +222,15 @@ export function MessageInputMobile({
     }
   };
 
-  const isSendDisabled = disabled || !content.trim();
+  const isSendDisabled = disabled || (!content.trim() && attachments.length === 0);
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   return (
     <div className={clsx(
@@ -125,10 +249,65 @@ export function MessageInputMobile({
         </div>
       )}
 
-      {/* Input Area - Touch-optimiert */}
+      {/* Error */}
+      {uploadError && (
+        <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
+          <p className="text-sm text-red-600 dark:text-red-400">{uploadError}</p>
+        </div>
+      )}
+
+      {/* Attachment Preview */}
+      {attachments.length > 0 && (
+        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {attachments.map((att, index) => (
+              <div 
+                key={index}
+                className="relative flex-shrink-0 w-16 h-16 rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 overflow-hidden"
+              >
+                {att.preview ? (
+                  <img src={att.preview} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <File className="w-6 h-6 text-gray-400" />
+                  </div>
+                )}
+                {att.uploading && (
+                  <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                    <Loader2 className="w-5 h-5 text-white animate-spin" />
+                  </div>
+                )}
+                {!att.uploading && (
+                  <button
+                    onClick={() => removeAttachment(index)}
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-red-500 text-white flex items-center justify-center"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+                <div className="absolute bottom-0 left-0 right-0 px-1 py-0.5 bg-black/50 text-[8px] text-white text-center truncate">
+                  {formatFileSize(att.file.size)}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Input Area */}
       <div className="px-3 py-3">
         <div className="flex items-end gap-2">
-          {/* Attachment Button - Größer für Touch */}
+          {/* Hidden File Input */}
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={(e) => handleFiles(e.target.files)}
+            multiple
+            accept={ALLOWED_TYPES.join(',')}
+            className="hidden"
+          />
+
+          {/* Attachment Button */}
           <div className="relative">
             <button
               onClick={() => setShowAttachmentMenu(!showAttachmentMenu)}
@@ -153,20 +332,36 @@ export function MessageInputMobile({
                   onClick={() => setShowAttachmentMenu(false)} 
                 />
                 <div className="absolute bottom-full left-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg border border-gray-200 dark:border-gray-700 p-2 z-50 min-w-[180px]">
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-left">
+                  <button 
+                    onClick={() => {
+                      if (fileInputRef.current) {
+                        fileInputRef.current.accept = 'image/*';
+                        fileInputRef.current.click();
+                      }
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-left"
+                  >
                     <Image className="h-5 w-5 text-primary-600" />
                     <span className="text-gray-900 dark:text-white">Bild</span>
                   </button>
-                  <button className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-left">
-                    <Paperclip className="h-5 w-5 text-primary-600" />
-                    <span className="text-gray-900 dark:text-white">Datei</span>
+                  <button 
+                    onClick={() => {
+                      if (fileInputRef.current) {
+                        fileInputRef.current.accept = ALLOWED_TYPES.join(',');
+                        fileInputRef.current.click();
+                      }
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 text-left"
+                  >
+                    <FileText className="h-5 w-5 text-primary-600" />
+                    <span className="text-gray-900 dark:text-white">Dokument</span>
                   </button>
                 </div>
               </>
             )}
           </div>
 
-          {/* Textarea - Größere Touch-Ziele */}
+          {/* Textarea */}
           <div className="relative flex-1">
             <textarea
               ref={textareaRef}
@@ -175,7 +370,7 @@ export function MessageInputMobile({
               onKeyDown={handleKeyDown}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setIsFocused(false)}
-              placeholder={isOffline ? 'Offline - Wird später gesendet...' : placeholder}
+              placeholder={isOffline ? 'Offline...' : placeholder}
               disabled={disabled}
               rows={1}
               className={clsx(
@@ -186,11 +381,11 @@ export function MessageInputMobile({
                 'max-h-[100px] min-h-[52px]',
                 'dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500'
               )}
-              style={{ fontSize: '16px' }} // Verhindert Zoom auf iOS
+              style={{ fontSize: '16px' }}
             />
           </div>
 
-          {/* Send Button - Größer für Touch */}
+          {/* Send Button */}
           <button
             onClick={handleSend}
             disabled={isSendDisabled}
@@ -209,7 +404,7 @@ export function MessageInputMobile({
         </div>
       </div>
 
-      {/* Safe Area für iOS */}
+      {/* Safe Area */}
       <div className="h-safe-area-inset-bottom" />
     </div>
   );

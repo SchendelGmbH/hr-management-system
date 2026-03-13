@@ -1,87 +1,103 @@
-// Service Worker for HR Management System
-const CACHE_NAME = 'hr-management-v1';
+const CACHE_NAME = 'hr-chat-v1';
+const STATIC_ASSETS = [
+  '/',
+  '/chat',
+  '/manifest.json',
+  '/icon-192x192.png',
+  '/icon-512x512.png',
+];
 
-// Install event
+// Install Event
 self.addEventListener('install', (event) => {
-  console.log('[Service Worker] Installing...');
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
+    })
+  );
+  // Skip waiting
   self.skipWaiting();
 });
 
-// Activate event
+// Activate Event - Clean up old caches
 self.addEventListener('activate', (event) => {
-  console.log('[Service Worker] Activating...');
-  event.waitUntil(self.clients.claim());
-});
-
-// Push notification event
-self.addEventListener('push', (event) => {
-  console.log('[Service Worker] Push received:', event);
-  
-  let data = {};
-  try {
-    data = event.data?.json() || {};
-  } catch (e) {
-    data = { title: 'Neue Benachrichtigung', body: event.data?.text() || '' };
-  }
-
-  const options = {
-    body: data.body || data.message || '',
-    icon: data.icon || '/icons/icon-192x192.png',
-    badge: data.badge || '/icons/badge-72x72.png',
-    tag: data.tag || data.notificationId || 'default',
-    requireInteraction: data.requireInteraction || false,
-    actions: data.actions || [],
-    data: data.data || {},
-    vibrate: data.vibrate || [200, 100, 200],
-    timestamp: data.timestamp || Date.now(),
-  };
-
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Benachrichtigung', options)
-  );
-});
-
-// Notification click event
-self.addEventListener('notificationclick', (event) => {
-  console.log('[Service Worker] Notification clicked:', event);
-  event.notification.close();
-
-  const data = event.notification.data;
-  const actionUrl = data?.actionUrl || '/';
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window' }).then((clientList) => {
-      // If a window client is already open, focus it
-      for (const client of clientList) {
-        if (client.url === actionUrl && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      
-      // Otherwise open a new window
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(actionUrl);
-      }
+    caches.keys().then((cacheNames) => {
+      return Promise.all(
+        cacheNames
+          .filter((name) => name !== CACHE_NAME)
+          .map((name) => caches.delete(name))
+      );
     })
   );
+  // Claim clients
+  self.clients.claim();
 });
 
-// Message event (from main app)
-self.addEventListener('message', (event) => {
-  console.log('[Service Worker] Message received:', event.data);
+// Fetch Event - Cache Strategy: Network First, Fallback to Cache
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
   
-  if (event.data?.type === 'SKIP_WAITING') {
-    self.skipWaiting();
+  // Skip non-GET requests
+  if (request.method !== 'GET') return;
+  
+  // Skip API requests
+  if (request.url.includes('/api/')) return;
+  
+  event.respondWith(
+    fetch(request)
+      .then((response) => {
+        // Clone response before caching
+        const responseToCache = response.clone();
+        
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(request, responseToCache);
+        });
+        
+        return response;
+      })
+      .catch(() => {
+        // Fallback to cache
+        return caches.match(request).then((cachedResponse) => {
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          
+          // If no cache, return offline page for navigation
+          if (request.mode === 'navigate') {
+            return caches.match('/');
+          }
+          
+          throw new Error('No cache available');
+        });
+      })
+  );
+});
+
+// Message Queue Sync - Process offline messages
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'chat-messages-sync') {
+    event.waitUntil(syncPendingMessages());
   }
 });
 
-// Background sync (for offline functionality)
-self.addEventListener('sync', (event) => {
-  console.log('[Service Worker] Background sync:', event.tag);
-});
+async function syncPendingMessages() {
+  // This will be triggered when connection is restored
+  // The actual sync logic is handled by the useOfflineSync hook
+  const clients = await self.clients.matchAll();
+  clients.forEach((client) => {
+    client.postMessage({
+      type: 'SYNC_TRIGGERED',
+      timestamp: new Date().toISOString(),
+    });
+  });
+}
 
-// Fetch event (for caching)
-self.addEventListener('fetch', (event) => {
-  // Pass through all requests
-  event.respondWith(fetch(event.request));
+// Background sync for queued messages
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'QUEUE_MESSAGE') {
+    // Register for sync
+    self.registration.sync.register('chat-messages-sync').catch(() => {
+      // Silent fail - retry on next connection
+    });
+  }
 });

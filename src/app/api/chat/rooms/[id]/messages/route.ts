@@ -119,10 +119,11 @@ export async function POST(
 
   try {
     const body = await request.json();
-    const { content, replyToId } = body;
+    const { content, replyToId, attachments } = body;
 
-    if (!content || typeof content !== 'string' || content.trim().length === 0) {
-      return NextResponse.json({ error: 'Content is required' }, { status: 400 });
+    // Content is required unless there are attachments
+    if ((!content || typeof content !== 'string' || content.trim().length === 0) && (!attachments || attachments.length === 0)) {
+      return NextResponse.json({ error: 'Content or attachments are required' }, { status: 400 });
     }
 
     // Check if user is a member
@@ -140,13 +141,30 @@ export async function POST(
     }
 
     // Create message
+    const messageData: any = {
+      roomId: id,
+      senderId: session.user.id,
+      content: content?.trim() || '',
+      replyToId,
+    };
+
+    // Add attachments if provided
+    if (attachments && attachments.length > 0) {
+      messageData.attachments = {
+        create: attachments.map((att: any) => ({
+          fileName: att.name,
+          filePath: att.url,
+          mimeType: att.mimeType || 'application/octet-stream',
+          fileSize: att.size || 0,
+          width: att.width || null,
+          height: att.height || null,
+          thumbnailPath: att.thumbnailUrl || null,
+        })),
+      };
+    }
+
     const message = await prisma.chatMessage.create({
-      data: {
-        roomId: id,
-        senderId: session.user.id,
-        content: content.trim(),
-        replyToId,
-      },
+      data: messageData,
       include: {
         sender: {
           select: {

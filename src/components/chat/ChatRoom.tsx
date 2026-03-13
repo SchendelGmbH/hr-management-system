@@ -324,6 +324,7 @@ export function ChatRoom({
       {/* Input - Desktop */}
       <div className="hidden lg:block">
         <MessageInput
+          roomId={room.id}
           onSend={onSendMessage}
           onTyping={handleTyping}
           onCommand={onCommand}

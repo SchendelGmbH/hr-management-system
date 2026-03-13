@@ -22,8 +22,14 @@ export interface MessageAttachment {
   id: string;
   name: string;
   url: string;
+  filePath?: string;
+  mimeType?: string;
   type: 'image' | 'file' | 'document';
   size?: number;
+  width?: number;
+  height?: number;
+  thumbnailPath?: string;
+  thumbnailUrl?: string;
 }
 
 export interface ChatRoom {

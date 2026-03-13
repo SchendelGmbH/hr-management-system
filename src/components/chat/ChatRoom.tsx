@@ -7,6 +7,7 @@ import { MessageInput } from './MessageInput';
 import { MessageInputMobile } from './MessageInputMobile';
 import { SmartReplies } from './ai-features/SmartReplies';
 import { ConnectionStatus } from './OfflineIndicator';
+import { MentionNotifications } from './MentionNotifications';
 import { ChatRoom as ChatRoomType, ChatMessage } from '@/types/chat';
 import { 
   MoreVertical, 
@@ -209,6 +210,7 @@ export function ChatRoom({
         {/* Actions - Touch-optimized */}
         <div className="flex items-center gap-0.5">
           <ConnectionStatus isOnline={!isOffline} />
+          <MentionNotifications />
           <button 
             onClick={onStartAudioCall}
             disabled={isOffline}

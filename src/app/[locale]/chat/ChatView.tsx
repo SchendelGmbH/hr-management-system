@@ -7,7 +7,8 @@ import {
   ChatRoom, 
   ChatSidebar,
   MobileChatLayout,
-  OfflineIndicator 
+  OfflineIndicator,
+  MentionNotifications
 } from '@/components/chat';
 import { useOfflineSync } from '@/hooks/useOfflineSync';
 import { ChatRoom as ChatRoomType, ChatMessage, ChatUser } from '@/types/chat';

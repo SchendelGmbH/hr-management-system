@@ -4,12 +4,11 @@ import prisma from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import sharp from 'sharp';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
   'image/jpeg',
-  'image/jpg',
+  'image/jpg', 
   'image/png',
   'image/gif',
   'image/webp',
@@ -20,13 +19,6 @@ const ALLOWED_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   'text/plain',
 ];
-
-const ALLOWED_EXTENSIONS = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.txt'];
-
-/** Extract extension from filename */
-function getExtension(filename: string): string {
-  return filename.slice(filename.lastIndexOf('.')).toLowerCase();
-}
 
 /** Validate file by magic bytes */
 function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
@@ -44,40 +36,11 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
     case 'image/gif':
       return b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46;
     case 'image/webp':
-      return b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
+      // RIFF....WEBP
+      return b.length > 11 && b[0] === 0x52 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x46 &&
+             b[8] === 0x57 && b[9] === 0x45 && b[10] === 0x42 && b[11] === 0x50;
     default:
-      return true; // For other types, rely on extension
-  }
-}
-
-/** Generate thumbnail for images */
-async function generateThumbnail(buffer: Buffer, filename: string, uploadDir: string): Promise<{ thumbnailPath: string | null; width: number; height: number }> {
-  try {
-    const metadata = await sharp(buffer).metadata();
-    const width = metadata.width || 0;
-    const height = metadata.height || 0;
-    
-    if (width === 0 || height === 0) {
-      return { thumbnailPath: null, width, height };
-    }
-    
-    // Generate thumbnail for large images
-    if (width > 400 || height > 400) {
-      const thumbnailFilename = `thumb-${filename}`;
-      const thumbnailPath = join(uploadDir, thumbnailFilename);
-      
-      await sharp(buffer)
-        .resize(400, 400, { fit: 'inside', withoutEnlargement: true })
-        .jpeg({ quality: 80 })
-        .toFile(thumbnailPath);
-      
-      return { thumbnailPath: `/uploads/chat/thumbnails/${thumbnailFilename}`, width, height };
-    }
-    
-    return { thumbnailPath: null, width, height };
-  } catch (error) {
-    console.error('Error generating thumbnail:', error);
-    return { thumbnailPath: null, width: 0, height: 0 };
+      return true;
   }
 }
 
@@ -114,7 +77,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Not a member or muted' }, { status: 403 });
     }
 
-    // Validate file size
+    // Validate file size (10MB max)
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: 'File size exceeds 10MB limit' },
@@ -157,7 +120,6 @@ export async function POST(request: NextRequest) {
     const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
     const filename = `${session.user.id}-${timestamp}-${sanitizedFilename}`;
     const filepath = join(uploadDir, filename);
-    const extension = getExtension(sanitizedFilename);
     
     // Determine file type category
     const isImage = file.type.startsWith('image/');
@@ -165,18 +127,6 @@ export async function POST(request: NextRequest) {
 
     // Write file
     await writeFile(filepath, buffer);
-
-    // Generate thumbnail for images
-    let thumbnailPath: string | null = null;
-    let width = 0;
-    let height = 0;
-    
-    if (isImage) {
-      const thumbResult = await generateThumbnail(buffer, `${session.user.id}-${timestamp}-thumb.jpg`, uploadDir);
-      thumbnailPath = thumbResult.thumbnailPath;
-      width = thumbResult.width;
-      height = thumbResult.height;
-    }
 
     const relativePath = `/uploads/chat/${year}/${month}/${filename}`;
 
@@ -188,9 +138,9 @@ export async function POST(request: NextRequest) {
         type: typeCategory,
         mimeType: file.type,
         url: relativePath,
-        thumbnailUrl: thumbnailPath,
-        width,
-        height,
+        thumbnailUrl: isImage ? relativePath : undefined,
+        width: null,
+        height: null,
       },
     });
   } catch (error) {
@@ -211,7 +161,6 @@ export async function GET(request: NextRequest) {
 
   try {
     const searchParams = request.nextUrl.searchParams;
-    const filename = searchParams.get('filename');
     const attachmentId = searchParams.get('id');
 
     if (attachmentId) {

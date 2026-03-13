@@ -3,6 +3,15 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { Send, Paperclip, X, FileText, Image, File, Loader2 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { MentionsDropdown } from './MentionsDropdown';
+
+interface MentionUser {
+  id: string;
+  name: string;
+  username: string;
+  avatar?: string;
+  status?: 'online' | 'offline' | 'away';
+}
 
 interface FileAttachment {
   file: File;
@@ -46,10 +55,10 @@ const ALLOWED_TYPES = [
   'text/plain',
 ];
 
-export function MessageInput({ 
+export function MessageInput({
   roomId,
-  onSend, 
-  onTyping, 
+  onSend,
+  onTyping,
   onCommand,
   disabled = false,
   placeholder = 'Nachricht schreiben...'
@@ -63,6 +72,13 @@ export function MessageInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const dragAreaRef = useRef<HTMLDivElement>(null);
+
+  // Mentions state
+  const [showMentions, setShowMentions] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [mentionPosition, setMentionPosition] = useState({ top: 0, left: 0 });
+  const [cursorPosition, setCursorPosition] = useState(0);
+  const mentionStartRef = useRef<number | null>(null);
 
   // Cleanup typing timeout on unmount
   useEffect(() => {
@@ -188,22 +204,63 @@ export function MessageInput({
 
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const newContent = e.target.value;
+    const caretPosition = e.target.selectionStart || 0;
     setContent(newContent);
-    
+    setCursorPosition(caretPosition);
+
+    // Check for mentions - detect @ followed by text
+    const textBeforeCaret = newContent.slice(0, caretPosition);
+    const mentionMatch = textBeforeCaret.match(/@([^\s]*)$/);
+
+    if (mentionMatch) {
+      // Calculate position for dropdown
+      const textareaRect = textareaRef.current?.getBoundingClientRect();
+      if (textareaRect) {
+        // Create a temporary element to measure text
+        const span = document.createElement('span');
+        span.style.cssText = window.getComputedStyle(textareaRef.current!);
+        span.style.visibility = 'hidden';
+        span.style.position = 'absolute';
+        span.style.whiteSpace = 'pre-wrap';
+        span.style.wordWrap = 'break-word';
+        span.textContent = textBeforeCaret.slice(0, -mentionMatch[0].length); // Text before @
+
+        document.body.appendChild(span);
+        const spanRect = span.getBoundingClientRect();
+        document.body.removeChild(span);
+
+        // Calculate relative position
+        const lineHeight = parseInt(getComputedStyle(textareaRef.current!).lineHeight) || 20;
+        const caretLine = textBeforeCaret.split('\n').length - 1;
+
+        setMentionPosition({
+          top: textareaRect.top - textareaRef.current!.scrollTop + (caretLine + 1) * lineHeight + 8,
+          left: textareaRect.left + spanRect.width % textareaRect.width + 16
+        });
+      }
+
+      setMentionQuery(mentionMatch[1]);
+      setShowMentions(true);
+      mentionStartRef.current = textBeforeCaret.length - mentionMatch[0].length + 1; // Position after @
+    } else {
+      setShowMentions(false);
+      mentionStartRef.current = null;
+    }
+
     // Auto-resize
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto';
       textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 120)}px`;
     }
-    
+
     // Typing indicator
     if (onTyping) {
       onTyping(true);
-      
+
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
-      
+
       typingTimeoutRef.current = setTimeout(() => {
         onTyping(false);
       }, 2000);
@@ -268,10 +325,46 @@ export function MessageInput({
   }, [content, attachments, disabled, onSend, onTyping, onCommand, roomId]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Don't trigger send if mentions dropdown is open
+    if (showMentions && (e.key === 'Enter' || e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'Escape' || e.key === 'Tab')) {
+      // Let the mentions dropdown handle these keys
+      if (e.key === 'Tab') {
+        e.preventDefault();
+      }
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
+  };
+
+  const handleMentionSelect = (user: MentionUser) => {
+    if (mentionStartRef.current === null) return;
+
+    const beforeMention = content.slice(0, mentionStartRef.current);
+    const afterMention = content.slice(cursorPosition);
+
+    // Create mention text format: @username (userId)
+    const mentionText = `@${user.name} `;
+    const newContent = beforeMention + mentionText + afterMention;
+
+    setContent(newContent);
+    setShowMentions(false);
+    setMentionQuery('');
+
+    // Restore focus and set cursor position after the inserted mention
+    setTimeout(() => {
+      if (textareaRef.current) {
+        const newPosition = mentionStartRef.current! + mentionText.length;
+        textareaRef.current.focus();
+        textareaRef.current.setSelectionRange(newPosition, newPosition);
+        setCursorPosition(newPosition);
+      }
+    }, 0);
+
+    mentionStartRef.current = null;
   };
 
   const handleDragEnter = (e: React.DragEvent) => {
@@ -474,7 +567,10 @@ export function MessageInput({
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
               onFocus={() => setIsFocused(true)}
-              onBlur={() => setIsFocused(false)}
+              onBlur={() => {
+                // Delay hiding mentions to allow clicking on dropdown
+                setTimeout(() => setIsFocused(false), 200);
+              }}
               placeholder={placeholder}
               disabled={disabled}
               rows={1}
@@ -487,6 +583,21 @@ export function MessageInput({
                 'dark:bg-gray-800 dark:text-gray-100 dark:placeholder:text-gray-500'
               )}
             />
+
+            {/* Mentions Dropdown */}
+            {showMentions && !disabled && (
+              <MentionsDropdown
+                roomId={roomId}
+                query={mentionQuery}
+                position={mentionPosition}
+                onSelect={handleMentionSelect}
+                onClose={() => {
+                  setShowMentions(false);
+                  setMentionQuery('');
+                  mentionStartRef.current = null;
+                }}
+              />
+            )}
           </div>
           
           {/* Send Button */}
@@ -507,7 +618,7 @@ export function MessageInput({
         {/* Quick send hint */}
         <div className="mt-1 text-center">
           <span className="text-[10px] text-gray-400 dark:text-gray-500">
-            Enter zum Senden · Shift+Enter für neue Zeile · Drag & Drop für Dateien
+            Enter zum Senden · Shift+Enter für neue Zeile · @ zum Erwähnen · Drag & Drop für Dateien
           </span>
         </div>
       </div>

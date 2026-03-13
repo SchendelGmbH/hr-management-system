@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { eventBus } from '@/lib/events/EventBus';
+import { extractMentions, createMentions } from '@/lib/chat/mentions';
 
 // GET /api/chat/rooms/[id]/messages - Get messages for a room
 export async function GET(
@@ -81,6 +82,15 @@ export async function GET(
           },
         },
         attachments: true,
+        mentions: {
+          where: {
+            mentionedUserId: session.user.id
+          },
+          select: {
+            mentionedUserId: true,
+            isRead: true
+          }
+        }
       },
     });
 
@@ -93,6 +103,21 @@ export async function GET(
         },
       },
       data: { lastReadAt: new Date() },
+    });
+
+    // Mark all mentions read for current user in this room
+    await prisma.chatMention.updateMany({
+      where: {
+        message: {
+          roomId: id
+        },
+        mentionedUserId: session.user.id,
+        isRead: false
+      },
+      data: {
+        isRead: true,
+        readAt: new Date()
+      }
     });
 
     return NextResponse.json({
@@ -220,6 +245,19 @@ export async function POST(
       }
     } catch (e) {
       // Socket not available, ignore
+    }
+
+    // Process mentions if any
+    if (content) {
+      try {
+        const mentions = await extractMentions(content);
+        if (mentions.length > 0) {
+          await createMentions(message.id, session.user.id, mentions);
+        }
+      } catch (mentionError) {
+        console.error('Error processing mentions:', mentionError);
+        // Don't fail the message send if mentions fail
+      }
     }
 
     // Emit EventBus event für Chat-Befehle (/material, /checkin, etc.)

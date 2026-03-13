@@ -51,3 +51,49 @@ export interface TypingIndicator {
   userId: string;
   isTyping: boolean;
 }
+
+// ============================================================================
+// MENTIONS
+// ============================================================================
+
+export interface ChatMention {
+  id: string;
+  messageId: string;
+  userId: string;
+  mentionedUserId: string;
+  mentionedAt: Date;
+  isRead: boolean;
+  readAt?: Date;
+  
+  // Relations
+  message?: ChatMessage;
+  mentionedUser?: ChatUser;
+}
+
+export interface MentionNotification {
+  id: string;
+  userId: string;
+  messageId: string;
+  roomId: string;
+  senderName: string;
+  content: string;
+  createdAt: Date;
+  isRead: boolean;
+}
+
+// ============================================================================
+// MENTION HISTORY
+// ============================================================================
+
+export interface MentionHistoryItem {
+  id: string;
+  messageId: string;
+  roomId: string;
+  roomName: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  content: string;
+  mentionedAt: Date;
+  isRead: boolean;
+}

@@ -8,6 +8,7 @@ import { useState } from 'react';
 import { ChatMessage } from '@/types/chat';
 import { clsx } from 'clsx';
 import { TranslationButton } from './ai-features/TranslationButton';
+import { MessageContent } from './MessageContent';
 
 interface MessageBubbleProps {
   message: ChatMessage;
@@ -274,10 +275,11 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
           ) : (
             <>
               {hasContent && (
-                <p className="text-sm whitespace-pre-wrap break-words">
-                  {/* Remove markdown signature link from display */}
-                  {message.content.replace(/\[Zur Signatur\]\(\/sign\/[a-zA-Z0-9]+\)/g, '')}
-                </p>
+                <MessageContent
+                  content={message.content.replace(/\[Zur Signatur\]\(\/sign\/[a-zA-Z0-9]+\)/g, '')}
+                  isOwn={isOwn}
+                  currentUserId={session?.user?.id}
+                />
               )}
               
               {/* Signature Link Button */}

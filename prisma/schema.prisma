@@ -43,6 +43,8 @@ model User {
   chatMemberships       ChatMember[]
   chatMessages          ChatMessage[]
   chatReactions         ChatReaction[]
+  chatMentionsSent      ChatMention[] @relation("MentionSent")
+  chatMentionsReceived  ChatMention[] @relation("MentionReceived")
   
   // Task Relations
   createdTasks          Task[]       @relation("TaskCreator")
@@ -1112,6 +1114,7 @@ model ChatMessage {
   replies  ChatMessage[]    @relation("MessageReplies")
   reactions ChatReaction[]
   attachments ChatAttachment[]
+  mentions ChatMention[]
   
   @@index([roomId])
   @@index([roomId, sentAt])
@@ -1157,6 +1160,32 @@ model ChatAttachment {
   
   @@index([messageId])
   @@map("chat_attachments")
+}
+
+// ============================================================================
+// CHAT MENTIONS / ERWÄHNUNGEN
+// ============================================================================
+
+model ChatMention {
+  id              String    @id @default(cuid())
+  messageId       String
+  senderId        String    // Who mentioned
+  mentionedUserId String    // Who was mentioned
+  mentionedAt     DateTime  @default(now())
+  isRead          Boolean   @default(false)
+  readAt          DateTime?
+  
+  // Relations
+  message         ChatMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  sender          User        @relation("MentionSent", fields: [senderId], references: [id], onDelete: Cascade)
+  mentionedUser   User        @relation("MentionReceived", fields: [mentionedUserId], references: [id], onDelete: Cascade)
+  
+  @@unique([messageId, mentionedUserId])
+  @@index([messageId])
+  @@index([mentionedUserId])
+  @@index([mentionedUserId, isRead]) // For fetching unread mentions
+  @@index([mentionedUserId, mentionedAt])
+  @@map("chat_mentions")
 }
 
 // ============================================================================

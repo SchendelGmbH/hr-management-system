@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import { ThemeProvider } from "@/components/providers";
+import { ChatSearch } from "@/components/chat";
 
 export const metadata: Metadata = {
   title: "HR Management System",
@@ -17,6 +18,7 @@ export default function RootLayout({
       <body>
         <ThemeProvider>
           {children}
+          <ChatSearch />
         </ThemeProvider>
       </body>
     </html>

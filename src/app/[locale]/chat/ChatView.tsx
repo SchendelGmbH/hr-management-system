@@ -19,6 +19,7 @@ import { VideoCallParticipant } from '@/types/videoCall';
 import { SignatureModal } from '@/components/chat/SignatureModal';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+import { useSearchParams } from 'next/navigation';
 
 // API Response Types
 interface ApiRoom {
@@ -226,6 +227,7 @@ const transformApiRoom = (apiRoom: ApiRoom): ChatRoomType => ({
 export function ChatView() {
   const { data: session } = useSession();
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
   const [currentRoomId, setCurrentRoomId] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<Map<string, string[]>>(new Map());
   const [showVideoCall, setShowVideoCall] = useState(false);
@@ -271,6 +273,14 @@ export function ChatView() {
     toggleVideo,
     toggleScreenShare,
   } = useWebRTC();
+
+  // Handle URL parameter for room selection
+  useEffect(() => {
+    const roomIdFromUrl = searchParams.get('room');
+    if (roomIdFromUrl) {
+      setCurrentRoomId(roomIdFromUrl);
+    }
+  }, [searchParams]);
 
   // Queries
   const { 

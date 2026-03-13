@@ -17,7 +17,7 @@ interface MentionMatch {
 
 export function MessageContent({ content, isOwn, currentUserId }: MessageContentProps) {
   // Parse mentions - format: @Name or @Name (userId)
-  const parseMentions = (text: string): MentionMatch[] = {
+  const parseMentions = (text: string): MentionMatch[] => {
     const mentions: MentionMatch[] = [];
     // Match @ followed by name, optionally followed by (userId)
     const mentionRegex = /@(\S[^@\n\r]*?)(?:\s*\(([^)]+)\))?(?=\s|$|[^\w\s])/g;

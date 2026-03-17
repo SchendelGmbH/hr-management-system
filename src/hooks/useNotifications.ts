@@ -52,8 +52,9 @@ export function useChatNotifications() {
       : message.sender?.username || 'Unbekannt';
     
     // Bestimme den Titel basierend auf Room-Typ
+    // Prisma Enum verwendet Großbuchstaben: DIRECT, GROUP, DEPARTMENT, SYSTEM, WORKSITE
     const roomName = data.roomName || 'Chat';
-    const isGroup = data.roomType === 'group';
+    const isGroup = data.roomType === 'GROUP' || data.roomType === 'group';
     
     // Toast-Titel: Bei Gruppen "Gruppenname - Absender", bei Direktchat nur Absender
     const toastTitle = isGroup 

@@ -238,11 +238,12 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
         {/* Message Bubble */}
         <div
           className={clsx(
-            'relative rounded-2xl px-4 py-2',
+            'relative rounded-2xl px-4 py-2 min-w-0',
             isOwn
               ? 'bg-primary-600 text-white rounded-br-md'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md'
           )}
+          style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
         >
           {isEditing ? (
             <div className="min-w-[200px]">

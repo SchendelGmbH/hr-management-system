@@ -3,15 +3,22 @@
 import { useEffect, useCallback } from 'react';
 import { useToastContext } from '@/components/providers/ToastProvider';
 import { useSocket } from '@/components/providers/SocketProvider';
+import { useRouter } from 'next/navigation';
 
 interface ChatMessageData {
   roomId: string;
+  roomName?: string;
+  roomType?: string;
   message: {
     id: string;
     content: string;
     sender: {
       id: string;
-      name: string;
+      username: string;
+      employee?: {
+        firstName?: string;
+        lastName?: string;
+      };
     };
   };
 }
@@ -19,6 +26,7 @@ interface ChatMessageData {
 export function useChatNotifications() {
   const { addToast } = useToastContext();
   const { isConnected, onMessage } = useSocket();
+  const router = useRouter();
 
   const handleNewMessage = useCallback((data: ChatMessageData) => {
     console.log('[useChatNotifications] new-message event received:', data);
@@ -38,20 +46,41 @@ export function useChatNotifications() {
       return;
     }
 
+    // Bestimme den Absendernamen
+    const senderName = message.sender?.employee?.firstName 
+      ? `${message.sender.employee.firstName} ${message.sender.employee.lastName || ''}`.trim()
+      : message.sender?.username || 'Unbekannt';
+    
+    // Bestimme den Titel basierend auf Room-Typ
+    const roomName = data.roomName || 'Chat';
+    const isGroup = data.roomType === 'group';
+    
+    // Toast-Titel: Bei Gruppen "Gruppenname - Absender", bei Direktchat nur Absender
+    const toastTitle = isGroup 
+      ? `${roomName} - ${senderName}`
+      : senderName;
+    
+    // Toast-Message: "Neue Chatnachricht: Inhalt"
+    const messagePreview = message.content?.length > 40 
+      ? message.content.substring(0, 40) + '...' 
+      : message.content || '';
+    
     console.log('[useChatNotifications] Showing toast for message:', message.id);
     
-    // Zeige Toast
+    // Zeige Toast mit Klick-Handler
     addToast({
-      title: `${message.sender?.name || 'Neue Nachricht'}`,
-      message: message.content?.length > 50 
-        ? message.content.substring(0, 50) + '...' 
-        : message.content || 'Neue Chat-Nachricht',
+      title: toastTitle,
+      message: `Neue Chatnachricht: ${messagePreview}`,
       type: 'info',
       duration: 8000,
+      onClick: () => {
+        console.log('[useChatNotifications] Toast clicked, navigating to chat:', data.roomId);
+        router.push(`/de/chat?room=${data.roomId}`);
+      },
     });
     
     console.log('[useChatNotifications] Toast added successfully');
-  }, [addToast]);
+  }, [addToast, router]);
 
   useEffect(() => {
     if (!isConnected) return;

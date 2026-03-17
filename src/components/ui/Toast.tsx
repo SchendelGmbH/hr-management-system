@@ -61,13 +61,22 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
     return () => clearInterval(timer);
   }, [toast.duration]);
 
+  const handleClick = () => {
+    if (toast.onClick) {
+      toast.onClick();
+      onRemove(toast.id);
+    }
+  };
+
   return (
     <div
+      onClick={handleClick}
       className={clsx(
         'relative flex items-start gap-3 p-4 rounded-lg border shadow-lg',
         'transform transition-all duration-300 ease-out',
         'animate-slide-in-right',
-        styles[toast.type]
+        styles[toast.type],
+        toast.onClick && 'cursor-pointer hover:shadow-xl'
       )}
       role="alert"
     >
@@ -86,7 +95,10 @@ function ToastItem({ toast, onRemove }: ToastItemProps) {
 
       {/* Close Button */}
       <button
-        onClick={() => onRemove(toast.id)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove(toast.id);
+        }}
         className="flex-shrink-0 -mr-1 -mt-1 p-1 rounded-full hover:bg-black/5 transition-colors"
         aria-label="Schließen"
       >

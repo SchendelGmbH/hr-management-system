@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import prisma from '@/lib/prisma';
 
 // POST /api/chat/broadcast - Interner Endpunkt für Socket.IO Broadcast
 export async function POST(request: NextRequest) {
@@ -16,6 +17,16 @@ export async function POST(request: NextRequest) {
     }
     
     console.log('[Broadcast API] global.io is available');
+    
+    // Get room info for the notification
+    const room = await prisma.chatRoom.findUnique({
+      where: { id: roomId },
+      select: { 
+        id: true, 
+        name: true,
+        type: true,
+      },
+    });
     
     // Get all sockets in the room
     const roomName = `room:${roomId}`;
@@ -43,7 +54,12 @@ export async function POST(request: NextRequest) {
       }
       
       console.log(`[Broadcast API] Emitting new-message to socket ${socket.id}`);
-      socket.emit('new-message', { roomId, message });
+      socket.emit('new-message', { 
+        roomId, 
+        roomName: room?.name || 'Chat',
+        roomType: room?.type || 'direct',
+        message 
+      });
       sentCount++;
     }
     

@@ -2,7 +2,6 @@ const { createServer } = require('http');
 const { parse } = require('url');
 const next = require('next');
 const { Server } = require('socket.io');
-const { EventEmitter } = require('events');
 
 const dev = process.env.NODE_ENV !== 'production';
 const hostname = '0.0.0.0';
@@ -10,9 +9,6 @@ const port = 3001;
 
 const app = next({ dev, hostname, port });
 const handle = app.getRequestHandler();
-
-// Global event bus for server-side communication
-const serverEventBus = new EventEmitter();
 
 // Global socket.io instance
 let io = null;
@@ -93,48 +89,8 @@ app.prepare().then(() => {
     });
   });
 
-  // Listen for chat message events from API routes
-  serverEventBus.on('chat:broadcast', (data) => {
-    const { roomId, message, senderId } = data;
-    
-    if (!io) {
-      console.log('[ServerEventBus] Socket.IO not initialized');
-      return;
-    }
-    
-    console.log(`[ServerEventBus] Broadcasting message to room:${roomId}`);
-    
-    // Get all sockets in the room
-    const roomSockets = Array.from(io.sockets.adapter.rooms.get(`room:${roomId}`) || []);
-    console.log(`[ServerEventBus] ${roomSockets.length} sockets in room`);
-    
-    let sentCount = 0;
-    let skippedCount = 0;
-    
-    for (const socketId of roomSockets) {
-      const socket = io.sockets.sockets.get(socketId);
-      if (!socket) continue;
-      
-      const socketUserId = socket.data?.userId;
-      console.log(`[ServerEventBus] Socket ${socketId} has userId: ${socketUserId}`);
-      
-      // Skip sender's socket
-      if (socketUserId === senderId) {
-        console.log(`[ServerEventBus] Skipping sender's socket ${socketId}`);
-        skippedCount++;
-        continue;
-      }
-      
-      socket.emit('new-message', { roomId, message });
-      sentCount++;
-    }
-    
-    console.log(`[ServerEventBus] Message broadcast: ${sentCount} sent, ${skippedCount} skipped`);
-  });
-
-  // Make io and eventBus accessible globally
+  // Make io accessible globally (used by broadcast API route)
   global.io = io;
-  global.serverEventBus = serverEventBus;
   global.userSocketMap = userSocketMap;
   global.getSocketIO = () => io;
 

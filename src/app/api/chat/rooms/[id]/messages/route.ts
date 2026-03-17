@@ -242,22 +242,30 @@ export async function POST(
       select: { userId: true },
     });
 
-    // Emit real-time event via Socket.IO (if available)
+    // Emit real-time event via internal HTTP call to broadcast endpoint
     try {
-      // Use serverEventBus from server.js for cross-process communication
-      const serverEventBus = (global as any).serverEventBus;
-      if (serverEventBus) {
-        serverEventBus.emit('chat:broadcast', {
+      // Use fetch to call the internal broadcast endpoint
+      const broadcastUrl = `${process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'}/api/chat/broadcast`;
+      
+      fetch(broadcastUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           roomId: id,
           message,
           senderId: session.user.id,
-        });
-        console.log(`[Socket] Emitted chat:broadcast event for room ${id}`);
-      } else {
-        console.log('[Socket] serverEventBus not available');
-      }
+        }),
+      }).then(res => {
+        if (res.ok) {
+          console.log(`[Socket] Broadcast triggered successfully for room ${id}`);
+        } else {
+          console.error(`[Socket] Broadcast failed: ${res.status}`);
+        }
+      }).catch(err => {
+        console.error('[Socket] Broadcast request failed:', err);
+      });
     } catch (e) {
-      console.error('[Socket] Error emitting chat event:', e);
+      console.error('[Socket] Error triggering broadcast:', e);
     }
 
     // Emit EventBus event for Socket.IO handler to broadcast

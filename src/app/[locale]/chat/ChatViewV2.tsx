@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import { useSearchParams } from 'next/navigation';
 import { useChat, EnhancedMessage } from '@/hooks/useChat';
 import { ChatSidebar } from '@/components/chat/ChatSidebar';
 import { MessageInput } from '@/components/chat/MessageInput';
@@ -65,6 +66,18 @@ export function ChatViewV2() {
     typingUsers,
     pendingCount,
   } = useChat();
+  
+  // Get URL params for room selection
+  const searchParams = useSearchParams();
+  const roomIdFromUrl = searchParams.get('room');
+  
+  // Auto-select room from URL
+  useEffect(() => {
+    if (roomIdFromUrl && rooms.length > 0 && !currentRoom) {
+      console.log('[ChatViewV2] Auto-selecting room from URL:', roomIdFromUrl);
+      selectRoom(roomIdFromUrl);
+    }
+  }, [roomIdFromUrl, rooms, currentRoom, selectRoom]);
   
   // Local state
   const [showMobileSidebar, setShowMobileSidebar] = useState(false);

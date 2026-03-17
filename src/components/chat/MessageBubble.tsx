@@ -16,6 +16,8 @@ interface MessageBubbleProps {
   onEdit?: (messageId: string, content: string) => void;
   onDelete?: (messageId: string) => void;
   onSignatureClick?: (requestId: string) => void;
+  onReplyClick?: (messageId: string) => void;
+  onContextMenu?: (e: React.MouseEvent, message: ChatMessage) => void;
 }
 
 interface AttachmentPreviewProps {
@@ -171,11 +173,19 @@ function AttachmentPreview({ attachment, isOwn }: AttachmentPreviewProps) {
   );
 }
 
-export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, onSignatureClick }: MessageBubbleProps) {
+export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, onSignatureClick, onReplyClick, onContextMenu }: MessageBubbleProps) {
   const { data: session } = useSession();
   const isOwn = message.senderId === session?.user?.id;
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+
+  // Handle context menu (right click)
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    if (onContextMenu) {
+      onContextMenu(e, message);
+    }
+  };
 
   // Parse Signature Links from content
   const signatureLinkMatch = message.content.match(/\[Zur Signatur\]\(\/sign\/([a-zA-Z0-9]+)\)/);
@@ -209,13 +219,22 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
   // Check if message has any visible content
   const hasContent = message.content && message.content.trim().length > 0 && !message.content.match(/^\[Zur Signatur\]\(\/sign\/[^)]+\)$/);
   const hasAttachments = message.attachments && message.attachments.length > 0;
+  const hasReply = message.replyTo && message.replyToId;
+
+  // Get reply preview text (max 2 lines)
+  const getReplyPreview = (content: string) => {
+    if (!content) return '';
+    // Remove markdown and limit to reasonable length for preview
+    return content.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1').slice(0, 100);
+  };
 
   return (
     <div
       className={clsx(
-        'flex gap-3 mb-4',
+        'flex gap-3 mb-4 group/message',
         isOwn ? 'flex-row-reverse' : 'flex-row'
       )}
+      onContextMenu={handleContextMenu}
     >
       {/* Avatar */}
       {showAvatar && !isOwn && (
@@ -275,6 +294,43 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
             </div>
           ) : (
             <>
+              {/* Reply Quote Box - WhatsApp Style */}
+              {hasReply && (
+                <button
+                  onClick={() => onReplyClick?.(message.replyTo!.id)}
+                  className={clsx(
+                    'w-full text-left mb-2 rounded-lg overflow-hidden cursor-pointer transition-colors',
+                    isOwn
+                      ? 'bg-white/20 hover:bg-white/30'
+                      : 'bg-gray-200/70 hover:bg-gray-200 dark:bg-gray-700/60 dark:hover:bg-gray-700/80'
+                  )}
+                >
+                  {/* Colored left border */}
+                  <div className="flex">
+                    <div className={clsx(
+                      'w-1 flex-shrink-0',
+                      isOwn ? 'bg-primary-300' : 'bg-primary-500'
+                    )} />
+                    <div className="flex-1 px-2.5 py-1.5 min-w-0">
+                      {/* Reply sender name */}
+                      <p className={clsx(
+                        'text-xs font-semibold truncate',
+                        isOwn ? 'text-primary-100' : 'text-primary-600 dark:text-primary-400'
+                      )}>
+                        {message.replyTo?.sender?.name || 'Unbekannt'}
+                      </p>
+                      {/* Reply content preview - max 2 lines */}
+                      <p className={clsx(
+                        'text-xs line-clamp-2',
+                        isOwn ? 'text-white/80' : 'text-gray-600 dark:text-gray-300'
+                      )}>
+                        {getReplyPreview(message.replyTo?.content || '')}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
+
               {hasContent && (
                 <MessageContent
                   content={message.content.replace(/\[Zur Signatur\]\(\/sign\/[a-zA-Z0-9]+\)/g, '')}

@@ -203,6 +203,18 @@ const transformApiMessage = (apiMsg: ApiMessage): ChatMessage => ({
     thumbnailPath: (att as any).thumbnailPath,
     thumbnailUrl: (att as any).thumbnailPath,
   })),
+  replyToId: apiMsg.replyToId || undefined,
+  replyTo: apiMsg.replyTo ? {
+    id: apiMsg.replyTo.id,
+    content: apiMsg.replyTo.content,
+    sender: {
+      id: apiMsg.replyTo.sender.id,
+      name: apiMsg.replyTo.sender.employee
+        ? `${apiMsg.replyTo.sender.employee.firstName} ${apiMsg.replyTo.sender.employee.lastName}`
+        : apiMsg.replyTo.sender.username,
+      status: 'offline',
+    },
+  } : undefined,
 });
 
 const transformApiRoom = (apiRoom: ApiRoom): ChatRoomType => ({
@@ -570,7 +582,7 @@ export function ChatView() {
       thumbnailUrl?: string;
       width?: number;
       height?: number;
-    }>) => {
+    }>, replyToId?: string) => {
       if (!currentRoomId) return;
       if (!content.trim() && (!attachments || attachments.length === 0)) return;
 
@@ -659,6 +671,7 @@ export function ChatView() {
           createdAt: new Date(),
           isOptimistic: true,
           attachments: [],
+          replyToId,
         };
         queryClient.setQueryData(
           ['chat', 'messages', currentRoomId],
@@ -670,6 +683,7 @@ export function ChatView() {
       sendMessageMutation.mutate({ 
         roomId: currentRoomId, 
         content: content.trim(),
+        replyToId,
         attachments 
       });
     },

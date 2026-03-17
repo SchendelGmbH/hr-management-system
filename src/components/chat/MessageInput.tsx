@@ -31,13 +31,21 @@ interface UploadResult {
   height?: number;
 }
 
+interface ReplyTo {
+  id: string;
+  content: string;
+  senderName: string;
+}
+
 interface MessageInputProps {
   roomId: string;
-  onSend: (content: string, attachments?: UploadResult[]) => void;
+  onSend: (content: string, attachments?: UploadResult[], replyToId?: string) => void;
   onTyping?: (isTyping: boolean) => void;
   onCommand?: (command: string, args: string[]) => void;
   disabled?: boolean;
   placeholder?: string;
+  replyTo?: ReplyTo | null;
+  onCancelReply?: () => void;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -61,7 +69,9 @@ export function MessageInput({
   onTyping,
   onCommand,
   disabled = false,
-  placeholder = 'Nachricht schreiben...'
+  placeholder = 'Nachricht schreiben...',
+  replyTo,
+  onCancelReply
 }: MessageInputProps) {
   const [content, setContent] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -305,10 +315,11 @@ export function MessageInput({
       }
     }
     
-    onSend(trimmedContent, uploadedAttachments);
+    onSend(trimmedContent, uploadedAttachments, replyTo?.id);
     setContent('');
     setAttachments([]);
     setUploadError(null);
+    onCancelReply?.();
     
     // Reset textarea height
     if (textareaRef.current) {
@@ -442,6 +453,32 @@ export function MessageInput({
             <p className="text-sm text-primary-600 dark:text-primary-400">
               Max. 10MB pro Datei
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Reply Banner */}
+      {replyTo && (
+        <div className="px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-1 h-8 bg-primary-500 rounded-full flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  Antwort an
+                </p>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {replyTo.senderName}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onCancelReply}
+              className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 flex-shrink-0"
+              title="Antwort abbrechen"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
         </div>
       )}

@@ -16,6 +16,12 @@ export interface ChatMessage {
   updatedAt?: Date;
   isEdited?: boolean;
   attachments?: MessageAttachment[];
+  replyToId?: string;
+  replyTo?: {
+    id: string;
+    content: string;
+    sender?: ChatUser;
+  };
 }
 
 export interface MessageAttachment {

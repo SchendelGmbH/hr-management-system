@@ -1,8 +1,14 @@
 'use client';
 
 import { useState, useRef, useCallback, useEffect } from 'react';
-import { Send, Plus, Mic, Image, FileText, File, X, Loader2 } from 'lucide-react';
+import { Send, Plus, Mic, Image, FileText, File, X, Loader2, CornerUpLeft } from 'lucide-react';
 import { clsx } from 'clsx';
+
+interface ReplyTo {
+  id: string;
+  content: string;
+  senderName: string;
+}
 
 interface FileAttachment {
   file: File;
@@ -23,12 +29,14 @@ interface UploadResult {
 
 interface MessageInputMobileProps {
   roomId: string;
-  onSend: (content: string, attachments?: UploadResult[]) => void;
+  onSend: (content: string, attachments?: UploadResult[], replyToId?: string) => void;
   onTyping?: (isTyping: boolean) => void;
   onCommand?: (command: string, args: string[]) => void;
   disabled?: boolean;
   placeholder?: string;
   isOffline?: boolean;
+  replyTo?: ReplyTo | null;
+  onCancelReply?: () => void;
 }
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
@@ -54,6 +62,8 @@ export function MessageInputMobile({
   disabled = false,
   placeholder = 'Nachricht schreiben...',
   isOffline = false,
+  replyTo,
+  onCancelReply
 }: MessageInputMobileProps) {
   const [content, setContent] = useState('');
   const [isFocused, setIsFocused] = useState(false);
@@ -204,9 +214,10 @@ export function MessageInputMobile({
       }
     }
     
-    onSend(trimmedContent, uploadedAttachments);
+    onSend(trimmedContent, uploadedAttachments, replyTo?.id);
     setContent('');
     setAttachments([]);
+    onCancelReply?.();
     setUploadError(null);
     if (textareaRef.current) textareaRef.current.style.height = 'auto';
     if (onTyping) {
@@ -246,6 +257,32 @@ export function MessageInputMobile({
           <span className="text-sm text-amber-800 dark:text-amber-300">
             Offline - Nachrichten werden später gesendet
           </span>
+        </div>
+      )}
+
+      {/* Reply Banner */}
+      {replyTo && (
+        <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 min-w-0">
+              <CornerUpLeft className="w-4 h-4 text-primary-500 flex-shrink-0" />
+              <div className="min-w-0">
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">
+                  Antwort an
+                </p>
+                <p className="text-xs font-medium text-gray-900 dark:text-gray-100 truncate">
+                  {replyTo.senderName}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={onCancelReply}
+              className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-500 dark:text-gray-400 flex-shrink-0"
+              title="Antwort abbrechen"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 

@@ -16,7 +16,8 @@ import {
   Users, 
   ArrowLeft,
   Loader2,
-  User
+  User,
+  Reply
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
@@ -25,7 +26,7 @@ import { clsx } from 'clsx';
 interface ChatRoomProps {
   room: ChatRoomType | null;
   messages: ChatMessage[];
-  onSendMessage: (content: string, attachments?: File[]) => void;
+  onSendMessage: (content: string, attachments?: File[], replyToId?: string) => void;
   onEditMessage?: (messageId: string, content: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   onTyping?: (isTyping: boolean) => void;
@@ -34,6 +35,7 @@ interface ChatRoomProps {
   onStartAudioCall?: () => void;
   onCommand?: (command: string, args: string[]) => void;
   onSignatureClick?: (requestId: string) => void;
+  onReplyClick?: (messageId: string) => void;
   loading?: boolean;
   typingUsers?: string[];
   hasMoreMessages?: boolean;
@@ -53,6 +55,7 @@ export function ChatRoom({
   onStartAudioCall,
   onCommand,
   onSignatureClick,
+  onReplyClick,
   loading = false,
   typingUsers = [],
   hasMoreMessages = false,
@@ -63,6 +66,16 @@ export function ChatRoom({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [hasScrolled, setHasScrolled] = useState(false);
+
+  // Reply state
+  const [replyTo, setReplyTo] = useState<{ id: string; content: string; senderName: string } | null>(null);
+
+  // Context menu state
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    message: ChatMessage;
+  } | null>(null);
 
   // Scroll to bottom on new messages (but not if user scrolled up)
   useEffect(() => {
@@ -90,6 +103,63 @@ export function ChatRoom({
       onTyping(isTyping);
     }
   }, [onTyping]);
+
+  // Handle reply to message
+  const handleReply = useCallback((message: ChatMessage) => {
+    const senderName = message.sender?.name || 'Unbekannt';
+    setReplyTo({
+      id: message.id,
+      content: message.content,
+      senderName
+    });
+    setContextMenu(null);
+  }, []);
+
+  // Handle cancel reply
+  const handleCancelReply = useCallback(() => {
+    setReplyTo(null);
+  }, []);
+
+  // Handle send message with reply
+  const handleSendMessage = useCallback((content: string, attachments?: File[]) => {
+    onSendMessage(content, attachments, replyTo?.id);
+    setReplyTo(null);
+  }, [onSendMessage, replyTo]);
+
+  // Handle context menu
+  const handleContextMenu = useCallback((e: React.MouseEvent, message: ChatMessage) => {
+    e.preventDefault();
+    setContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      message
+    });
+  }, []);
+
+  // Close context menu on click outside
+  useEffect(() => {
+    const handleClick = () => setContextMenu(null);
+    if (contextMenu) {
+      document.addEventListener('click', handleClick);
+      return () => document.removeEventListener('click', handleClick);
+    }
+  }, [contextMenu]);
+
+  // Handle reply click (scroll to original message)
+  const handleReplyClick = useCallback((messageId: string) => {
+    const element = document.getElementById(`message-${messageId}`);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // Highlight the message briefly
+      element.classList.add('ring-2', 'ring-primary-500', 'ring-offset-2');
+      setTimeout(() => {
+        element.classList.remove('ring-2', 'ring-primary-500', 'ring-offset-2');
+      }, 2000);
+    }
+    if (onReplyClick) {
+      onReplyClick(messageId);
+    }
+  }, [onReplyClick]);
 
   // Group messages by date
   const groupMessagesByDate = useCallback((msgs: ChatMessage[]) => {
@@ -285,13 +355,19 @@ export function ChatRoom({
                 const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
                 
                 return (
-                  <div key={message.id} className="group/message">
+                  <div 
+                    key={message.id} 
+                    id={`message-${message.id}`}
+                    className="group/message scroll-mt-20"
+                  >
                     <MessageBubble
                       message={message}
                       showAvatar={showAvatar}
                       onEdit={onEditMessage}
                       onDelete={onDeleteMessage}
                       onSignatureClick={onSignatureClick}
+                      onReplyClick={handleReplyClick}
+                      onContextMenu={handleContextMenu}
                     />
                   </div>
                 );
@@ -318,7 +394,7 @@ export function ChatRoom({
       {room && !loading && messages.length > 0 && (
         <SmartReplies
           roomId={room.id}
-          onSelectReply={(reply) => onSendMessage(reply)}
+          onSelectReply={(reply) => handleSendMessage(reply)}
           disabled={loading}
         />
       )}
@@ -327,11 +403,13 @@ export function ChatRoom({
       <div className="hidden lg:block">
         <MessageInput
           roomId={room.id}
-          onSend={onSendMessage}
+          onSend={handleSendMessage}
           onTyping={handleTyping}
           onCommand={onCommand}
           disabled={loading}
           placeholder={`Nachricht an ${displayName}...`}
+          replyTo={replyTo}
+          onCancelReply={handleCancelReply}
         />
       </div>
 
@@ -339,14 +417,32 @@ export function ChatRoom({
       <div className="lg:hidden">
         <MessageInputMobile
           roomId={room.id}
-          onSend={onSendMessage}
+          onSend={handleSendMessage}
           onTyping={handleTyping}
           onCommand={onCommand}
           disabled={loading}
           placeholder={`Nachricht...`}
           isOffline={isOffline}
+          replyTo={replyTo}
+          onCancelReply={handleCancelReply}
         />
       </div>
+
+      {/* Context Menu */}
+      {contextMenu && (
+        <div
+          className="fixed z-50 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 min-w-[160px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <button
+            onClick={() => handleReply(contextMenu.message)}
+            className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 text-left"
+          >
+            <Reply className="w-4 h-4" />
+            <span>Antworten</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

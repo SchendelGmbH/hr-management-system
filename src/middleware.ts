@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 
 // Public routes that don't require authentication
-const publicRoutes = ['/login', '/api/auth'];
+const publicRoutes = ['/login', '/api/auth', '/api/chat/broadcast'];
 
 // API routes that all authenticated users can access
 const publicApiPrefixes = [

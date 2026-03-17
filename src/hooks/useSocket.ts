@@ -80,11 +80,15 @@ export function useSocket() {
     }
     
     console.log('[useSocket] Registering new-message listener');
-    socketRef.current.on('new-message', callback);
+    const wrappedCallback = (data: any) => {
+      console.log('[useSocket] Received new-message event:', data);
+      callback(data);
+    };
+    socketRef.current.on('new-message', wrappedCallback);
     
     return () => {
       console.log('[useSocket] Unregistering new-message listener');
-      socketRef.current?.off('new-message', callback);
+      socketRef.current?.off('new-message', wrappedCallback);
     };
   }, []);
 

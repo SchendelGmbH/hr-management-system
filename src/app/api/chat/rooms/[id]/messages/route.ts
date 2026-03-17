@@ -244,47 +244,20 @@ export async function POST(
 
     // Emit real-time event via Socket.IO (if available)
     try {
-      // Use global.io from server.js (not from api/socket/route)
-      const io = (global as any).io;
-      if (io) {
-        // Get all sockets in the room
-        const roomSockets = await io.in(`room:${id}`).fetchSockets();
-        console.log(`[Socket] Broadcasting message ${message.id} to ${roomSockets.length} sockets in room ${id}`);
-        console.log(`[Socket] Sender userId: ${session.user.id}`);
-        
-        let sentCount = 0;
-        let skippedCount = 0;
-        
-        for (const socket of roomSockets) {
-          const socketUserId = socket.data?.userId;
-          console.log(`[Socket] Socket ${socket.id} has userId: ${socketUserId}`);
-          
-          // Skip sender's socket - compare with the sender's userId
-          if (socketUserId === session.user.id) {
-            console.log(`[Socket] Skipping sender's socket ${socket.id}`);
-            skippedCount++;
-            continue;
-          }
-          
-          socket.emit('new-message', { roomId: id, message });
-          sentCount++;
-        }
-        
-        console.log(`[Socket] Message broadcast: ${sentCount} sent, ${skippedCount} skipped (sender)`);
-        
-        // Broadcast updated unread count to all room members (except sender)
-        if (typeof global !== 'undefined' && (global as any).broadcastChatUnreadCount) {
-          for (const member of roomMembers) {
-            if (member.userId !== session.user.id) {
-              await (global as any).broadcastChatUnreadCount(member.userId);
-            }
-          }
-        }
+      // Use serverEventBus from server.js for cross-process communication
+      const serverEventBus = (global as any).serverEventBus;
+      if (serverEventBus) {
+        serverEventBus.emit('chat:broadcast', {
+          roomId: id,
+          message,
+          senderId: session.user.id,
+        });
+        console.log(`[Socket] Emitted chat:broadcast event for room ${id}`);
       } else {
-        console.log('[Socket] Socket.IO not available (global.io is undefined)');
+        console.log('[Socket] serverEventBus not available');
       }
     } catch (e) {
-      console.error('[Socket] Error broadcasting message:', e);
+      console.error('[Socket] Error emitting chat event:', e);
     }
 
     // Emit EventBus event for Socket.IO handler to broadcast

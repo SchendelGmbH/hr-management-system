@@ -325,11 +325,15 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
           )}
           style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
         >
+          {/* DEBUG TEST ELEMENT */}
+          <div className="absolute -top-4 -right-4 bg-red-500 text-white font-bold px-2 py-1 rounded z-50 text-xs">
+            TEST
+          </div>
           {/* Chevron Dropdown Button - WhatsApp Style */}
           {!isEditing && (
             <div
               className={clsx(
-                'absolute top-1 z-10 opacity-0 group-hover/bubble:opacity-100 transition-opacity duration-200',
+                'absolute top-1 z-10 opacity-70 hover:opacity-100 transition-opacity duration-200',
                 isOwn ? 'left-1' : 'right-1'
               )}
             >

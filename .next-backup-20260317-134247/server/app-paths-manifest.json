@@ -1,0 +1,13 @@
+{
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/chat/rooms/route": "app/api/chat/rooms/route.js",
+  "/api/modules/route": "app/api/modules/route.js",
+  "/api/settings/system/route": "app/api/settings/system/route.js",
+  "/api/notifications/route": "app/api/notifications/route.js",
+  "/api/chat/users/route": "app/api/chat/users/route.js",
+  "/api/chat/rooms/[id]/messages/route": "app/api/chat/rooms/[id]/messages/route.js",
+  "/api/chat/rooms/[id]/read/route": "app/api/chat/rooms/[id]/read/route.js",
+  "/login/page": "app/login/page.js",
+  "/[locale]/page": "app/[locale]/page.js",
+  "/[locale]/chat/page": "app/[locale]/chat/page.js"
+}

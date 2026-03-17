@@ -2,9 +2,9 @@
 
 import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
-import { CheckCheck, Edit2, Trash2, FileSignature, ChevronRight, Download, FileText, Image as ImageIcon, File, X, ZoomIn } from 'lucide-react';
+import { CheckCheck, Edit2, Trash2, FileSignature, ChevronRight, Download, FileText, Image as ImageIcon, File, X, ZoomIn, ChevronDown, CornerUpLeft } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-import { useState } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { ChatMessage } from '@/types/chat';
 import { clsx } from 'clsx';
 import { TranslationButton } from './ai-features/TranslationButton';
@@ -178,12 +178,62 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
   const isOwn = message.senderId === session?.user?.id;
   const [isEditing, setIsEditing] = useState(false);
   const [editContent, setEditContent] = useState(message.content);
+  
+  // Dropdown menu state
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const longPressTimer = useRef<NodeJS.Timeout | null>(null);
+  const [isLongPress, setIsLongPress] = useState(false);
 
-  // Handle context menu (right click)
+  // Handle context menu (right click) - deprecated, but keep for compatibility
   const handleContextMenu = (e: React.MouseEvent) => {
     e.preventDefault();
     if (onContextMenu) {
       onContextMenu(e, message);
+    }
+  };
+
+  // Close menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Long press handlers for mobile
+  const handleTouchStart = useCallback(() => {
+    setIsLongPress(false);
+    longPressTimer.current = setTimeout(() => {
+      setIsLongPress(true);
+      setIsMenuOpen(true);
+    }, 500);
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
+  const handleMenuAction = (action: 'reply' | 'edit' | 'delete') => {
+    setIsMenuOpen(false);
+    
+    switch (action) {
+      case 'reply':
+        onReplyClick?.(message.id);
+        break;
+      case 'edit':
+        if (isOwn) setIsEditing(true);
+        break;
+      case 'delete':
+        if (isOwn) onDelete?.(message.id);
+        break;
     }
   };
 
@@ -235,6 +285,17 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
         isOwn ? 'flex-row-reverse' : 'flex-row'
       )}
       onContextMenu={handleContextMenu}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => {
+        setIsHovered(false);
+        if (!isMenuOpen) setIsMenuOpen(false);
+      }}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+      onContextMenu={(e) => {
+        e.preventDefault();
+        setIsMenuOpen(true);
+      }}
     >
       {/* Avatar */}
       {showAvatar && !isOwn && (
@@ -257,13 +318,76 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
         {/* Message Bubble */}
         <div
           className={clsx(
-            'relative rounded-2xl px-4 py-2 min-w-0',
+            'relative rounded-2xl px-4 py-2 min-w-0 group/bubble',
             isOwn
               ? 'bg-primary-600 text-white rounded-br-md'
               : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-bl-md'
           )}
           style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}
         >
+          {/* Chevron Dropdown Button - WhatsApp Style */}
+          {!isEditing && (
+            <div
+              className={clsx(
+                'absolute top-1 z-10 opacity-0 group-hover/bubble:opacity-100 transition-opacity duration-200',
+                isOwn ? 'left-1' : 'right-1'
+              )}
+            >
+              <button
+                onClick={() => setIsMenuOpen(!isMenuOpen)}
+                className={clsx(
+                  'p-1 rounded-full transition-colors',
+                  isOwn
+                    ? 'text-white/60 hover:text-white hover:bg-white/20'
+                    : 'text-gray-400 hover:text-gray-600 hover:bg-gray-200 dark:text-gray-500 dark:hover:text-gray-300 dark:hover:bg-gray-700'
+                )}
+              >
+                <ChevronDown className="w-4 h-4" />
+              </button>
+
+              {/* Dropdown Menu */}
+              {isMenuOpen && (
+                <div
+                  ref={menuRef}
+                  className={clsx(
+                    'absolute top-full mt-1 min-w-[140px] bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 z-50',
+                    isOwn ? 'left-0' : 'right-0'
+                  )}
+                >
+                  {/* Reply Option */}
+                  <button
+                    onClick={() => handleMenuAction('reply')}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <CornerUpLeft className="w-4 h-4" />
+                    <span>Antworten</span>
+                  </button>
+
+                  {/* Edit Option - Only for own messages */}
+                  {isOwn && (
+                    <button
+                      onClick={() => handleMenuAction('edit')}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                      <span>Bearbeiten</span>
+                    </button>
+                  )}
+
+                  {/* Delete Option - Only for own messages */}
+                  {isOwn && onDelete && (
+                    <button
+                      onClick={() => handleMenuAction('delete')}
+                      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                      <span>Löschen</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
           {isEditing ? (
             <div className="min-w-[200px]">
               <textarea
@@ -392,30 +516,6 @@ export function MessageBubble({ message, showAvatar = true, onEdit, onDelete, on
             </>
           )}
         </div>
-        
-        {/* Actions (nur für eigene Nachrichten) - Touch-optimiert */}
-        {isOwn && !isEditing && (
-          <div className="mt-1 flex items-center gap-2 opacity-0 group-hover/message:opacity-100 transition-opacity">
-            <button
-              onClick={() => setIsEditing(true)}
-              className="p-2.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 dark:hover:bg-gray-800 dark:hover:text-gray-300 touch-manipulation"
-              style={{ WebkitTapHighlightColor: 'transparent' }}
-              title="Bearbeiten"
-            >
-              <Edit2 className="h-4 w-4" />
-            </button>
-            {onDelete && (
-              <button
-                onClick={() => onDelete(message.id)}
-                className="p-2.5 rounded-full text-gray-400 hover:text-danger-600 hover:bg-danger-50 dark:hover:bg-danger-900/30 touch-manipulation"
-                style={{ WebkitTapHighlightColor: 'transparent' }}
-                title="Löschen"
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );

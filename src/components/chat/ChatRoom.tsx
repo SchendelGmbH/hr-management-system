@@ -366,10 +366,11 @@ export function ChatRoom({
                 const showAvatar = !prevMessage || prevMessage.senderId !== message.senderId;
                 
                 return (
-                  <div 
-                    key={message.id} 
+                  <div
+                    key={message.id}
                     id={`message-${message.id}`}
                     className="group/message scroll-mt-20"
+                    onContextMenu={(e) => handleContextMenu(e, message)}
                   >
                     <MessageBubble
                       message={message}

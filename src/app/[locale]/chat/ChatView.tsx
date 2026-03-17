@@ -285,7 +285,8 @@ export function ChatView() {
   // Queries
   const { 
     data: apiRooms = [], 
-    isLoading: roomsLoading 
+    isLoading: roomsLoading,
+    refetch: refetchRooms
   } = useQuery({
     queryKey: ['chat', 'rooms'],
     queryFn: fetchRooms,
@@ -297,12 +298,53 @@ export function ChatView() {
 
   const { 
     data: apiMessages = [], 
-    isLoading: messagesLoading 
+    isLoading: messagesLoading,
+    refetch: refetchMessages
   } = useQuery({
     queryKey: ['chat', 'messages', currentRoomId],
     queryFn: () => fetchMessages(currentRoomId!),
     enabled: !!currentRoomId && !!session?.user?.id,
   });
+
+  // FEATURE 1: Auto-Refresh alle 2 Sekunden
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const interval = setInterval(() => {
+      // Refetch rooms for unread counts
+      refetchRooms();
+      
+      // Refetch messages if a room is open
+      if (currentRoomId) {
+        refetchMessages();
+      }
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [session?.user?.id, currentRoomId, refetchRooms, refetchMessages]);
+
+  // FEATURE 2: Mark messages as read when opening a room
+  const markRoomAsRead = useCallback(async (roomId: string) => {
+    try {
+      await axios.post(`/api/chat/rooms/${roomId}/read`);
+      
+      // Optimistically update the UI
+      queryClient.setQueryData(['chat', 'rooms'], (old: ApiRoom[] = []) => {
+        return old.map(room => 
+          room.id === roomId ? { ...room, unreadCount: 0 } : room
+        );
+      });
+    } catch (error) {
+      console.error('Error marking room as read:', error);
+    }
+  }, [queryClient]);
+
+  // Mark as read when current room changes
+  useEffect(() => {
+    if (currentRoomId) {
+      markRoomAsRead(currentRoomId);
+    }
+  }, [currentRoomId, markRoomAsRead]);
 
   const messages = useMemo(() => apiMessages.map(transformApiMessage), [apiMessages]);
 
@@ -323,11 +365,19 @@ export function ChatView() {
     onSuccess: (newMessage) => {
       queryClient.setQueryData(
         ['chat', 'messages', currentRoomId],
-        (old: ApiMessage[] = []) => [...old, newMessage]
+        (old: ApiMessage[] = []) => {
+          // Remove optimistic message if present
+          const filtered = old.filter(m => !(m as any).isOptimistic);
+          // Check if message already exists (from socket)
+          if (filtered.some(m => m.id === newMessage.id)) return filtered;
+          return [...filtered, newMessage];
+        }
       );
     },
-    onError: () => {
-      console.error('Fehler beim Senden der Nachricht');
+    onError: (error) => {
+      console.error('Fehler beim Senden der Nachricht:', error);
+      // Show error to user (could be enhanced with toast notification)
+      alert('Fehler beim Senden der Nachricht. Bitte versuche es erneut.');
     },
   });
 
@@ -366,6 +416,9 @@ export function ChatView() {
 
     const unsubscribeMessage = onMessage((data: { roomId: string; message: ApiMessage }) => {
       if (data.roomId === currentRoomId) {
+        // Ignore messages from current user (already added by mutation onSuccess)
+        if (data.message.senderId === session?.user?.id) return;
+        
         queryClient.setQueryData(
           ['chat', 'messages', currentRoomId],
           (old: ApiMessage[] = []) => {

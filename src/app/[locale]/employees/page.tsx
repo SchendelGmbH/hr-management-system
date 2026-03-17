@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Search, Plus, User, Edit, Trash2, LayoutList, LayoutGrid, Mail, Phone, Building2, Briefcase, Calendar } from 'lucide-react';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import { TableSkeleton } from '@/components/ui/Skeleton';
+import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
 
 interface Employee {
   id: string;
@@ -33,6 +34,7 @@ type ViewMode = 'list' | 'card';
 
 export default function EmployeesPage() {
   const router = useRouter();
+  const { hasPermission } = usePermissions();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -302,13 +304,15 @@ export default function EmployeesPage() {
                           >
                             <Edit className="h-4 w-4" />
                           </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); setDeleteConfirm(employee); }}
-                            className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
-                            title="Löschen"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
+                          {hasPermission(PERMISSIONS.EMPLOYEES.DELETE) && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDeleteConfirm(employee); }}
+                              className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
+                              title="Löschen"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -376,13 +380,15 @@ export default function EmployeesPage() {
                         >
                           <Edit className="h-3.5 w-3.5" />
                         </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setDeleteConfirm(employee); }}
-                          className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
-                          title="Löschen"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
+                        {hasPermission(PERMISSIONS.EMPLOYEES.DELETE) && (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setDeleteConfirm(employee); }}
+                            className="rounded p-1.5 text-gray-400 hover:bg-red-50 hover:text-red-600"
+                            title="Löschen"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </div>
 

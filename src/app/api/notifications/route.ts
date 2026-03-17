@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { 
-  getNotificationHistory, 
-  markNotificationAsRead, 
-  markAllNotificationsAsRead,
-  archiveNotification,
-  deleteNotification,
-  getUserNotificationSettings,
-} from '@/lib/notifications';
-import type { NotificationType } from '@/lib/notifications';
+import { Pool } from 'pg';
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+});
 
 // GET /api/notifications - Get user's notifications
 export async function GET(request: NextRequest) {
@@ -19,32 +15,26 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url);
-    const includeArchived = searchParams.get('archived') === 'true';
-    const onlyUnread = searchParams.get('unread') === 'true';
     const limit = parseInt(searchParams.get('limit') || '50');
-    const cursor = searchParams.get('cursor') || undefined;
-    const typesParam = searchParams.get('types');
-    const types = typesParam ? typesParam.split(',') as NotificationType[] : undefined;
+    const onlyUnread = searchParams.get('unread') === 'true';
 
-    const result = await getNotificationHistory(session.user.id, {
-      includeArchived,
-      onlyUnread,
-      limit,
-      cursor,
-      types,
-    });
-
-    return NextResponse.json(result);
-  } catch (error) {
-    console.error('[Notifications] GET error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch notifications' },
-      { status: 500 }
+    const result = await pool.query(
+      `SELECT * FROM notifications 
+       WHERE "userId" = $1 
+       ${onlyUnread ? 'AND "isRead" = false' : ''}
+       ORDER BY "createdAt" DESC 
+       LIMIT $2`,
+      [session.user.id, limit]
     );
+
+    return NextResponse.json({ notifications: result.rows });
+  } catch (error) {
+    console.error('[API] Error fetching notifications:', error);
+    return NextResponse.json({ error: 'Failed to fetch notifications' }, { status: 500 });
   }
 }
 
-// PATCH /api/notifications - Mark notifications as read
+// PATCH /api/notifications - Mark notification as read
 export async function PATCH(request: NextRequest) {
   try {
     const session = await auth();
@@ -52,38 +42,24 @@ export async function PATCH(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { action, notificationId } = body;
+    const { id, markAll } = await request.json();
 
-    switch (action) {
-      case 'mark-read':
-        if (notificationId) {
-          await markNotificationAsRead(notificationId, session.user.id);
-        } else {
-          await markAllNotificationsAsRead(session.user.id);
-        }
-        break;
-
-      case 'archive':
-        if (notificationId) {
-          await archiveNotification(notificationId, session.user.id);
-        }
-        break;
-
-      default:
-        return NextResponse.json(
-          { error: 'Invalid action' },
-          { status: 400 }
-        );
+    if (markAll) {
+      await pool.query(
+        'UPDATE notifications SET "isRead" = true WHERE "userId" = $1',
+        [session.user.id]
+      );
+    } else if (id) {
+      await pool.query(
+        'UPDATE notifications SET "isRead" = true WHERE id = $1 AND "userId" = $2',
+        [id, session.user.id]
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Notifications] PATCH error:', error);
-    return NextResponse.json(
-      { error: 'Failed to update notifications' },
-      { status: 500 }
-    );
+    console.error('[API] Error updating notification:', error);
+    return NextResponse.json({ error: 'Failed to update notification' }, { status: 500 });
   }
 }
 
@@ -98,20 +74,16 @@ export async function DELETE(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get('id');
 
-    if (!id) {
-      return NextResponse.json(
-        { error: 'Notification ID required' },
-        { status: 400 }
+    if (id) {
+      await pool.query(
+        'DELETE FROM notifications WHERE id = $1 AND "userId" = $2',
+        [id, session.user.id]
       );
     }
 
-    await deleteNotification(id, session.user.id);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('[Notifications] DELETE error:', error);
-    return NextResponse.json(
-      { error: 'Failed to delete notification' },
-      { status: 500 }
-    );
+    console.error('[API] Error deleting notification:', error);
+    return NextResponse.json({ error: 'Failed to delete notification' }, { status: 500 });
   }
 }

@@ -1,12 +1,13 @@
 'use client';
 
 import { useState, useEffect, Fragment } from 'react';
-import { FileText, Plus, Tag as TagIcon, X, User, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Trash2 } from 'lucide-react';
+import { FileText, Plus, Tag as TagIcon, X, User, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Trash2, Lock } from 'lucide-react';
 import { formatDate, daysUntil, getExpirationStatus } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import EditDocumentModal from '@/components/documents/EditDocumentModal';
 import DeleteDocumentModal from '@/components/documents/DeleteDocumentModal';
 import { TableSkeleton } from '@/components/ui/Skeleton';
+import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
 
 interface Category {
   id: string;
@@ -56,6 +57,12 @@ interface Employee {
 }
 
 export default function DocumentsPage() {
+  const { hasPermission, isAdmin } = usePermissions();
+  const canView = hasPermission(PERMISSIONS.DOCUMENTS.VIEW);
+  const canCreate = hasPermission(PERMISSIONS.DOCUMENTS.CREATE);
+  const canEdit = hasPermission(PERMISSIONS.DOCUMENTS.EDIT);
+  const canDelete = hasPermission(PERMISSIONS.DOCUMENTS.DELETE);
+  
   const [documents, setDocuments] = useState<Document[]>([]);
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
@@ -132,6 +139,21 @@ export default function DocumentsPage() {
       console.error('Error fetching employees:', error);
     }
   };
+
+  // Wenn keine VIEW-Berechtigung, zeige gesperrte Ansicht
+  if (!canView && !isAdmin) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-xl shadow-lg">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="h-8 w-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Modul gesperrt</h1>
+          <p className="text-gray-600">Sie haben keine Berechtigung, auf das Dokumentenmodul zuzugreifen.</p>
+        </div>
+      </div>
+    );
+  }
 
   const fetchVersionHistory = async (docId: string) => {
     setLoadingVersions((prev) => new Set(prev).add(docId));
@@ -227,13 +249,15 @@ export default function DocumentsPage() {
             Dokumentenmanagement mit Ablaufverfolgung
           </p>
         </div>
-        <button
-          onClick={() => setIsUploadModalOpen(true)}
-          className="flex items-center space-x-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
-        >
-          <Plus className="h-5 w-5" />
-          <span>Dokument hochladen</span>
-        </button>
+        {canCreate && (
+          <button
+            onClick={() => setIsUploadModalOpen(true)}
+            className="flex items-center space-x-2 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white hover:bg-primary-700"
+          >
+            <Plus className="h-5 w-5" />
+            <span>Dokument hochladen</span>
+          </button>
+        )}
       </div>
 
       {/* Upload modal for new documents */}
@@ -532,34 +556,40 @@ export default function DocumentsPage() {
 
                         <td className="whitespace-nowrap px-6 py-4" onClick={(e) => e.stopPropagation()}>
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={(e) => { e.stopPropagation(); setEditModal(doc); }}
-                              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                              title="Bearbeiten"
-                            >
-                              <Pencil className="h-3.5 w-3.5" />
-                              Bearbeiten
-                            </button>
-                            <button
-                              onClick={(e) => openNewVersionModal(doc, e)}
-                              className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                              title="Neue Version hochladen"
-                            >
-                              <Upload className="h-3.5 w-3.5" />
-                              Neue Version
-                            </button>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                const display = getDisplayDoc(doc);
-                                setDeleteModal({ id: doc.id, title: display.title || doc.title });
-                              }}
-                              className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                              title="Dokument löschen"
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                              Löschen
-                            </button>
+                            {canEdit && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); setEditModal(doc); }}
+                                className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                title="Bearbeiten"
+                              >
+                                <Pencil className="h-3.5 w-3.5" />
+                                Bearbeiten
+                              </button>
+                            )}
+                            {canCreate && (
+                              <button
+                                onClick={(e) => openNewVersionModal(doc, e)}
+                                className="flex items-center gap-1 rounded-lg border border-gray-300 px-2 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                title="Neue Version hochladen"
+                              >
+                                <Upload className="h-3.5 w-3.5" />
+                                Neue Version
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  const display = getDisplayDoc(doc);
+                                  setDeleteModal({ id: doc.id, title: display.title || doc.title });
+                                }}
+                                className="flex items-center gap-1 rounded-lg border border-red-200 px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
+                                title="Dokument löschen"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                                Löschen
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -13,7 +13,7 @@ interface EventBus {
 }
 
 // Globaler EventBus
-const eventBus: EventBus = {
+export const eventBus: EventBus = {
   subscribers: new Map(),
 
   emit(event: string, data: any) {

@@ -19,13 +19,15 @@ model User {
   username      String    @unique
   email         String?   @unique
   passwordHash  String
-  role          String    @default("USER")
+  roleId        String?   // Verweis auf Role Tabelle
+  role          String    @default("USER") // Legacy field für Abwärtskompatibilität
   isActive      Boolean   @default(true)
   lastLogin     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
+  roleRef      Role?     @relation(fields: [roleId], references: [id])
   auditLogs            AuditLog[]
   notifications        Notification[]
   documentsUploaded       Document[]       @relation("DocumentUploader")
@@ -669,6 +671,7 @@ enum NotificationType {
   LOW_BUDGET
   UPCOMING_VACATION
   QUALIFICATION_EXPIRING
+  QUALIFICATION_EXPIRED
   
   // Shift Swap Notifications
   SHIFT_SWAP
@@ -1314,3 +1317,89 @@ model DocumentSignature {
 
 // Extend Document model
 // (Add to Document model: signatureRequests DocumentSignatureRequest[])
+
+// ============================================================================
+// SYSTEM MODULES (Admin-controlled feature toggles)
+// ============================================================================
+
+model SystemModule {
+  id          String   @id @default(cuid())
+  key         String   @unique // z.B. "chat", "clothing", "planning", "signatures"
+  name        String   // Anzeigename z.B. "Chat & Messaging"
+  description String?  // Beschreibung für den Admin
+  icon        String?  // Lucide icon name
+  isActive    Boolean  @default(true)
+  order       Int      @default(0) // Sortierreihenfolge
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  permissions RolePermission[]
+
+  @@map("system_modules")
+}
+
+// ============================================================================
+// ROLES & PERMISSIONS
+// ============================================================================
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique // z.B. "ADMIN", "USER", "MANAGER"
+  description String?  // Beschreibung der Rolle
+  isSystem    Boolean  @default(false) // System-Rollen können nicht gelöscht werden
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users        User[]
+  permissions  RolePermission[]
+
+  @@map("roles")
+}
+
+model RolePermission {
+  id       String @id @default(cuid())
+  roleId   String
+  moduleId String
+  canAccess Boolean @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  role   Role   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  module SystemModule @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  modulePermissions RoleModulePermission[]
+
+  @@unique([roleId, moduleId])
+  @@map("role_permissions")
+}
+
+// ============================================================================
+// FINE-GRAINED PERMISSIONS
+// ============================================================================
+
+model Permission {
+  id          String   @id @default(cuid())
+  moduleId    String
+  key         String   // z.B. "employees.create", "employees.delete", "employees.edit"
+  name        String   // Anzeigename z.B. "Mitarbeiter erstellen"
+  description String?
+  
+  @@unique([moduleId, key])
+  @@map("permissions")
+}
+
+model RoleModulePermission {
+  id                 String @id @default(cuid())
+  rolePermissionId   String
+  permissionId       String
+  granted            Boolean @default(true)
+  
+  // Relations
+  rolePermission RolePermission @relation(fields: [rolePermissionId], references: [id], onDelete: Cascade)
+  
+  @@unique([rolePermissionId, permissionId])
+  @@map("role_module_permissions")
+}

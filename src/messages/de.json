@@ -39,7 +39,9 @@
     "chat": "Chat",
     "swaps": "Schicht-Tausch",
     "tasks": "Aufgaben",
-    "settings": "Einstellungen"
+    "notifications": "Benachrichtigungen",
+    "settings": "Einstellungen",
+    "moduleManagement": "Modul-Verwaltung"
   },
   "dashboard": {
     "title": "Dashboard",

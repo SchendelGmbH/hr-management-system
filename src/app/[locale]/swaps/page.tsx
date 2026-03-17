@@ -1,11 +1,59 @@
 "use client";
 
-import { Suspense } from "react";
-import { ArrowRightLeft, RefreshCw, CheckCircle, XCircle, Clock } from "lucide-react";
+import { Suspense, useEffect, useState } from "react";
+import { ArrowLeftRight, RefreshCw, CheckCircle, XCircle, Clock, Loader2, Lock } from "lucide-react";
 import { useSession } from "next-auth/react";
+import { useModules } from "@/hooks/useModules";
+import { useSystemSettings, isShiftSwapAllowed } from "@/hooks/useSystemSettings";
 
 function SwapRequestsContent() {
   const { data: session } = useSession();
+  const { activeModules, isLoading: modulesLoading } = useModules();
+  const { settings: systemSettings, isLoading: settingsLoading } = useSystemSettings();
+  const [isChecking, setIsChecking] = useState(true);
+  const [isAllowed, setIsAllowed] = useState(false);
+
+  useEffect(() => {
+    if (modulesLoading || settingsLoading) return;
+
+    // Check if module is active
+    const moduleActive = activeModules.some((m) => m.key === "shiftSwap");
+    
+    // Check if shift swap is allowed
+    const shiftSwapAllowed = isShiftSwapAllowed(systemSettings);
+
+    const allowed = moduleActive && shiftSwapAllowed;
+    setIsAllowed(allowed);
+    setIsChecking(false);
+
+    // Don't redirect, just show the blocked view
+    // The component will render the blocked state below
+  }, [activeModules, systemSettings, modulesLoading, settingsLoading]);
+
+  if (isChecking || modulesLoading || settingsLoading) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-8 w-8 animate-spin text-primary-600" />
+          <p className="text-gray-500">Lade...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAllowed) {
+    return (
+      <div className="flex h-96 items-center justify-center">
+        <div className="text-center max-w-md mx-auto p-8 bg-white rounded-xl shadow-lg">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="h-8 w-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Modul gesperrt</h1>
+          <p className="text-gray-600">Dieses Modul ist deaktiviert.</p>
+        </div>
+      </div>
+    );
+  }
 
   // Platzhalter - würde normalerweise Daten von API laden
   const stats = {
@@ -77,7 +125,7 @@ function SwapRequestsContent() {
         <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm dark:border-gray-700 dark:bg-gray-800">
           <div className="flex items-center space-x-3">
             <div className="rounded-lg bg-blue-100 p-2 dark:bg-blue-900/30">
-              <ArrowRightLeft className="h-5 w-5 text-blue-600" />
+              <ArrowLeftRight className="h-5 w-5 text-blue-600" />
             </div>
             <div>
               <p className="text-sm text-gray-500 dark:text-gray-400">Gesamt</p>
@@ -90,7 +138,7 @@ function SwapRequestsContent() {
       {/* Info Card */}
       <div className="rounded-lg border border-blue-200 bg-blue-50 p-4 dark:border-blue-800 dark:bg-blue-900/20">
         <div className="flex items-start space-x-3">
-          <ArrowRightLeft className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+          <ArrowLeftRight className="h-5 w-5 text-blue-600 dark:text-blue-400" />
           <div>
             <h3 className="font-medium text-blue-900 dark:text-blue-200">
               Schicht-Tausch Modul
@@ -105,14 +153,14 @@ function SwapRequestsContent() {
                 className="inline-flex items-center space-x-1 text-sm font-medium text-blue-700 hover:text-blue-800 dark:text-blue-300"
               >
                 <span>Zum Kalender</span>
-                <ArrowRightLeft className="h-3 w-3" />
+                <ArrowLeftRight className="h-3 w-3" />
               </a>
               <a
                 href="/de/my-schedule"
                 className="inline-flex items-center space-x-1 text-sm font-medium text-blue-700 hover:text-blue-800 dark:text-blue-300"
               >
                 <span>Zu meinem Dienstplan</span>
-                <ArrowRightLeft className="h-3 w-3" />
+                <ArrowLeftRight className="h-3 w-3" />
               </a>
             </div>
           </div>
@@ -123,7 +171,7 @@ function SwapRequestsContent() {
       <div className="rounded-lg border border-gray-200 bg-white p-8 shadow-sm dark:border-gray-700 dark:bg-gray-800">
         <div className="flex flex-col items-center justify-center space-y-4 py-12 text-center">
           <div className="rounded-full bg-gray-100 p-4 dark:bg-gray-700">
-            <ArrowRightLeft className="h-8 w-8 text-gray-400" />
+            <ArrowLeftRight className="h-8 w-8 text-gray-400" />
           </div>
           <div>
             <h3 className="text-lg font-medium text-gray-900 dark:text-white">

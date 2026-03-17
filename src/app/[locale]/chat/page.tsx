@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
-import { ChatView } from './ChatView';
+import { ChatViewV2 } from './ChatViewV2';
 
 export default function ChatPage() {
   const [queryClient] = useState(() => new QueryClient({
@@ -16,7 +16,7 @@ export default function ChatPage() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ChatView />
+      <ChatViewV2 />
     </QueryClientProvider>
   );
 }

@@ -1,7 +1,6 @@
 export { ChatLayout } from './ChatLayout';
 export { ChatRoom } from './ChatRoom';
 export { ChatSidebar } from './ChatSidebar';
-export { ChatSearch } from './ChatSearch';
 export { MessageInput } from './MessageInput';
 export { MessageInputMobile } from './MessageInputMobile';
 export { MessageBubble } from './MessageBubble';

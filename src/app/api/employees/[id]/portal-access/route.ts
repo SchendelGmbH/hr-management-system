@@ -26,6 +26,15 @@ function sanitizeUser(user: { id: string; username: string; email: string | null
   };
 }
 
+// Helper to get roleId by name
+async function getRoleIdByName(roleName: string): Promise<string | null> {
+  const role = await prisma.role.findUnique({
+    where: { name: roleName },
+    select: { id: true }
+  });
+  return role?.id || null;
+}
+
 // GET — return linked user for employee (no passwordHash)
 export async function GET(
   _request: NextRequest,
@@ -92,15 +101,23 @@ export async function POST(
     return NextResponse.json({ error: 'Benutzername bereits vergeben' }, { status: 409 });
   }
 
+  // Get roleId from role name
+  const roleId = await getRoleIdByName(role);
+  if (!roleId) {
+    return NextResponse.json({ error: 'Rolle nicht gefunden' }, { status: 400 });
+  }
+
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
+  // Use the actual role name from the database, not hardcoded USER/ADMIN
   const user = await prisma.user.create({
     data: {
       username: username.trim(),
       email: email?.trim() || null,
       passwordHash,
-      role: role === 'ADMIN' ? 'ADMIN' : 'USER',
+      role: role, // Use the actual role name provided
+      roleId: roleId, // New role system
     },
     select: { id: true, username: true, email: true, role: true, isActive: true, lastLogin: true, createdAt: true },
   });
@@ -153,14 +170,25 @@ export async function PUT(
     }
   }
 
+  // Prepare update data
+  const updateData: any = {
+    ...(username !== undefined && { username: username.trim() }),
+    ...(email !== undefined && { email: email.trim() || null }),
+    ...(isActive !== undefined && { isActive }),
+  };
+
+  // Handle role update
+  if (role !== undefined) {
+    const roleId = await getRoleIdByName(role);
+    if (roleId) {
+      updateData.role = role; // Use the actual role name provided (Legacy)
+      updateData.roleId = roleId; // New role system
+    }
+  }
+
   const updated = await prisma.user.update({
     where: { id: employee.userId },
-    data: {
-      ...(username !== undefined && { username: username.trim() }),
-      ...(email !== undefined && { email: email.trim() || null }),
-      ...(role !== undefined && { role: role === 'ADMIN' ? 'ADMIN' : 'USER' }),
-      ...(isActive !== undefined && { isActive }),
-    },
+    data: updateData,
     select: { id: true, username: true, email: true, role: true, isActive: true, lastLogin: true, createdAt: true },
   });
 

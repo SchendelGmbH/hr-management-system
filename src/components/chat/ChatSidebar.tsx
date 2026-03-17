@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Search, 
   Plus, 
@@ -38,10 +38,18 @@ export function ChatSidebar({
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'direct' | 'group' | 'channel'>('all');
   const [isNewChatOpen, setIsNewChatOpen] = useState(false);
+  
+  // Debug: Log rooms
+  useEffect(() => {
+    console.log('[ChatSidebar] Rooms received:', rooms.length, rooms);
+  }, [rooms]);
 
+  // Filter rooms
   const filteredRooms = rooms.filter((room) => {
-    const matchesSearch = room.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      room.participants.some(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (!room) return false;
+    
+    const matchesSearch = room.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      room.participants?.some(p => p.name?.toLowerCase().includes(searchQuery.toLowerCase()));
     
     const matchesFilter = filter === 'all' || room.type === filter;
     
@@ -49,6 +57,7 @@ export function ChatSidebar({
   });
 
   const formatLastMessageTime = (date: Date) => {
+    if (!date) return '';
     const now = new Date();
     const messageDate = new Date(date);
     const isToday = messageDate.toDateString() === now.toDateString();
@@ -59,133 +68,117 @@ export function ChatSidebar({
     return format(messageDate, 'dd.MM.', { locale: de });
   };
 
+  // Calculate total unread count
+  const totalUnreadCount = rooms.reduce((sum, room) => sum + (room.unreadCount || 0), 0);
+
   return (
     <div className="flex flex-col h-full w-full bg-white dark:bg-gray-900">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex items-center justify-between mb-4">
-          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Chat</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-lg font-semibold text-gray-900 dark:text-white">Chat</h1>
+            {totalUnreadCount > 0 && (
+              <span className="bg-primary-600 text-white text-xs px-2 py-0.5 rounded-full min-w-[20px] text-center">
+                {totalUnreadCount > 99 ? '99+' : totalUnreadCount}
+              </span>
+            )}
+          </div>
           <div className="flex items-center gap-1">
             {onCreateDirectChat && (
               <button
                 onClick={() => setIsNewChatOpen(true)}
                 className="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
-                title="Neue Direktnachricht"
+                title="Neuen Chat starten"
               >
                 <MessageSquare className="h-5 w-5" />
               </button>
             )}
-            {onCreateGroupChat && (
-              <button
-                onClick={onCreateGroupChat}
-                className="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
-                title="Neue Gruppe"
-              >
-                <Plus className="h-5 w-5" />
-              </button>
-            )}
-            <button className="p-2 rounded-full text-gray-600 hover:bg-gray-100 transition-colors dark:text-gray-300 dark:hover:bg-gray-700">
-              <Bell className="h-5 w-5" />
-            </button>
           </div>
         </div>
         
-        {/* Search with Global Shortcut Hint */}
-        <div className="relative group">
+        {/* Search */}
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 dark:text-gray-500" />
           <input
             type="text"
             placeholder="Chats durchsuchen..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            onKeyDown={(e) => {
-              if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                e.preventDefault();
-                // Dispatch custom event to open global search
-                document.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }));
-              }
-            }}
-            className="w-full pl-10 pr-14 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100 dark:placeholder-gray-500"
+            className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100"
           />
-          <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-gray-400 px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 rounded border border-gray-200 dark:border-gray-600 hidden sm:block">
-            Ctrl+K
-          </span>
         </div>
         
         {/* Filter */}
         <div className="flex items-center gap-1 mt-3">
-          <button
-            onClick={() => setFilter('all')}
-            className={clsx(
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors',
-              filter === 'all'
-                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-            )}
-          >
-            Alle
-          </button>
-          <button
-            onClick={() => setFilter('direct')}
-            className={clsx(
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors',
-              filter === 'direct'
-                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-            )}
-          >
-            Direkt
-          </button>
-          <button
-            onClick={() => setFilter('group')}
-            className={clsx(
-              'px-3 py-1 rounded-full text-xs font-medium transition-colors',
-              filter === 'group'
-                ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
-            )}
-          >
-            Gruppen
-          </button>
+          {(['all', 'direct', 'group'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={clsx(
+                'px-3 py-1 rounded-full text-xs font-medium transition-colors',
+                filter === f
+                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
+                  : 'text-gray-600 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700'
+              )}
+            >
+              {f === 'all' ? 'Alle' : f === 'direct' ? 'Direkt' : 'Gruppen'}
+            </button>
+          ))}
         </div>
       </div>
       
       {/* Room List */}
       <div className="flex-1 overflow-y-auto">
-        {loading && rooms.length === 0 ? (
+        {loading ? (
           <div className="p-4 text-center">
-            <div className="animate-spin h-6 w-6 border-2 border-primary-600 border-t-transparent rounded-full mx-auto"
-            />
+            <div className="animate-spin h-6 w-6 border-2 border-primary-600 border-t-transparent rounded-full mx-auto" />
+            <p className="text-sm text-gray-500 mt-2">Lade Chats...</p>
           </div>
-        ) : filteredRooms.length === 0 ? (
+        ) : rooms.length === 0 ? (
           <div className="p-8 text-center">
             <MessageCircle className="h-10 w-10 text-gray-300 mx-auto mb-2 dark:text-gray-600" />
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {searchQuery ? 'Keine Chats gefunden' : 'Noch keine Chats'}
+              Noch keine Chats vorhanden
             </p>
-            {filter !== 'all' && (
+            {onCreateDirectChat && (
               <button
-                onClick={() => setFilter('all')}
+                onClick={() => setIsNewChatOpen(true)}
+                className="mt-4 text-sm text-primary-600 hover:underline dark:text-primary-400"
+              >
+                Neuen Chat starten
+              </button>
+            )}
+          </div>
+        ) : filteredRooms.length === 0 ? (
+          <div className="p-8 text-center">
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Keine Chats gefunden
+            </p>
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery('')}
                 className="mt-2 text-xs text-primary-600 hover:underline dark:text-primary-400"
               >
-                Alle anzeigen
+                Suche zurücksetzen
               </button>
             )}
           </div>
         ) : (
           <div className="divide-y divide-gray-100 dark:divide-gray-800">
             {filteredRooms.map((room) => {
-              const otherParticipants = room.participants.filter(
+              if (!room) return null;
+              
+              const otherParticipants = room.participants?.filter(
                 (p) => p.id !== session?.user?.id
-              );
+              ) || [];
+              
               const displayName = room.type === 'direct'
                 ? (otherParticipants[0]?.name || 'Unbekannt')
-                : room.name;
-              const isOnline = otherParticipants.some(p => p.status === 'online');
+                : (room.name || 'Unbenannte Gruppe');
+              
               const isActive = currentRoom?.id === room.id;
-              const displayAvatar = room.type === 'direct' 
-                ? otherParticipants[0]?.avatar 
-                : undefined;
+              const unreadCount = room.unreadCount || 0;
               
               return (
                 <button
@@ -197,18 +190,12 @@ export function ChatSidebar({
                   )}
                 >
                   {/* Avatar */}
-                  <div className="relative flex-shrink-0">
+                  <div className="flex-shrink-0">
                     <div className={clsx(
-                      'h-10 w-10 rounded-full flex items-center justify-center overflow-hidden',
+                      'h-10 w-10 rounded-full flex items-center justify-center',
                       isActive ? 'bg-primary-200 dark:bg-primary-800' : 'bg-gray-100 dark:bg-gray-700'
                     )}>
-                      {displayAvatar ? (
-                        <img 
-                          src={displayAvatar} 
-                          alt={displayName} 
-                          className="h-full w-full object-cover" 
-                        />
-                      ) : room.type === 'direct' ? (
+                      {room.type === 'direct' ? (
                         <User className={clsx(
                           'h-5 w-5',
                           isActive ? 'text-primary-700 dark:text-primary-300' : 'text-gray-500 dark:text-gray-400'
@@ -220,9 +207,6 @@ export function ChatSidebar({
                         )} />
                       )}
                     </div>
-                    {room.type === 'direct' && isOnline && (
-                      <div className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-white bg-success-500 dark:border-gray-800" />
-                    )}
                   </div>
                   
                   {/* Info */}
@@ -244,7 +228,7 @@ export function ChatSidebar({
                       <p className={clsx(
                         'text-sm truncate pr-2',
                         isActive ? 'text-primary-700 dark:text-primary-400' : 'text-gray-500 dark:text-gray-400',
-                        room.unreadCount > 0 && 'font-medium text-gray-900 dark:text-gray-200'
+                        unreadCount > 0 && 'font-medium text-gray-900 dark:text-gray-200'
                       )}>
                         {room.lastMessage ? (
                           <>
@@ -253,10 +237,10 @@ export function ChatSidebar({
                           </>
                         ) : 'Noch keine Nachrichten'}
                       </p>
-                      {room.unreadCount > 0 && (
+                      {unreadCount > 0 && (
                         <span className="flex-shrink-0 inline-flex items-center justify-center h-5 min-w-[20px] px-1.5 rounded-full bg-primary-600 text-white text-xs font-medium">
-                          {room.unreadCount > 99 ? '99+' : room.unreadCount}
-                        </span>
+                          {unreadCount > 99 ? '99+' : unreadCount}
+                          </span>
                       )}
                     </div>
                   </div>
@@ -266,12 +250,13 @@ export function ChatSidebar({
           </div>
         )}
       </div>
+      
       {/* New Chat Dialog */}
       {onCreateDirectChat && (
         <NewChatDialog
           isOpen={isNewChatOpen}
           onClose={() => setIsNewChatOpen(false)}
-          onSelectEmployee={onCreateDirectChat}
+          onSelectUser={onCreateDirectChat}
         />
       )}
     </div>

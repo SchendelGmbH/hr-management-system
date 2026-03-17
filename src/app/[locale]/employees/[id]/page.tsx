@@ -5,6 +5,7 @@ import { use } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft, Edit, Trash2, FileText, Shirt, Calendar, Tag as TagIcon, X, Plus, Save, GitBranch, ChevronDown, ChevronRight, Upload, Pencil, Search, Printer, Award, ShieldCheck, Lock, Copy, Check } from 'lucide-react';
+import { usePermissions, PERMISSIONS } from '@/hooks/usePermissions';
 import { formatDate, formatCurrency } from '@/lib/utils';
 import UploadDocumentModal from '@/components/documents/UploadDocumentModal';
 import EditDocumentModal from '@/components/documents/EditDocumentModal';
@@ -102,6 +103,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const { id } = use(params);
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { hasPermission } = usePermissions();
   const [employee, setEmployee] = useState<Employee | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('stammdaten');
@@ -179,6 +181,7 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   const [showRevokeDialog, setShowRevokeDialog] = useState(false);
   const [tempPasswordModal, setTempPasswordModal] = useState<{ password: string } | null>(null);
   const [copied, setCopied] = useState(false);
+  const [availableRoles, setAvailableRoles] = useState<{id: string, name: string}[]>([]);
 
   useEffect(() => {
     fetchEmployee();
@@ -190,8 +193,24 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
   useEffect(() => {
     if (activeTab === 'portal' && !portalFetched) {
       fetchPortalAccess();
+      fetchAvailableRoles();
     }
   }, [activeTab, portalFetched]);
+
+  // Fetch available roles for portal access
+  const fetchAvailableRoles = async () => {
+    try {
+      const response = await fetch('/api/admin/roles');
+      if (response.ok) {
+        const data = await response.json();
+        // Filter to only active roles
+        const roles = (data.roles || []).filter((r: any) => r.isActive !== false);
+        setAvailableRoles(roles.map((r: any) => ({ id: r.id, name: r.name })));
+      }
+    } catch (error) {
+      console.error('Error fetching roles:', error);
+    }
+  };
 
   // Auto-enter edit mode if ?edit=true in URL
   useEffect(() => {
@@ -636,13 +655,15 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                 <Edit className="h-4 w-4" />
                 <span>Bearbeiten</span>
               </button>
-              <button
-                onClick={() => setShowDeleteDialog(true)}
-                className="flex items-center space-x-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
-              >
-                <Trash2 className="h-4 w-4" />
-                <span>Löschen</span>
-              </button>
+              {hasPermission(PERMISSIONS.EMPLOYEES.DELETE) && (
+                <button
+                  onClick={() => setShowDeleteDialog(true)}
+                  className="flex items-center space-x-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Löschen</span>
+                </button>
+              )}
             </>
           )}
         </div>
@@ -1613,8 +1634,18 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                           onChange={(e) => setPortalCreateForm((f) => ({ ...f, role: e.target.value }))}
                           className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                         >
-                          <option value="USER">Benutzer</option>
-                          <option value="ADMIN">Administrator</option>
+                          {availableRoles.length > 0 ? (
+                            availableRoles.map((role) => (
+                              <option key={role.id} value={role.name}>
+                                {role.name}
+                              </option>
+                            ))
+                          ) : (
+                            <>
+                              <option value="USER">Benutzer</option>
+                              <option value="ADMIN">Administrator</option>
+                            </>
+                          )}
                         </select>
                       </div>
                       <div className="flex gap-3 pt-1">
@@ -1688,8 +1719,18 @@ export default function EmployeeDetailPage({ params }: { params: Promise<{ id: s
                         onChange={(e) => setPortalEditForm((f) => ({ ...f, role: e.target.value }))}
                         className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
                       >
-                        <option value="USER">Benutzer</option>
-                        <option value="ADMIN">Administrator</option>
+                        {availableRoles.length > 0 ? (
+                          availableRoles.map((role) => (
+                            <option key={role.id} value={role.name}>
+                              {role.name}
+                            </option>
+                          ))
+                        ) : (
+                          <>
+                            <option value="USER">Benutzer</option>
+                            <option value="ADMIN">Administrator</option>
+                          </>
+                        )}
                       </select>
                     </div>
                     <div>

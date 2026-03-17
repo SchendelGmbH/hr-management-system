@@ -1,52 +1,27 @@
-/**
- * useSocket - React Hook für Socket.IO Realtime-Verbindung
- * 
- * Verwendung:
- * const { socket, isConnected, joinRoom, sendTyping } = useSocket();
- */
+'use client';
 
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
 
-interface UseSocketReturn {
-  socket: Socket | null;
-  isConnected: boolean;
-  isAuthenticated: boolean;
-  userId: string | null;
-  joinRoom: (roomId: string) => void;
-  leaveRoom: (roomId: string) => void;
-  sendTyping: (roomId: string, isTyping: boolean) => void;
-  onMessage: (callback: (message: any) => void) => () => void;
-  onTyping: (callback: (data: { roomId: string; userId: string; isTyping: boolean }) => void) => () => void;
-}
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3002';
 
-export function useSocket(): UseSocketReturn {
+export function useSocket() {
   const { data: session } = useSession();
-  const socketRef = useRef<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    if (!session?.user?.id) {
-      return;
-    }
+    if (!session?.user?.id) return;
 
-    // Trigger Socket.IO initialization on server first
-    fetch('/api/socket')
-      .then(() => console.log('[Socket] Server initialized'))
-      .catch(err => console.error('[Socket] Server init failed:', err));
-
-    // Initialize socket connection to separate Socket.IO server
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || (typeof window !== 'undefined' ? window.location.origin : '');
-    const socket = io(socketUrl, {
+    // Initialize socket with correct path
+    const socket = io(SOCKET_URL, {
+      path: '/api/socket',
       transports: ['websocket', 'polling'],
-      autoConnect: true,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      reconnectionDelayMax: 5000,
-      randomizationFactor: 0.5,
     });
 
     socketRef.current = socket;
@@ -56,7 +31,12 @@ export function useSocket(): UseSocketReturn {
       setIsConnected(true);
       
       // Authenticate
-      socket.emit('authenticate', session.user.id);
+      socket.emit('authenticate', { userId: session.user.id });
+    });
+
+    socket.on('authenticated', () => {
+      console.log('[Socket] Authenticated');
+      setIsAuthenticated(true);
     });
 
     socket.on('disconnect', () => {
@@ -65,30 +45,21 @@ export function useSocket(): UseSocketReturn {
       setIsAuthenticated(false);
     });
 
-    socket.on('authenticated', (data: { success: boolean; error?: string }) => {
-      if (data.success) {
-        console.log('[Socket] Authenticated');
-        setIsAuthenticated(true);
-      } else {
-        console.error('[Socket] Authentication failed:', data.error);
-      }
-    });
-
-    socket.on('error', (error: any) => {
-      console.error('[Socket] Error:', error);
+    socket.on('connect_error', (error) => {
+      console.error('[Socket] Connection error:', error);
+      setIsConnected(false);
     });
 
     return () => {
       socket.disconnect();
-      socketRef.current = null;
     };
   }, [session?.user?.id]);
 
   const joinRoom = useCallback((roomId: string) => {
-    if (socketRef.current && isAuthenticated) {
+    if (socketRef.current) {
       socketRef.current.emit('join-room', roomId);
     }
-  }, [isAuthenticated]);
+  }, []);
 
   const leaveRoom = useCallback((roomId: string) => {
     if (socketRef.current) {
@@ -96,41 +67,64 @@ export function useSocket(): UseSocketReturn {
     }
   }, []);
 
-  const sendTyping = useCallback((roomId: string, isTyping: boolean) => {
-    if (socketRef.current && isAuthenticated) {
-      socketRef.current.emit('typing', { roomId, isTyping });
+  const sendMessage = useCallback((roomId: string, message: any) => {
+    if (socketRef.current) {
+      socketRef.current.emit('send-message', { roomId, message });
     }
-  }, [isAuthenticated]);
+  }, []);
 
-  const onMessage = useCallback((callback: (message: any) => void) => {
-    const socket = socketRef.current;
-    if (!socket) return () => {};
-
-    socket.on('new-message', callback);
+  const onMessage = useCallback((callback: (data: any) => void) => {
+    if (!socketRef.current) return () => {};
+    
+    socketRef.current.on('new-message', callback);
     return () => {
-      socket.off('new-message', callback);
+      socketRef.current?.off('new-message', callback);
     };
   }, []);
 
-  const onTyping = useCallback((callback: (data: { roomId: string; userId: string; isTyping: boolean }) => void) => {
-    const socket = socketRef.current;
-    if (!socket) return () => {};
-
-    socket.on('user-typing', callback);
+  const onTyping = useCallback((callback: (data: any) => void) => {
+    if (!socketRef.current) return () => {};
+    
+    socketRef.current.on('typing', callback);
     return () => {
-      socket.off('user-typing', callback);
+      socketRef.current?.off('typing', callback);
+    };
+  }, []);
+
+  const emitTyping = useCallback((roomId: string, isTyping: boolean) => {
+    if (socketRef.current && session?.user?.id) {
+      socketRef.current.emit('typing', { roomId, userId: session.user.id, isTyping });
+    }
+  }, [session?.user?.id]);
+
+  const onNotificationCount = useCallback((callback: (data: any) => void) => {
+    if (!socketRef.current) return () => {};
+    
+    socketRef.current.on('notification-count', callback);
+    return () => {
+      socketRef.current?.off('notification-count', callback);
+    };
+  }, []);
+
+  const onChatUnreadCount = useCallback((callback: (data: any) => void) => {
+    if (!socketRef.current) return () => {};
+    
+    socketRef.current.on('chat-unread-count', callback);
+    return () => {
+      socketRef.current?.off('chat-unread-count', callback);
     };
   }, []);
 
   return {
-    socket: socketRef.current,
     isConnected,
     isAuthenticated,
-    userId: session?.user?.id || null,
     joinRoom,
     leaveRoom,
-    sendTyping,
+    sendMessage,
     onMessage,
     onTyping,
+    emitTyping,
+    onNotificationCount,
+    onChatUnreadCount,
   };
 }

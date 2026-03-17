@@ -73,6 +73,18 @@ export function SwapModal({
   useEffect(() => {
     if (isOpen) {
       loadPartners();
+      
+      // Fix: FullCalendar Header Z-Index heruntersetzen
+      const fcHeaders = document.querySelectorAll('.fc-col-header-cell, .fc-scrollgrid-section-header, .fc-col-header');
+      fcHeaders.forEach(el => {
+        (el as HTMLElement).style.zIndex = '0';
+      });
+    } else {
+      // Reset when modal closes
+      const fcHeaders = document.querySelectorAll('.fc-col-header-cell, .fc-scrollgrid-section-header, .fc-col-header');
+      fcHeaders.forEach(el => {
+        (el as HTMLElement).style.zIndex = '';
+      });
     }
   }, [isOpen]);
 
@@ -128,15 +140,32 @@ export function SwapModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <>
+      {/* Global style override for FullCalendar when modal is open */}
+      <style jsx global>{`
+        .fc .fc-col-header-cell,
+        .fc .fc-scrollgrid-section-header,
+        .fc .fc-col-header,
+        .fc th {
+          z-index: 0 !important;
+        }
+      `}</style>
+      <div 
+        className="fixed inset-0 flex items-center justify-center p-4"
+        style={{ zIndex: 2147483647 }}
+      >
       {/* Backdrop */}
       <div 
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+        style={{ zIndex: 2147483646 }}
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden">
+      <div 
+        className="relative w-full max-w-lg bg-white rounded-xl shadow-2xl overflow-hidden"
+        style={{ zIndex: 2147483647 }}
+      >
         {/* Header */}
         <div className="bg-gradient-to-r from-indigo-600 to-purple-600 px-6 py-4">
           <div className="flex items-center justify-between">
@@ -296,5 +325,6 @@ export function SwapModal({
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -7,6 +7,32 @@ import { existsSync } from 'fs';
 import { getNextColor } from '@/lib/categoryColors';
 import { extractText } from '@/lib/extractText';
 
+// Hilfsfunktion zum Prüfen von Berechtigungen
+async function checkDocumentPermission(userId: string, permissionKey: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, roleId: true }
+  });
+
+  // Admin hat immer Berechtigung
+  if (user?.role === 'ADMIN') return true;
+
+  if (!user?.roleId) return false;
+
+  const hasPermission = await prisma.roleModulePermission.findFirst({
+    where: {
+      rolePermission: {
+        roleId: user.roleId,
+        module: { key: 'documents' }
+      },
+      permission: { key: permissionKey },
+      granted: true
+    }
+  });
+
+  return !!hasPermission;
+}
+
 /** Prüft die echten Magic-Bytes (Datei-Signatur) des Puffers. */
 function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
   if (buffer.length < 4) return false;
@@ -33,6 +59,12 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
 export async function POST(request: NextRequest) {
   const { session, error: authError } = await requireAuth();
   if (authError) return authError;
+
+  // Prüfe CREATE-Berechtigung
+  const canCreate = await checkDocumentPermission(session.user.id, 'documents.create');
+  if (!canCreate) {
+    return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 });
+  }
 
   try {
     const formData = await request.formData();

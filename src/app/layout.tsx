@@ -1,9 +1,9 @@
-import type { Metadata } from "next";
-import "./globals.css";
-import { ThemeProvider } from "@/components/providers";
-import { ChatSearch } from "@/components/chat";
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
 
-export const metadata: Metadata = {
+import RootLayoutClient from './RootLayoutClient';
+
+export const metadata = {
   title: "HR Management System",
   description: "Comprehensive HR Management System",
 };
@@ -13,14 +13,5 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <html lang="de" suppressHydrationWarning>
-      <body>
-        <ThemeProvider>
-          {children}
-          <ChatSearch />
-        </ThemeProvider>
-      </body>
-    </html>
-  );
+  return <RootLayoutClient>{children}</RootLayoutClient>;
 }

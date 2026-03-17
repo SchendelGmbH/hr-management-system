@@ -24,7 +24,7 @@ export function SmartReplies({ roomId, onSelectReply, disabled }: SmartRepliesPr
   }, [roomId]);
 
   const fetchSmartReplies = async () => {
-    if (!roomId) return;
+    if (!roomId || disabled) return;
     
     setLoading(true);
 
@@ -35,16 +35,22 @@ export function SmartReplies({ roomId, onSelectReply, disabled }: SmartRepliesPr
         body: JSON.stringify({ roomId }),
       });
 
-      if (!response.ok) throw new Error('Failed to fetch');
+      if (!response.ok) {
+        // Silently fail - don't show error to user
+        console.warn('Smart replies fetch failed:', response.status);
+        setReplies([]);
+        return;
+      }
 
       const data = await response.json();
-      if (data.replies && data.replies.length > 0) {
+      if (data.replies && Array.isArray(data.replies) && data.replies.length > 0) {
         setReplies(data.replies.slice(0, 3));
       } else {
         setReplies([]);
       }
     } catch (err) {
-      console.error('Smart replies error:', err);
+      // Silently fail - feature is optional
+      console.warn('Smart replies error:', err);
       setReplies([]);
     } finally {
       setLoading(false);

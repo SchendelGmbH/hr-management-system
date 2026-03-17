@@ -2,6 +2,8 @@ import NextAuth from 'next-auth';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import * as bcrypt from 'bcryptjs';
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
 import prisma from '@/lib/prisma-base';
 import { checkLoginRateLimit, resetLoginRateLimit, getRetryAfterSeconds } from '@/lib/rateLimit';
 
@@ -35,7 +37,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           throw new Error(`Too many login attempts. Try again in ${retryAfter} seconds.`);
         }
 
-        // Find user by username or email
+        // Find user by username or email with role
         const user = await prisma.user.findFirst({
           where: {
             OR: [
@@ -43,6 +45,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
               { email: credentials.username as string },
             ],
             isActive: true,
+          },
+          include: {
+            roleRef: true, // Include role data
           },
         });
 
@@ -84,7 +89,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           id: user.id,
           name: user.username,
           email: user.email,
-          role: user.role,
+          role: user.roleRef?.name || user.role || 'USER', // Use role name from roleRef
+          roleId: user.roleRef?.id,
         };
       },
     }),
@@ -94,6 +100,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = user.role ?? 'USER';
+        token.roleId = user.roleId;
       }
       return token;
     },
@@ -101,8 +108,47 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.roleId = token.roleId as string;
       }
       return session;
     },
   },
 });
+
+// Helper: Admin-Rechte prüfen
+export async function requireAdmin(): Promise<NextResponse | null> {
+  const session = await auth();
+  
+  if (!session?.user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+  
+  // Check if user has ADMIN role
+  const isAdmin = session.user.role === 'ADMIN';
+  
+  if (!isAdmin) {
+    return NextResponse.json({ error: 'Forbidden - Admin required' }, { status: 403 });
+  }
+  
+  return null;
+}
+
+// Helper: Auth für Server Components
+export async function requireAuth() {
+  const session = await auth();
+  
+  if (!session?.user) {
+    return null;
+  }
+  
+  // Get full user with employee data and role
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    include: {
+      employee: true,
+      roleRef: true,
+    },
+  });
+  
+  return user;
+}

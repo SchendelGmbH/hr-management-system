@@ -5,6 +5,32 @@ import { getNextColor } from '@/lib/categoryColors';
 import { unlink } from 'fs/promises';
 import { join } from 'path';
 
+// Hilfsfunktion zum Prüfen von Berechtigungen
+async function checkDocumentPermission(userId: string, permissionKey: string): Promise<boolean> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { role: true, roleId: true }
+  });
+
+  // Admin hat immer Berechtigung
+  if (user?.role === 'ADMIN') return true;
+
+  if (!user?.roleId) return false;
+
+  const hasPermission = await prisma.roleModulePermission.findFirst({
+    where: {
+      rolePermission: {
+        roleId: user.roleId,
+        module: { key: 'documents' }
+      },
+      permission: { key: permissionKey },
+      granted: true
+    }
+  });
+
+  return !!hasPermission;
+}
+
 // GET /api/documents/[id] - Alle Versionen eines Dokuments abrufen
 export async function GET(
   _request: NextRequest,
@@ -13,6 +39,12 @@ export async function GET(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Prüfe VIEW-Berechtigung
+  const canView = await checkDocumentPermission(session.user.id, 'documents.view');
+  if (!canView) {
+    return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 });
   }
 
   const { id } = await params;
@@ -56,6 +88,12 @@ export async function PUT(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Prüfe EDIT-Berechtigung
+  const canEdit = await checkDocumentPermission(session.user.id, 'documents.edit');
+  if (!canEdit) {
+    return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 });
   }
 
   const { id } = await params;
@@ -161,6 +199,12 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // Prüfe DELETE-Berechtigung
+  const canDelete = await checkDocumentPermission(session.user.id, 'documents.delete');
+  if (!canDelete) {
+    return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {
@@ -223,6 +267,12 @@ export async function PATCH(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // Prüfe EDIT-Berechtigung
+  const canEdit = await checkDocumentPermission(session.user.id, 'documents.edit');
+  if (!canEdit) {
+    return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 });
   }
 
   const { id } = await params;

@@ -16,6 +16,7 @@ import { CalendarIcon, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react
 import { SwapButton } from '@/components/swaps/SwapButton';
 import { format, parseISO } from 'date-fns';
 import { de } from 'date-fns/locale';
+import { useSystemSettings, isShiftSwapAllowed } from '@/hooks/useSystemSettings';
 
 interface ShiftEvent {
   id: string;
@@ -52,10 +53,14 @@ interface ShiftCalendarViewProps {
 
 export function ShiftCalendarView({ employeeId, showAllShifts = false }: ShiftCalendarViewProps) {
   const { data: session } = useSession();
+  const { settings: systemSettings } = useSystemSettings();
   const [events, setEvents] = useState<ShiftEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek'>('dayGridMonth');
   const [currentDate, setCurrentDate] = useState(new Date());
+  
+  // Check if shift swap is allowed
+  const shiftSwapAllowed = isShiftSwapAllowed(systemSettings);
 
   const loadEvents = useCallback(async (start: Date, end: Date) => {
     if (!employeeId) return;
@@ -134,8 +139,8 @@ export function ShiftCalendarView({ employeeId, showAllShifts = false }: ShiftCa
           </div>
         </div>
 
-        {/* Tausch-Button (nur für eigene Schichten) */}
-        {isMyShift && (
+        {/* Tausch-Button (nur für eigene Schichten und wenn Schichttausch erlaubt ist) */}
+        {isMyShift && shiftSwapAllowed && (
           <div className="mt-1 flex justify-end">
             {isPending ? (
               <span className="text-[9px] bg-white/20 text-white px-1.5 py-0.5 rounded"
@@ -221,7 +226,7 @@ export function ShiftCalendarView({ employeeId, showAllShifts = false }: ShiftCa
       </div>
 
       {/* Calendar */}
-      <div className="p-4">
+      <div className="p-4 relative z-0">
         {isLoading && (
           <div className="flex justify-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600" />

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { cleanupOldNotifications } from '@/lib/notifications';
+import { cleanupOldNotifications } from '@/lib/notifications/index';
 
 /**
  * Cron job for cleaning up old notifications

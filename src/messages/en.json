@@ -35,8 +35,11 @@
     "calendar": "Calendar",
     "planning": "Daily Planning",
     "qualifications": "Qualifications",
+    "mySchedule": "My Schedule",
     "chat": "Chat",
+    "swaps": "Shift Swap",
     "tasks": "Tasks",
+    "notifications": "Notifications",
     "settings": "Settings"
   },
   "dashboard": {

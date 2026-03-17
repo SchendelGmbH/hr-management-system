@@ -236,24 +236,56 @@ export async function POST(
       data: { updatedAt: new Date() },
     });
 
+    // Get room members for unread count updates (needed before socket broadcast)
+    const roomMembers = await prisma.chatMember.findMany({
+      where: { roomId: id },
+      select: { userId: true },
+    });
+
     // Emit real-time event via Socket.IO (if available)
     try {
       const { getSocketIO } = await import('@/app/api/socket/route');
       const io = getSocketIO();
       if (io) {
-        io.to(`room:${id}`).emit('new-message', { roomId: id, message });
+        // Get all sockets in the room
+        const roomSockets = await io.in(`room:${id}`).fetchSockets();
+        console.log(`[Socket] Broadcasting message ${message.id} to ${roomSockets.length} sockets in room ${id}`);
+        console.log(`[Socket] Sender userId: ${session.user.id}`);
+        
+        let sentCount = 0;
+        let skippedCount = 0;
+        
+        for (const socket of roomSockets) {
+          const socketUserId = socket.data?.userId;
+          console.log(`[Socket] Socket ${socket.id} has userId: ${socketUserId}`);
+          
+          // Skip sender's socket - compare with the sender's userId
+          if (socketUserId === session.user.id) {
+            console.log(`[Socket] Skipping sender's socket ${socket.id}`);
+            skippedCount++;
+            continue;
+          }
+          
+          socket.emit('new-message', { roomId: id, message });
+          sentCount++;
+        }
+        
+        console.log(`[Socket] Message broadcast: ${sentCount} sent, ${skippedCount} skipped (sender)`);
+        
+        // Broadcast updated unread count to all room members (except sender)
+        if (typeof global !== 'undefined' && (global as any).broadcastChatUnreadCount) {
+          for (const member of roomMembers) {
+            if (member.userId !== session.user.id) {
+              await (global as any).broadcastChatUnreadCount(member.userId);
+            }
+          }
+        }
       }
     } catch (e) {
-      // Socket not available, ignore
+      console.error('[Socket] Error broadcasting message:', e);
     }
 
     // Emit EventBus event for Socket.IO handler to broadcast
-    // Get room members for unread count updates
-    const roomMembers = await prisma.chatMember.findMany({
-      where: { roomId: id },
-      select: { userId: true },
-    });
-    
     eventBus.emit('CHAT_MESSAGE_CREATED', {
       roomId: id,
       message,

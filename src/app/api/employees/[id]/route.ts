@@ -219,6 +219,41 @@ export async function DELETE(
   const { id } = await params;
 
   try {
+    // Check if user has delete permission
+    // Admin (role='ADMIN') always has permission
+    const isAdmin = session.user.role === 'ADMIN';
+
+    if (!isAdmin) {
+      // Check fine-grained permission via database
+      const user = await prisma.user.findUnique({
+        where: { id: session.user.id },
+        select: { roleId: true }
+      });
+
+      if (user?.roleId) {
+        const hasPermission = await prisma.roleModulePermission.findFirst({
+          where: {
+            rolePermission: {
+              roleId: user.roleId,
+              module: {
+                key: 'employees'
+              }
+            },
+            permission: {
+              key: 'employees.delete'
+            },
+            granted: true
+          }
+        });
+
+        if (!hasPermission) {
+          return NextResponse.json({ error: 'Forbidden - Insufficient permissions' }, { status: 403 });
+        }
+      } else {
+        return NextResponse.json({ error: 'Forbidden - No role assigned' }, { status: 403 });
+      }
+    }
+
     // Get employee for audit log
     const employee = await prisma.employee.findUnique({ where: { id } });
     if (!employee) {

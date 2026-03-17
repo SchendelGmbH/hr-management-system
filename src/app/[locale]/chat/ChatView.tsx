@@ -573,16 +573,7 @@ export function ChatView() {
   }, [currentRoomId, queryClient, handleCloseSignature]);
 
   const handleSendMessage = useCallback(
-    async (content: string, attachments?: Array<{
-      name: string;
-      size: number;
-      type: 'image' | 'file';
-      mimeType: string;
-      url: string;
-      thumbnailUrl?: string;
-      width?: number;
-      height?: number;
-    }>, replyToId?: string) => {
+    async (content: string, attachments?: UploadResult[], replyToId?: string) => {
       if (!currentRoomId) return;
       if (!content.trim() && (!attachments || attachments.length === 0)) return;
 

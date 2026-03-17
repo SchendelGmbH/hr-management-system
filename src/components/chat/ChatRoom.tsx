@@ -23,10 +23,21 @@ import { format } from 'date-fns';
 import { de } from 'date-fns/locale';
 import { clsx } from 'clsx';
 
+interface UploadResult {
+  name: string;
+  size: number;
+  type: 'image' | 'file';
+  mimeType: string;
+  url: string;
+  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+}
+
 interface ChatRoomProps {
   room: ChatRoomType | null;
   messages: ChatMessage[];
-  onSendMessage: (content: string, attachments?: File[], replyToId?: string) => void;
+  onSendMessage: (content: string, attachments?: UploadResult[], replyToId?: string) => void;
   onEditMessage?: (messageId: string, content: string) => void;
   onDeleteMessage?: (messageId: string) => void;
   onTyping?: (isTyping: boolean) => void;
@@ -121,7 +132,7 @@ export function ChatRoom({
   }, []);
 
   // Handle send message with reply
-  const handleSendMessage = useCallback((content: string, attachments?: File[]) => {
+  const handleSendMessage = useCallback((content: string, attachments?: UploadResult[]) => {
     onSendMessage(content, attachments, replyTo?.id);
     setReplyTo(null);
   }, [onSendMessage, replyTo]);

@@ -74,10 +74,16 @@ export function useSocket() {
   }, []);
 
   const onMessage = useCallback((callback: (data: any) => void) => {
-    if (!socketRef.current) return () => {};
+    if (!socketRef.current) {
+      console.log('[useSocket] Cannot register new-message listener - socket not available');
+      return () => {};
+    }
     
+    console.log('[useSocket] Registering new-message listener');
     socketRef.current.on('new-message', callback);
+    
     return () => {
+      console.log('[useSocket] Unregistering new-message listener');
       socketRef.current?.off('new-message', callback);
     };
   }, []);

@@ -21,15 +21,25 @@ export function useChatNotifications() {
   const { isConnected, onMessage } = useSocket();
 
   const handleNewMessage = useCallback((data: ChatMessageData) => {
+    console.log('[useChatNotifications] new-message event received:', data);
+    
     // Prüfe ob wir im Chat sind
     const currentPath = window.location.pathname;
     const isInChat = currentPath.includes('/chat');
     
-    if (isInChat) return; // Nicht anzeigen wenn bereits im Chat
+    if (isInChat) {
+      console.log('[useChatNotifications] Skipping toast - user is in chat');
+      return;
+    }
 
     const message = data?.message;
-    if (!message) return;
+    if (!message) {
+      console.log('[useChatNotifications] No message data, skipping');
+      return;
+    }
 
+    console.log('[useChatNotifications] Showing toast for message:', message.id);
+    
     // Zeige Toast
     addToast({
       title: `${message.sender?.name || 'Neue Nachricht'}`,
@@ -39,6 +49,8 @@ export function useChatNotifications() {
       type: 'info',
       duration: 8000,
     });
+    
+    console.log('[useChatNotifications] Toast added successfully');
   }, [addToast]);
 
   useEffect(() => {

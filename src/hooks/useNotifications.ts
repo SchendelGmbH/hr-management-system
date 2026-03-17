@@ -2,7 +2,7 @@
 
 import { useEffect, useCallback } from 'react';
 import { useToastContext } from '@/components/providers/ToastProvider';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/components/providers/SocketProvider';
 
 interface ChatMessageData {
   roomId: string;
@@ -56,10 +56,13 @@ export function useChatNotifications() {
   useEffect(() => {
     if (!isConnected) return;
 
-    // Registriere Listener für neue Nachrichten
+    console.log('[useChatNotifications] Registering listener...');
     const unsubscribe = onMessage(handleNewMessage);
 
-    return unsubscribe;
+    return () => {
+      console.log('[useChatNotifications] Unregistering listener...');
+      unsubscribe();
+    };
   }, [isConnected, onMessage, handleNewMessage]);
 }
 

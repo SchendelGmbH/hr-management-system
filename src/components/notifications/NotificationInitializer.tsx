@@ -1,9 +1,9 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useSession } from 'next-auth/react';
 import { useChatNotifications, useSystemNotifications } from '@/hooks/useNotifications';
-import { useSocket } from '@/hooks/useSocket';
+import { useSocket } from '@/components/providers/SocketProvider';
 
 /**
  * NotificationInitializer - Aktiviert alle Benachrichtigungen
@@ -11,8 +11,7 @@ import { useSocket } from '@/hooks/useSocket';
  */
 export function NotificationInitializer() {
   const { data: session } = useSession();
-  const { isConnected, isAuthenticated, joinRoom, socket } = useSocket();
-  const [hasJoinedRooms, setHasJoinedRooms] = useState(false);
+  const { isConnected, isAuthenticated, joinRoom } = useSocket();
   
   // Aktiviere Chat-Benachrichtigungen (Toast wenn nicht im Chat)
   useChatNotifications();
@@ -21,17 +20,11 @@ export function NotificationInitializer() {
   useSystemNotifications();
   
   // Lade alle Rooms des Nutzers und joine sie automatisch
-  // Wichtig: Bei jedem Reconnect neu ausführen!
+  // Der SocketProvider handled Reconnects automatisch!
   useEffect(() => {
-    if (!isConnected || !isAuthenticated || !session?.user?.id) {
-      setHasJoinedRooms(false);
-      return;
-    }
+    if (!isConnected || !isAuthenticated || !session?.user?.id) return;
     
-    // Vermeide doppeltes Joinen wenn bereits verbunden
-    if (hasJoinedRooms) return;
-    
-    console.log('[NotificationInitializer] Socket ready, loading rooms...');
+    console.log('[NotificationInitializer] Loading rooms...');
     
     // Lade alle Rooms des Nutzers
     fetch('/api/chat/rooms')
@@ -40,23 +33,14 @@ export function NotificationInitializer() {
         if (data.rooms && Array.isArray(data.rooms)) {
           console.log(`[NotificationInitializer] Joining ${data.rooms.length} rooms`);
           data.rooms.forEach((room: any) => {
-            console.log('[NotificationInitializer] Joining room:', room.id);
             joinRoom(room.id);
           });
-          setHasJoinedRooms(true);
         }
       })
       .catch(err => {
         console.error('[NotificationInitializer] Error loading rooms:', err);
       });
-  }, [isConnected, isAuthenticated, session?.user?.id, joinRoom, hasJoinedRooms]);
-  
-  // Reset hasJoinedRooms wenn der Socket disconnected
-  useEffect(() => {
-    if (!isConnected) {
-      setHasJoinedRooms(false);
-    }
-  }, [isConnected]);
+  }, [isConnected, isAuthenticated, session?.user?.id, joinRoom]);
   
   return null;
 }

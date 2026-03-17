@@ -244,8 +244,8 @@ export async function POST(
 
     // Emit real-time event via Socket.IO (if available)
     try {
-      const { getSocketIO } = await import('@/app/api/socket/route');
-      const io = getSocketIO();
+      // Use global.io from server.js (not from api/socket/route)
+      const io = (global as any).io;
       if (io) {
         // Get all sockets in the room
         const roomSockets = await io.in(`room:${id}`).fetchSockets();
@@ -280,6 +280,8 @@ export async function POST(
             }
           }
         }
+      } else {
+        console.log('[Socket] Socket.IO not available (global.io is undefined)');
       }
     } catch (e) {
       console.error('[Socket] Error broadcasting message:', e);

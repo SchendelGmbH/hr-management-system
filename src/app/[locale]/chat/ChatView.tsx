@@ -99,6 +99,18 @@ interface ApiMessage {
   } | null;
 }
 
+// Upload Result Type
+interface UploadResult {
+  name: string;
+  size: number;
+  type: 'image' | 'file';
+  mimeType: string;
+  url: string;
+  thumbnailUrl?: string;
+  width?: number;
+  height?: number;
+}
+
 // API Functions
 const fetchRooms = async (): Promise<ApiRoom[]> => {
   const { data } = await axios.get('/api/chat/rooms');

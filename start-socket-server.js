@@ -1,6 +1,6 @@
 /**
  * Socket.IO Server Starter
- * Startet den Socket.IO Server auf Port 3002
+ * Startet den Socket.IO Server auf Port 3000
  */
 
 const { createServer } = require('http');
@@ -13,8 +13,8 @@ const io = new Server(httpServer, {
   cors: {
     origin: [
       process.env.NEXTAUTH_URL || 'http://localhost:3000',
-      'http://srv1471808.tail4c3c89.ts.net:3001',
-      'http://localhost:3001',
+      'http://srv1471808.tail4c3c89.ts.net:3000',
+      'http://localhost:3000',
     ],
     methods: ['GET', 'POST'],
     credentials: true,

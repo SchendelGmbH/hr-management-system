@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback, use
 import { io, Socket } from 'socket.io-client';
 import { useSession } from 'next-auth/react';
 
-const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001';
+const SOCKET_URL = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000';
 
 interface SocketContextType {
   socket: Socket | null;

@@ -245,7 +245,7 @@ export async function POST(
     // Emit real-time event via internal HTTP call to broadcast endpoint
     try {
       // Use fetch to call the internal broadcast endpoint
-      const broadcastUrl = `${process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3001'}/api/chat/broadcast`;
+      const broadcastUrl = `${process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:3000'}/api/chat/broadcast`;
       
       fetch(broadcastUrl, {
         method: 'POST',

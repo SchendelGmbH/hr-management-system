@@ -93,12 +93,15 @@ export async function POST(
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 12);
 
+  const VALID_ROLES = ['ADMIN', 'USER', 'GEWERBLICH', 'PERSONALER'] as const;
+  const safeRole = VALID_ROLES.includes(role as any) ? role : 'USER';
+
   const user = await prisma.user.create({
     data: {
       username: username.trim(),
       email: email?.trim() || null,
       passwordHash,
-      role: role === 'ADMIN' ? 'ADMIN' : 'USER',
+      role: safeRole,
     },
     select: { id: true, username: true, email: true, role: true, isActive: true, lastLogin: true, createdAt: true },
   });
@@ -152,12 +155,15 @@ export async function PUT(
     }
   }
 
+  const VALID_ROLES = ['ADMIN', 'USER', 'GEWERBLICH', 'PERSONALER'] as const;
+  const safeRole = (r: string) => VALID_ROLES.includes(r as any) ? r : 'USER';
+
   const updated = await prisma.user.update({
     where: { id: employee.userId },
     data: {
       ...(username !== undefined && { username: username.trim() }),
       ...(email !== undefined && { email: email.trim() || null }),
-      ...(role !== undefined && { role: role === 'ADMIN' ? 'ADMIN' : 'USER' }),
+      ...(role !== undefined && { role: safeRole(role) }),
       ...(isActive !== undefined && { isActive }),
     },
     select: { id: true, username: true, email: true, role: true, isActive: true, lastLogin: true, createdAt: true },

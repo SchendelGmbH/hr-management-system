@@ -1,16 +1,23 @@
+import type { NextConfig } from 'next';
 import createNextIntlPlugin from 'next-intl/plugin';
 
 const withNextIntl = createNextIntlPlugin();
 
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
     },
   },
-  serverExternalPackages: ['prisma-field-encryption', '@prisma/client', 'pdf-parse', 'mammoth', '@react-pdf/renderer', 'puppeteer'],
+  serverExternalPackages: [
+    'prisma-field-encryption',
+    '@prisma/client',
+    'pdf-parse',
+    'mammoth',
+    '@react-pdf/renderer',
+    'puppeteer',
+  ],
   async headers() {
     return [
       {
@@ -25,9 +32,16 @@ const nextConfig = {
       },
     ];
   },
-  webpack: (config) => {
-    // Webpack-Filesystem-Cache deaktivieren – verhindert Rename-Fehler auf Netzlaufwerken
+  webpack: (config, { isServer }) => {
     config.cache = false;
+
+    if (!isServer) {
+      // Redirect node:crypto to our stub module before webpack tries to parse it
+      if (!config.resolve.alias) config.resolve.alias = {};
+      config.resolve.alias['node:crypto'] = './src/lib/crypto-stub.js';
+      config.resolve.alias['node'] = false;
+    }
+
     return config;
   },
 };

@@ -13,6 +13,7 @@ import { PDFDocument } from 'pdf-lib';
 export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   try {
     const body = await request.json();
@@ -84,6 +85,7 @@ export async function POST(request: NextRequest) {
     const templateNames: string[] = [];
 
     for (const template of orderedTemplates) {
+      if (!template) continue;
       const mergedVars = {
         ...baseVars,
         ...((customVariables as Record<string, Record<string, string>>)?.[template.id] ?? {}),
@@ -152,7 +154,7 @@ export async function POST(request: NextRequest) {
       await mkdir(uploadDir, { recursive: true });
     }
 
-    const documentTitle = (title?.trim() || orderedTemplates[0].name).trim();
+    const documentTitle = (title?.trim() || orderedTemplates[0]?.name || 'Document').trim();
     const safeTitle = documentTitle.replace(/[^a-zA-Z0-9äöüÄÖÜß\-_. ]/g, '_').slice(0, 60);
     const ts = Date.now();
     const filename = `${employeeId}-${ts}-${safeTitle}.pdf`;
@@ -262,7 +264,15 @@ interface SummaryPageData {
   signingDate: string;
 }
 
+function escapeHtml(str: string): string {
+  return str.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[c] ?? c));
+}
+
 function buildSummaryHtml(data: SummaryPageData): string {
+  const escapedCompanyName = escapeHtml(data.companyName);
+  const escapedEmployeeFullName = escapeHtml(data.employeeFullName);
+  const escapedSigningCity = escapeHtml(data.signingCity);
+
   const rows = data.documentRows
     .map((row, i) => {
       const pageRange = row.startPage === row.endPage
@@ -277,8 +287,8 @@ function buildSummaryHtml(data: SummaryPageData): string {
     })
     .join('');
 
-  const cityDateLine = data.signingCity
-    ? `${data.signingCity}, den ${data.signingDate}`
+  const cityDateLine = escapedSigningCity
+    ? `${escapedSigningCity}, den ${data.signingDate}`
     : `den ${data.signingDate}`;
 
   return `
@@ -310,12 +320,12 @@ function buildSummaryHtml(data: SummaryPageData): string {
 <table style="width: 90%; border-collapse: collapse;">
   <tr>
     <td style="width: 44%; vertical-align: top; padding-top: 6pt; border-top: 1pt solid #333; font-size: 11pt;">
-      ${data.companyName}<br>
+      ${escapedCompanyName}<br>
       <span style="font-size: 10pt; color: #555;">(Arbeitgeber)</span>
     </td>
     <td style="width: 12%;"></td>
     <td style="width: 44%; vertical-align: top; padding-top: 6pt; border-top: 1pt solid #333; font-size: 11pt;">
-      ${data.employeeFullName}<br>
+      ${escapedEmployeeFullName}<br>
       <span style="font-size: 10pt; color: #555;">(Arbeitnehmer)</span>
     </td>
   </tr>

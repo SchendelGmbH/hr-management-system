@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requireAdmin } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { NRW_HOLIDAYS } from '@/lib/holidays';
 
@@ -23,7 +23,7 @@ function projectToYear(ref: Date, year: number): Date {
 }
 
 export async function GET(_request: NextRequest) {
-  const { error } = await requireAuth();
+  const { session, error } = await requireAdmin();
   if (error) return error;
 
   try {

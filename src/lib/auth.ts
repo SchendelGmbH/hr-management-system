@@ -6,10 +6,17 @@ import prisma from '@/lib/prisma-base';
 import { checkLoginRateLimit, resetLoginRateLimit, getRetryAfterSeconds } from '@/lib/rateLimit';
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  trustHost: true,
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: 'jwt',
     maxAge: 30 * 60, // 30 minutes
+  },
+  cookies: {
+    sessionToken: {
+      name: 'authjs.session-token',
+      options: { httpOnly: true, sameSite: 'lax', secure: false, path: '/' },
+    },
   },
   pages: {
     signIn: '/login',
@@ -22,16 +29,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         password: { label: 'Password', type: 'password' },
         remember: { label: 'Remember me', type: 'checkbox' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         if (!credentials?.username || !credentials?.password) {
           return null;
         }
 
+        const ip = request?.headers?.get('x-forwarded-for')?.split(',')[0] ||
+                   request?.headers?.get('x-real-ip') ||
+                   'unknown';
+
         const identifier = credentials.username as string;
 
         // Rate-Limit prüfen (max. 5 Versuche / 15 Min)
-        if (!checkLoginRateLimit(identifier)) {
-          const retryAfter = getRetryAfterSeconds(identifier);
+        if (!await checkLoginRateLimit(identifier)) {
+          const retryAfter = await getRetryAfterSeconds(identifier);
           throw new Error(`Too many login attempts. Try again in ${retryAfter} seconds.`);
         }
 
@@ -61,7 +72,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         }
 
         // Rate-Limit nach erfolgreichem Login zurücksetzen
-        resetLoginRateLimit(identifier);
+        await resetLoginRateLimit(identifier);
 
         // Update last login
         await prisma.user.update({
@@ -76,7 +87,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
             action: 'LOGIN',
             entityType: 'User',
             entityId: user.id,
-            ipAddress: 'unknown', // Will be set in API route
+            ipAddress: ip,
           },
         });
 
@@ -94,6 +105,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.role = user.role ?? 'USER';
+        // Prevent session fixation: flag fresh login so client can regenerate session
+        token.justLoggedIn = true;
+      }
+      // Clear the flag on subsequent calls so session is stable after init
+      if (token.justLoggedIn) {
+        token.justLoggedIn = undefined;
       }
       return token;
     },

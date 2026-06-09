@@ -5,7 +5,7 @@ import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const { error } = await requireAuth();
+  const { session, error } = await requireAuth();
   if (error) return error;
 
   const { searchParams } = request.nextUrl;
@@ -19,7 +19,12 @@ export async function GET(request: NextRequest) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
-    if (employeeId) where.employeeId = employeeId;
+    // Non-admin darf nur eigene Qualifikationen sehen
+    if (session.user.role !== 'ADMIN') {
+      where.employeeId = session.user.id;
+    } else if (employeeId) {
+      where.employeeId = employeeId;
+    }
     if (group)      where.type = { group };
 
     const qualifications = await prisma.qualification.findMany({

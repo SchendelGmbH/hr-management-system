@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requireAuth, requireAdmin } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { NRW_HOLIDAYS, findLastWorkingDay, type WeekendMode } from '@/lib/holidays';
 
@@ -132,7 +132,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ date: string }> }
 ) {
-  const { session, error } = await requireAuth();
+  const { session, error } = await requireAdmin();
   if (error) return error;
 
   const { date: dateStr } = await params;

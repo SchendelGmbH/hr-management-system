@@ -16,6 +16,11 @@ export async function POST(
   const session = await auth();
   if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
+  // H1: IDOR-Schutz – nur ADMIN darf Vorlagen zur Dokumentgenerierung nutzen
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {

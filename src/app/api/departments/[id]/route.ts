@@ -12,6 +12,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // RBAC: Only ADMIN can delete departments
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {

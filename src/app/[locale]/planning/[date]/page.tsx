@@ -104,12 +104,6 @@ function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-function offsetDate(dateStr: string, days: number): string {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split('T')[0];
-}
-
 function nextWorkingDay(dateStr: string, delta: number, weekendMode: WeekendMode): string {
   const [year, month, day] = dateStr.split('-').map(Number);
   const d = new Date(Date.UTC(year, month - 1, day));

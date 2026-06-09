@@ -18,7 +18,13 @@ export async function PUT(
   if (!startDate || !endDate) {
     return NextResponse.json({ error: 'startDate und endDate sind erforderlich' }, { status: 400 });
   }
-  if (new Date(endDate) < new Date(startDate)) {
+  // K2: Mass-Assignment-Schutz – validiere dass beide Dates gültige ISO-Dates sind
+  const parsedStart = new Date(startDate);
+  const parsedEnd = new Date(endDate);
+  if (isNaN(parsedStart.getTime()) || isNaN(parsedEnd.getTime())) {
+    return NextResponse.json({ error: 'Ungültiges Datumsformat' }, { status: 400 });
+  }
+  if (parsedEnd < parsedStart) {
     return NextResponse.json({ error: 'Enddatum muss nach dem Anfangsdatum liegen' }, { status: 400 });
   }
 
@@ -28,9 +34,13 @@ export async function PUT(
       return NextResponse.json({ error: 'Urlaub nicht gefunden' }, { status: 404 });
     }
 
+    if (vacation.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const updated = await prisma.vacation.update({
       where: { id },
-      data: { startDate: new Date(startDate), endDate: new Date(endDate) },
+      data: { startDate: parsedStart, endDate: parsedEnd },
     });
 
     await prisma.auditLog.create({
@@ -64,6 +74,10 @@ export async function DELETE(
     const vacation = await prisma.vacation.findUnique({ where: { id } });
     if (!vacation) {
       return NextResponse.json({ error: 'Urlaub nicht gefunden' }, { status: 404 });
+    }
+
+    if (vacation.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     await prisma.vacation.delete({ where: { id } });

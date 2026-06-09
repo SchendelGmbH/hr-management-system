@@ -149,14 +149,6 @@ function LoginForm() {
               )}
             </button>
           </form>
-
-          {/* Info */}
-          <div className="mt-8 pt-6 border-t border-gray-200">
-            <p className="text-xs text-center text-gray-500">
-              Standard-Login: <span className="font-medium text-gray-700">admin</span> /
-              <span className="font-medium text-gray-700"> Admin123!</span>
-            </p>
-          </div>
         </div>
       </div>
     </div>

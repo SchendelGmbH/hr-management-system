@@ -3,7 +3,8 @@ import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import { getNextColor } from '@/lib/categoryColors';
 import { unlink } from 'fs/promises';
-import { join } from 'path';
+import { join, normalize } from 'path';
+import { existsSync } from 'fs';
 
 // GET /api/documents/[id] - Alle Versionen eines Dokuments abrufen
 export async function GET(
@@ -56,6 +57,11 @@ export async function PUT(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // RBAC: Only ADMIN can update documents
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { id } = await params;
@@ -161,6 +167,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // RBAC: Only ADMIN can delete documents
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   const { id } = await params;
 
   try {
@@ -179,11 +190,24 @@ export async function DELETE(
     // Physische Dateien von der Festplatte löschen (digitale + Druckversion)
     for (const version of container.versions) {
       if (version.filePath) {
-        // Digitale Version löschen
-        try { await unlink(join(process.cwd(), 'public', version.filePath)); } catch { /* ignorieren */ }
+        // K1: Path-Traversal-Schutz – validiere dass filePath im erlaubten Verzeichnis liegt
+        const normalizedPath = normalize(version.filePath);
+        const normalizedFull = normalize(join(process.cwd(), 'public', version.filePath));
+        if (
+          (!normalizedPath.startsWith('/uploads/') && !normalizedPath.startsWith('/documents/')) ||
+          normalizedPath.includes('..') ||
+          (!normalizedFull.startsWith(normalize(join(process.cwd(), 'public', '/uploads/'))) &&
+           !normalizedFull.startsWith(normalize(join(process.cwd(), 'public', '/documents/'))))
+        ) {
+          return NextResponse.json({ error: 'Invalid file path' }, { status: 400 });
+        }
+        // Digitale Version löschen (nur wenn existiert)
+        const fullPath = join(process.cwd(), 'public', version.filePath);
+        try { if (existsSync(fullPath)) await unlink(fullPath); } catch { /* ignorieren */ }
         // Druckversion ableiten (naming convention: *-print.pdf) und ebenfalls löschen
         const printPath = version.filePath.replace(/\.pdf$/, '-print.pdf');
-        try { await unlink(join(process.cwd(), 'public', printPath)); } catch { /* ignorieren */ }
+        const printFullPath = join(process.cwd(), 'public', printPath);
+        try { if (existsSync(printFullPath)) await unlink(printFullPath); } catch { /* ignorieren */ }
       }
     }
 
@@ -223,6 +247,11 @@ export async function PATCH(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // RBAC: Only ADMIN can snooze documents
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { id } = await params;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -8,8 +8,15 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  const session = await auth();
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // RBAC: Only ADMIN can delete vehicles
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   try {
     const { id } = await params;

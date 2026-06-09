@@ -10,11 +10,14 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const employeeId = searchParams.get('employeeId');
+  const isAdmin = session.user.role === 'ADMIN';
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
-    if (employeeId) {
-      where.employeeId = employeeId;
+    // Non-admin darf nur eigene Bestellungen sehen
+    if (session.user.role !== 'ADMIN') {
+      where.employeeId = session.user.id;
     }
 
     const orders = await prisma.clothingOrder.findMany({
@@ -25,6 +28,8 @@ export async function GET(request: NextRequest) {
             firstName: true,
             lastName: true,
             employeeNumber: true,
+            remainingBudget: isAdmin,
+            clothingBudget: isAdmin,
           },
         },
         items: {
@@ -47,6 +52,10 @@ export async function POST(request: NextRequest) {
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {

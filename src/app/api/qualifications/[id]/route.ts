@@ -53,7 +53,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Qualifikation nicht gefunden' }, { status: 404 });
     }
 
-    if (existing.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (existing.employeeId !== session.user.id && session.user.roleName !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -106,7 +106,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Qualifikation nicht gefunden' }, { status: 404 });
     }
 
-    if (qualification.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (qualification.employeeId !== session.user.id && session.user.roleName !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -154,7 +154,7 @@ export async function POST(
       return NextResponse.json({ error: 'Qualifikation nicht gefunden' }, { status: 404 });
     }
 
-    if (qualification.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (qualification.employeeId !== session.user.id && session.user.roleName !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

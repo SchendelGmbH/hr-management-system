@@ -13,7 +13,7 @@ export async function DELETE(
   }
 
   // RBAC: Only ADMIN can delete departments
-  if (session.user.role !== 'ADMIN') {
+  if (session.user.roleName !== 'ADMIN') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

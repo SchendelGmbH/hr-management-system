@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     // Non-admin darf nur eigene Urlaube sehen
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.roleName !== 'ADMIN') {
       where.employeeId = session.user.id;
     }
 
@@ -66,7 +66,7 @@ export async function POST(request: NextRequest) {
     const data = vacationSchema.parse(body);
 
     // IDOR-Schutz: Nur ADMIN darf Urlaub für andere Mitarbeiter anlegen
-    if (session.user.role !== 'ADMIN' && data.employeeId !== session.user.id) {
+    if (session.user.roleName !== 'ADMIN' && data.employeeId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

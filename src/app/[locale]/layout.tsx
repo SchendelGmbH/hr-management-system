@@ -19,7 +19,7 @@ export default async function LocaleLayout({
   const session = await auth();
 
   const navItems = session?.user
-    ? await getAccessibleNav(session.user.role, session.user.id)
+    ? await getAccessibleNav(session.user.roleId, session.user.id)
     : [];
 
   return (

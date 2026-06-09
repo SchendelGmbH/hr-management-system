@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>HR System — Datenbank Architektur</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0f1117; color: #e2e8f0; font-family: 'Segoe UI', sans-serif; padding: 40px; }
+  h1 { text-align: center; color: #f8fafc; margin-bottom: 8px; font-size: 22px; }
+  h2 { color: #94a3b8; font-size: 14px; font-weight: 400; text-align: center; margin-bottom: 40px; }
+  .page { width: 1300px; margin: 0 auto 80px; }
+  .diagram-title { color: #f8fafc; font-size: 18px; margin-bottom: 24px; font-weight: 600; }
+  .subtitle { color: #94a3b8; font-size: 13px; margin-bottom: 30px; text-align: center; }
+
+  .table { background: #1a2035; border: 1px solid #2d3748; border-radius: 8px; padding: 0; width: 240px; box-shadow: 0 4px 16px rgba(0,0,0,0.4); }
+  .table-header { padding: 10px 14px; border-radius: 8px 8px 0 0; font-size: 13px; font-weight: 700; color: #fff; text-align: center; }
+  .h-blue { background: #1d4ed8; }
+  .h-violet { background: #6d28d9; }
+  .h-orange { background: #b45309; }
+  .h-green { background: #047857; }
+  .h-red { background: #991b1b; }
+  .h-teal { background: #0e7490; }
+  .h-gray { background: #374151; }
+  .field { padding: 6px 14px; font-size: 12px; border-top: 1px solid #2d3748; display: flex; justify-content: space-between; align-items: center; }
+  .field:first-of-type { border-top: none; }
+  .field-name { color: #e2e8f0; }
+  .field-type { color: #64748b; font-size: 11px; }
+  .pk { color: #60a5fa; }
+  .fk { color: #c084fc; }
+  .req { color: #fbbf24; }
+  .uniq { color: #34d399; }
+  .comment { font-size: 10px; color: #64748b; font-style: italic; padding: 4px 14px; border-top: 1px solid #2d3748; }
+
+  .diagram { position: relative; height: 560px; }
+  svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+  line, path { stroke-width: 1.5; fill: none; }
+  .l-blue { stroke: #1d4ed8; }
+  .l-violet { stroke: #6d28d9; }
+  .l-orange { stroke: #b45309; }
+  .l-green { stroke: #047857; }
+  .l-red { stroke: #991b1b; }
+  .l-teal { stroke: #0e7490; }
+
+  .legend { display: flex; gap: 20px; justify-content: center; margin-top: 20px; font-size: 12px; color: #94a3b8; flex-wrap: wrap; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; }
+</style>
+</head>
+<body>
+
+<!-- ================================================================ -->
+<!-- DIAGRAMM 1: Kern-Relationen (User / Role / Permission)         -->
+<!-- ================================================================ -->
+<div class="page">
+  <div class="diagram-title">Kern-Architektur: User → Role → Permission</div>
+  <div class="subtitle">Jeder User ist ein Employee — Employee.userId → User.id (1:1). Rolle bestimmt Permissions.</div>
+  <div class="diagram">
+
+    <!-- Role -->
+    <div class="table" style="position:absolute;top:10px;left:30px;">
+      <div class="table-header h-violet">Role</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">name</span><span class="field-type">String @unique</span></div>
+      <div class="field"><span class="field-name">description</span><span class="field-type">String?</span></div>
+      <div class="field"><span class="field-name">createdAt</span><span class="field-type">DateTime</span></div>
+      <div class="field"><span class="field-name">updatedAt</span><span class="field-type">DateTime</span></div>
+    </div>
+
+    <!-- User -->
+    <div class="table" style="position:absolute;top:10px;left:320px;">
+      <div class="table-header h-blue">User</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">username</span><span class="field-type">String @unique</span></div>
+      <div class="field"><span class="field-name">email</span><span class="field-type">String? @unique</span></div>
+      <div class="field"><span class="field-name">passwordHash</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name fk">roleId</span><span class="field-type">String → Role.id</span></div>
+      <div class="field"><span class="field-name">isActive</span><span class="field-type">Boolean</span></div>
+      <div class="field"><span class="field-name">lastLogin</span><span class="field-type">DateTime?</span></div>
+    </div>
+
+    <!-- Employee -->
+    <div class="table" style="position:absolute;top:10px;left:610px;">
+      <div class="table-header h-green">Employee</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">employeeNumber</span><span class="field-type">String @unique</span></div>
+      <div class="field"><span class="field-name">firstName</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">lastName</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">departmentId</span><span class="field-type">String? → Dept</span></div>
+      <div class="field"><span class="field-name fk">userId</span><span class="field-type">String? @unique → User</span></div>
+      <div class="field"><span class="comment">⚠ Admin kann ohne Employee existieren</div>
+      <div class="field"><span class="comment">⚠ Alle anderen Rollen → brauchen Employee</div>
+    </div>
+
+    <!-- RolePermission -->
+    <div class="table" style="position:absolute;top:300px;left:30px;">
+      <div class="table-header h-orange">RolePermission</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">roleId</span><span class="field-type">String → Role.id</span></div>
+      <div class="field"><span class="field-name">module</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">action</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">access</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name req">@unique</span><span class="field-type">(roleId,module,action)</span></div>
+    </div>
+
+    <!-- Permissions info -->
+    <div style="position:absolute;top:320px;left:320px;background:#1a2035;border:1px solid #2d3748;border-radius:8px;padding:16px;font-size:12px;color:#94a3b8;width:280px;">
+      <div style="color:#f8fafc;font-weight:600;margin-bottom:10px;">Access-Level</div>
+      <div><span style="color:#64748b">none</span> — kein Zugriff</div>
+      <div><span style="color:#64748b">read</span> — sehen + lesen</div>
+      <div><span style="color:#64748b">write</span> — alles (inkl. löschen)</div>
+      <div style="margin-top:10px;color:#94a3b8;font-size:11px;">
+        ADMIN = "Administrator"<br>
+        Alle Permissions automatisch write<br>
+        Switches ausgegraut (nicht editierbar)
+      </div>
+    </div>
+
+    <!-- Arrows SVG -->
+    <svg>
+      <!-- Role → User (roleId FK) -->
+      <path d="M 270 55 L 320 55" class="l-violet"/>
+      <text x="280" y="48" fill="#6d28d9" font-size="10">roleId</text>
+
+      <!-- User → Employee (userId FK) -->
+      <path d="M 560 55 L 610 55" class="l-teal"/>
+      <text x="572" y="48" fill="#0e7490" font-size="10">userId</text>
+
+      <!-- Role → RolePermission -->
+      <path d="M 150 170 L 150 300" class="l-orange"/>
+      <text x="158" y="235" fill="#b45309" font-size="10">1:N</text>
+    </svg>
+
+  </div>
+</div>
+
+<!-- ================================================================ -->
+<!-- DIAGRAMM 2: Vollständige Datenbank-Architektur                  -->
+<!-- ================================================================ -->
+<div class="page">
+  <div class="diagram-title">Vollständige Datenbank-Architektur</div>
+  <div class="subtitle">Alle Tabellen — FKs farblich nach Ziel-Tabelle kodiert</div>
+  <div class="diagram" style="height:680px;">
+
+    <!-- Row 1 -->
+    <div class="table" style="position:absolute;top:0;left:0;">
+      <div class="table-header h-violet">Role</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">name</span><span class="field-type">String @unique</span></div>
+      <div class="field"><span class="field-name">description</span><span class="field-type">String?</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:0;left:270px;">
+      <div class="table-header h-blue">User</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">username</span><span class="field-type">String @unique</span></div>
+      <div class="field"><span class="field-name">email</span><span class="field-type">String? @unique</span></div>
+      <div class="field"><span class="field-name">passwordHash</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name fk">roleId</span><span class="field-type">String → Role</span></div>
+      <div class="field"><span class="field-name">isActive</span><span class="field-type">Boolean</span></div>
+      <div class="field"><span class="field-name">lastLogin</span><span class="field-type">DateTime?</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:0;left:540px;">
+      <div class="table-header h-orange">RolePermission</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">roleId</span><span class="field-type">String → Role</span></div>
+      <div class="field"><span class="field-name">module</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">action</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">access</span><span class="field-type">String</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:0;left:810px;">
+      <div class="table-header h-red">AuditLog</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">userId</span><span class="field-type">String? → User</span></div>
+      <div class="field"><span class="field-name">action</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">entityType</span><span class="field-type">String</span></div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="table" style="position:absolute;top:220px;left:0;">
+      <div class="table-header h-green">Employee</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">employeeNumber</span><span class="field-type">String @unique</span></div>
+      <div class="field"><span class="field-name">firstName</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name">lastName</span><span class="field-type">String</span></div>
+      <div class="field"><span class="field-name fk">departmentId</span><span class="field-type">String? → Dept</span></div>
+      <div class="field"><span class="field-name fk">payGradeId</span><span class="field-type">String? → PayGrade</span></div>
+      <div class="field"><span class="field-name fk req">userId</span><span class="field-type">String? @unique → User</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:220px;left:270px;">
+      <div class="table-header h-gray">Department</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">name</span><span class="field-type">String @unique</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:220px;left:540px;">
+      <div class="table-header h-gray">PayGrade</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">name</span><span class="field-type">String @unique</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:220px;left:810px;">
+      <div class="table-header h-green">Vacation</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">employeeId</span><span class="field-type">String → Employee</span></div>
+      <div class="field"><span class="field-name fk">approvedById</span><span class="field-type">String? → User</span></div>
+      <div class="field"><span class="field-name">status</span><span class="field-type">String</span></div>
+    </div>
+
+    <!-- Row 3 -->
+    <div class="table" style="position:absolute;top:440px;left:0;">
+      <div class="table-header h-gray">Document</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">uploadedById</span><span class="field-type">String? → User</span></div>
+      <div class="field"><span class="field-name fk">employeeId</span><span class="field-type">String? → Employee</span></div>
+      <div class="field"><span class="field-name fk">categoryId</span><span class="field-type">String? → DocCat</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:440px;left:270px;">
+      <div class="table-header h-gray">DocumentCategory</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">name</span><span class="field-type">String @unique</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:440px;left:540px;">
+      <div class="table-header h-gray">Qualification</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">employeeId</span><span class="field-type">String → Employee</span></div>
+      <div class="field"><span class="field-name fk">qualificationTypeId</span><span class="field-type">String? → QualType</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:440px;left:810px;">
+      <div class="table-header h-gray">QualificationType</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">name</span><span class="field-type">String @unique</span></div>
+    </div>
+
+    <!-- Row 4 -->
+    <div class="table" style="position:absolute;top:590px;left:0;">
+      <div class="table-header h-gray">ClothingOrder</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">employeeId</span><span class="field-type">String → Employee</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:590px;left:270px;">
+      <div class="table-header h-gray">Vehicle</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">licensePlate</span><span class="field-type">String @unique</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:590px;left:540px;">
+      <div class="table-header h-gray">DailyPlan</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name fk">createdById</span><span class="field-type">String? → User</span></div>
+      <div class="field"><span class="field-name fk">workSiteId</span><span class="field-type">String? → WorkSite</span></div>
+    </div>
+
+    <div class="table" style="position:absolute;top:590px;left:810px;">
+      <div class="table-header h-gray">WorkSite</div>
+      <div class="field"><span class="field-name pk">id</span><span class="field-type">String @id</span></div>
+      <div class="field"><span class="field-name req">name</span><span class="field-type">String @unique</span></div>
+    </div>
+
+    <div style="position:absolute;bottom:-20px;left:0;right:0;">
+      <div class="legend">
+        <div class="legend-item"><div class="dot" style="background:#6d28d9;"></div>Role</div>
+        <div class="legend-item"><div class="dot" style="background:#1d4ed8;"></div>User</div>
+        <div class="legend-item"><div class="dot" style="background:#b45309;"></div>RolePermission</div>
+        <div class="legend-item"><div class="dot" style="background:#047857;"></div>Employee</div>
+        <div class="legend-item"><div class="dot" style="background:#991b1b;"></div>AuditLog</div>
+        <div class="legend-item"><div class="dot" style="background:#374151;"></div>Andere</div>
+        <div class="legend-item"><span style="color:#c084fc;">●</span> FK</div>
+        <div class="legend-item"><span style="color:#fbbf24;">●</span> Required</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

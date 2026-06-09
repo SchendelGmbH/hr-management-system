@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const title = formData.get('title') as string;
 
     // H2: IDOR-Schutz – Mitarbeiter darf nur eigene Dokumente hochladen (ADMIN darf alle)
-    if (session.user.role !== 'ADMIN' && session.user.id !== employeeId) {
+    if (session.user.roleName !== 'ADMIN' && session.user.id !== employeeId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

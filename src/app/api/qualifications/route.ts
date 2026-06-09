@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     // Non-admin darf nur eigene Qualifikationen sehen
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.roleName !== 'ADMIN') {
       where.employeeId = session.user.id;
     } else if (employeeId) {
       where.employeeId = employeeId;

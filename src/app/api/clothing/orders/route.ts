@@ -9,13 +9,13 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const employeeId = searchParams.get('employeeId');
-  const isAdmin = session.user.role === 'ADMIN';
+  const isAdmin = session.user.roleName === 'ADMIN';
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     // Non-admin darf nur eigene Bestellungen sehen
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.roleName !== 'ADMIN') {
       where.employeeId = session.user.id;
     }
 

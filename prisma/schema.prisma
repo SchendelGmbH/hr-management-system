@@ -14,26 +14,49 @@ datasource db {
 // USER & AUTHENTICATION
 // ============================================================================
 
+// ============================================================================
+// ROLE
+// ============================================================================
+
+model Role {
+  id          String   @id @default(cuid())
+  name        String   @unique  // 'ADMIN', 'MITARBEITER', 'GEWERBLICH', 'PERSONALVERWALTUNG'
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  users            User[]
+  rolePermissions  RolePermission[]
+
+  @@map("roles")
+}
+
+// ============================================================================
+// USER
+// ============================================================================
+
 model User {
   id            String    @id @default(cuid())
   username      String    @unique
   email         String?   @unique
   passwordHash  String
-  role          String    @default("USER")
+  roleId        String?    // FK → Role.id (ADMIN can exist without role)
   isActive      Boolean   @default(true)
   lastLogin     DateTime?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
   // Relations
-  auditLogs            AuditLog[]
-  notifications        Notification[]
-  documentsUploaded       Document[]       @relation("DocumentUploader")
-  clothingOrdersCreated   ClothingOrder[]  @relation("ClothingOrderCreator")
-  vacationsCreated        Vacation[]       @relation("VacationCreator")
-  qualificationsCreated   Qualification[]  @relation("QualificationCreator")
-  dailyPlansCreated       DailyPlan[]      @relation("DailyPlanCreator")
-  employee             Employee?
+  role              Role?              @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  auditLogs         AuditLog[]
+  notifications     Notification[]
+  documentsUploaded Document[]         @relation("DocumentUploader")
+  clothingOrdersCreated ClothingOrder[] @relation("ClothingOrderCreator")
+  vacationsCreated   Vacation[]        @relation("VacationCreator")
+  qualificationsCreated Qualification[] @relation("QualificationCreator")
+  dailyPlansCreated  DailyPlan[]       @relation("DailyPlanCreator")
+  employee          Employee?
 
   @@map("users")
 }
@@ -659,14 +682,17 @@ model Vehicle {
 
 model RolePermission {
   id        String   @id @default(cuid())
-  role      String   // 'ADMIN' or 'USER'
+  roleId    String   // FK → Role.id
   module    String   // e.g. 'employees', 'vacations', 'dashboard'
   action    String   // e.g. 'view', 'create', 'edit', 'delete'
   access    String   // 'none', 'read', 'write'
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([role, module, action])
+  // Relations
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, module, action])
   @@map("role_permissions")
 }
 

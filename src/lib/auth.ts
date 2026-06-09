@@ -91,11 +91,18 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           },
         });
 
+        // Find user with role name
+        const userWithRole = await prisma.user.findUnique({
+          where: { id: user.id },
+          include: { role: { select: { name: true } } },
+        });
+
         return {
           id: user.id,
           name: user.username,
           email: user.email,
-          role: user.role,
+          roleId: user.roleId,
+          roleName: userWithRole?.role?.name ?? null,
         };
       },
     }),
@@ -104,11 +111,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role ?? 'USER';
-        // Prevent session fixation: flag fresh login so client can regenerate session
+        token.roleId = user.roleId ?? null;
+        token.roleName = (user as any).roleName ?? null;
         token.justLoggedIn = true;
       }
-      // Clear the flag on subsequent calls so session is stable after init
       if (token.justLoggedIn) {
         token.justLoggedIn = undefined;
       }
@@ -117,7 +123,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async session({ session, token }) {
       if (session.user) {
         session.user.id = token.id as string;
-        session.user.role = token.role as string;
+        session.user.roleId = token.roleId as string | null;
+        (session.user as any).roleName = token.roleName as string | null;
       }
       return session;
     },

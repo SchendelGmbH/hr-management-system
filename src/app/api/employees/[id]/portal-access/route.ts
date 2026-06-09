@@ -10,12 +10,13 @@ function generateTempPassword(): string {
   return 'Tmp-' + crypto.randomBytes(8).toString('hex');
 }
 
-function sanitizeUser(user: { id: string; username: string; email: string | null; role: string; isActive: boolean; lastLogin: Date | null; createdAt: Date }) {
+function sanitizeUser(user: { id: string; username: string; email: string | null; roleId: string | null; role: { name: string } | null; isActive: boolean; lastLogin: Date | null; createdAt: Date }) {
   return {
     id: user.id,
     username: user.username,
     email: user.email,
-    role: user.role,
+    roleId: user.roleId,
+    roleName: user.role?.name ?? null,
     isActive: user.isActive,
     lastLogin: user.lastLogin,
     createdAt: user.createdAt,
@@ -42,10 +43,11 @@ export async function GET(
           id: true,
           username: true,
           email: true,
-          role: true,
+          roleId: true,
           isActive: true,
           lastLogin: true,
           createdAt: true,
+          role: { select: { name: true } },
         },
       },
     },
@@ -55,7 +57,7 @@ export async function GET(
     return NextResponse.json({ error: 'Mitarbeiter nicht gefunden' }, { status: 404 });
   }
 
-  return NextResponse.json({ user: employee.user ?? null });
+  return NextResponse.json({ user: employee.user ? sanitizeUser(employee.user as any) : null });
 }
 
 // POST — create portal access and link to employee
@@ -78,7 +80,7 @@ export async function POST(
   }
 
   const body = await request.json();
-  const { username, email, role = 'USER' } = body as { username: string; email?: string; role?: string };
+  const { username, email, roleId } = body as { username: string; email?: string; roleId?: string };
 
   if (!username?.trim()) {
     return NextResponse.json({ error: 'Benutzername erforderlich' }, { status: 400 });
@@ -90,20 +92,29 @@ export async function POST(
     return NextResponse.json({ error: 'Benutzername bereits vergeben' }, { status: 409 });
   }
 
+  // Validate roleId — must exist in Role table (unless null for ADMIN)
+  if (roleId) {
+    const roleExists = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!roleExists) {
+      return NextResponse.json({ error: 'Ungültige Rolle' }, { status: 400 });
+    }
+    // ADMIN role cannot be assigned via portal-access (security)
+    if (roleExists.name === 'ADMIN') {
+      return NextResponse.json({ error: 'ADMIN-Rolle kann nicht zugewiesen werden' }, { status: 403 });
+    }
+  }
+
   const tempPassword = generateTempPassword();
   const passwordHash = await bcrypt.hash(tempPassword, 12);
-
-  const VALID_ROLES = ['ADMIN', 'USER', 'GEWERBLICH', 'PERSONALER'] as const;
-  const safeRole = VALID_ROLES.includes(role as any) ? role : 'USER';
 
   const user = await prisma.user.create({
     data: {
       username: username.trim(),
       email: email?.trim() || null,
       passwordHash,
-      role: safeRole,
+      roleId: roleId ?? null,
     },
-    select: { id: true, username: true, email: true, role: true, isActive: true, lastLogin: true, createdAt: true },
+    include: { role: { select: { name: true } } },
   });
 
   await prisma.employee.update({ where: { id }, data: { userId: user.id } });
@@ -114,14 +125,14 @@ export async function POST(
       action: 'CREATE_PORTAL_ACCESS',
       entityType: 'Employee',
       entityId: id,
-      newValues: { username: user.username, role: user.role },
+      newValues: { username: user.username, roleId: user.roleId, roleName: user.role?.name },
     },
   });
 
-  return NextResponse.json({ user: sanitizeUser(user), tempPassword }, { status: 201 });
+  return NextResponse.json({ user: sanitizeUser(user as any), tempPassword }, { status: 201 });
 }
 
-// PUT — update username / email / role / isActive
+// PUT — update username / email / roleId / isActive
 export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -138,10 +149,10 @@ export async function PUT(
   }
 
   const body = await request.json();
-  const { username, email, role, isActive } = body as {
+  const { username, email, roleId, isActive } = body as {
     username?: string;
     email?: string;
-    role?: string;
+    roleId?: string | null;
     isActive?: boolean;
   };
 
@@ -155,18 +166,26 @@ export async function PUT(
     }
   }
 
-  const VALID_ROLES = ['ADMIN', 'USER', 'GEWERBLICH', 'PERSONALER'] as const;
-  const safeRole = (r: string) => VALID_ROLES.includes(r as any) ? r : 'USER';
+  // Validate roleId if provided
+  if (roleId !== undefined && roleId !== null) {
+    const roleExists = await prisma.role.findUnique({ where: { id: roleId } });
+    if (!roleExists) {
+      return NextResponse.json({ error: 'Ungültige Rolle' }, { status: 400 });
+    }
+    if (roleExists.name === 'ADMIN') {
+      return NextResponse.json({ error: 'ADMIN-Rolle kann nicht zugewiesen werden' }, { status: 403 });
+    }
+  }
 
   const updated = await prisma.user.update({
     where: { id: employee.userId },
     data: {
       ...(username !== undefined && { username: username.trim() }),
       ...(email !== undefined && { email: email.trim() || null }),
-      ...(role !== undefined && { role: safeRole(role) }),
+      ...(roleId !== undefined && { roleId }),
       ...(isActive !== undefined && { isActive }),
     },
-    select: { id: true, username: true, email: true, role: true, isActive: true, lastLogin: true, createdAt: true },
+    include: { role: { select: { name: true } } },
   });
 
   await prisma.auditLog.create({
@@ -175,11 +194,11 @@ export async function PUT(
       action: 'UPDATE_PORTAL_ACCESS',
       entityType: 'Employee',
       entityId: id,
-      newValues: { username: updated.username, role: updated.role, isActive: updated.isActive },
+      newValues: { username: updated.username, roleId: updated.roleId, roleName: updated.role?.name, isActive: updated.isActive },
     },
   });
 
-  return NextResponse.json({ user: sanitizeUser(updated) });
+  return NextResponse.json({ user: sanitizeUser(updated as any) });
 }
 
 // DELETE — revoke portal access (unlink + delete user)

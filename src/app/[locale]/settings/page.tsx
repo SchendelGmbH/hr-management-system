@@ -1,8 +1,22 @@
 import Link from 'next/link';
-import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText, CircleDollarSign, Award, MapPin, CalendarDays } from 'lucide-react';
+import { Building2, Tag, Sliders, Users, Bell, FileCheck, FileText, CircleDollarSign, Award, MapPin, CalendarDays, Shield, Users2 } from 'lucide-react';
 
 export default function SettingsPage() {
   const settings = [
+    {
+      title: 'Rollenverwaltung',
+      description: 'Rollen anlegen, bearbeiten und Berechtigungen zuweisen',
+      icon: Users2,
+      href: '/de/settings/roles',
+      available: true,
+    },
+    {
+      title: 'Berechtigungen',
+      description: 'Zugriffsrechte pro Rolle und Modul verwalten',
+      icon: Shield,
+      href: '/de/settings/permissions',
+      available: true,
+    },
     {
       title: 'Abteilungen',
       description: 'Abteilungen verwalten',

@@ -35,7 +35,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Urlaub nicht gefunden' }, { status: 404 });
     }
 
-    if (vacation.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (vacation.employeeId !== session.user.id && session.user.roleName !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -78,7 +78,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Urlaub nicht gefunden' }, { status: 404 });
     }
 
-    if (vacation.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+    if (vacation.employeeId !== session.user.id && session.user.roleName !== 'ADMIN') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

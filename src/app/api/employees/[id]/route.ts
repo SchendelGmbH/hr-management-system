@@ -63,7 +63,7 @@ export async function GET(
     }
 
     // IDOR-Schutz: Nur ADMIN oder der eigene Mitarbeiter darf die Daten sehen
-    if (session.user.role !== 'ADMIN' && employee.userId !== session.user.id) {
+    if (session.user.roleName !== 'ADMIN' && employee.userId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -76,7 +76,7 @@ export async function GET(
     }
 
     // PII-Maskierung: Non-ADMIN sieht nur unkritische Felder
-    if (session.user.role !== 'ADMIN') {
+    if (session.user.roleName !== 'ADMIN') {
       const maskedEmployee = {
         id: employee.id,
         firstName: employee.firstName,

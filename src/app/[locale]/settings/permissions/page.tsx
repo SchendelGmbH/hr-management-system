@@ -145,16 +145,22 @@ function AccessSwitch({
     const rect = e.currentTarget.querySelector('.switch-track')?.getBoundingClientRect();
     if (!rect) return;
     const clickX = e.clientX - rect.left;
-    // Find nearest segment
-    let nearestIdx = 0;
-    let nearestDist = Infinity;
-    for (let i = 0; i < SWITCH_POSITIONS.length; i++) {
-      const centerX = SWITCH_POSITIONS[i] + 10; // thumb center
-      const dist = Math.abs(clickX - centerX);
-      if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
+    const trackWidth = rect.width; // 108
+    if (clickX < trackWidth / 3) onChange('left');
+    else if (clickX > (trackWidth * 2) / 3) onChange('right');
+    else {
+      // Middle third: nearest
+      let nearestIdx = 0, nearestDist = Infinity;
+      for (let i = 0; i < SWITCH_POSITIONS.length; i++) {
+        const dist = Math.abs(clickX - (SWITCH_POSITIONS[i] + 10));
+        if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
+      }
+      const nearest = ACCESS_ORDER[nearestIdx];
+      if (nearest !== access) {
+        const currentIdx = ACCESS_ORDER.indexOf(access);
+        onChange(nearestIdx < currentIdx ? 'left' : 'right');
+      }
     }
-    const nearest = ACCESS_ORDER[nearestIdx];
-    if (nearest !== access) onChange(nearest);
   }
 
   return (
@@ -404,15 +410,6 @@ function RoleCard({
                         access={hasMaster ? masterAccess! : highestAccess}
                         onChange={(dir) => cycleMasterAccess(mod.key, dir)}
                       />
-                      {hasMaster && (
-                        <button
-                          onClick={() => resetMasterSwitch(mod.key)}
-                          className="text-xs text-gray-400 hover:text-gray-600 underline"
-                          title="Auf individuell zurücksetzen"
-                        >
-                          zurücksetzen
-                        </button>
-                      )}
                     </div>
                   </div>
 

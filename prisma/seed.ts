@@ -278,6 +278,131 @@ async function main() {
   console.log('\n📝 Login credentials:');
   console.log('   Username: admin');
   console.log('   Password: Admin123!');
+
+  // ============================================================================
+  // 8. CREATE DEFAULT ROLE PERMISSIONS
+  // ============================================================================
+  console.log('\nCreating default role permissions...');
+
+  const permissions = [
+    // ADMIN — Alles write
+    { role: 'ADMIN', module: 'dashboard', action: 'view', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'view', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'details', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'create', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'edit', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'delete', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'portal', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'password', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'clothing', access: 'write' },
+    { role: 'ADMIN', module: 'employees', action: 'qualifications', access: 'write' },
+    { role: 'ADMIN', module: 'vacations', action: 'view_all', access: 'write' },
+    { role: 'ADMIN', module: 'vacations', action: 'view_own', access: 'write' },
+    { role: 'ADMIN', module: 'vacations', action: 'request', access: 'write' },
+    { role: 'ADMIN', module: 'vacations', action: 'approve', access: 'write' },
+    { role: 'ADMIN', module: 'vacations', action: 'edit', access: 'write' },
+    { role: 'ADMIN', module: 'vacations', action: 'delete', access: 'write' },
+    { role: 'ADMIN', module: 'qualifications', action: 'view', access: 'write' },
+    { role: 'ADMIN', module: 'qualifications', action: 'manage_types', access: 'write' },
+    { role: 'ADMIN', module: 'qualifications', action: 'create', access: 'write' },
+    { role: 'ADMIN', module: 'qualifications', action: 'edit', access: 'write' },
+    { role: 'ADMIN', module: 'qualifications', action: 'delete', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'view_items', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'view_orders', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'create_order', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'approve_order', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'delete_order', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'create_item', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'edit_item', access: 'write' },
+    { role: 'ADMIN', module: 'clothing', action: 'delete_item', access: 'write' },
+    { role: 'ADMIN', module: 'documents', action: 'view', access: 'write' },
+    { role: 'ADMIN', module: 'documents', action: 'upload', access: 'write' },
+    { role: 'ADMIN', module: 'documents', action: 'download', access: 'write' },
+    { role: 'ADMIN', module: 'documents', action: 'edit', access: 'write' },
+    { role: 'ADMIN', module: 'documents', action: 'delete', access: 'write' },
+    { role: 'ADMIN', module: 'documents', action: 'templates', access: 'write' },
+    { role: 'ADMIN', module: 'documents', action: 'categories', access: 'write' },
+    { role: 'ADMIN', module: 'vehicles', action: 'view', access: 'write' },
+    { role: 'ADMIN', module: 'vehicles', action: 'create', access: 'write' },
+    { role: 'ADMIN', module: 'vehicles', action: 'edit', access: 'write' },
+    { role: 'ADMIN', module: 'vehicles', action: 'delete', access: 'write' },
+    { role: 'ADMIN', module: 'daily_plans', action: 'view', access: 'write' },
+    { role: 'ADMIN', module: 'daily_plans', action: 'edit', access: 'write' },
+    { role: 'ADMIN', module: 'daily_plans', action: 'manage_sites', access: 'write' },
+    { role: 'ADMIN', module: 'calendar', action: 'view', access: 'write' },
+    { role: 'ADMIN', module: 'calendar', action: 'add_absence', access: 'write' },
+    { role: 'ADMIN', module: 'calendar', action: 'edit_absence', access: 'write' },
+    { role: 'ADMIN', module: 'calendar', action: 'delete_absence', access: 'write' },
+    { role: 'ADMIN', module: 'settings', action: 'audit_log', access: 'write' },
+
+    // PERSONALER — Mitarbeiter, Urlaub, Dokumente, Kleidung, Kalender, Qualifikationen
+    { role: 'PERSONALER', module: 'dashboard', action: 'view', access: 'read' },
+    { role: 'PERSONALER', module: 'employees', action: 'view', access: 'write' },
+    { role: 'PERSONALER', module: 'employees', action: 'details', access: 'write' },
+    { role: 'PERSONALER', module: 'employees', action: 'create', access: 'write' },
+    { role: 'PERSONALER', module: 'employees', action: 'edit', access: 'write' },
+    { role: 'PERSONALER', module: 'employees', action: 'portal', access: 'write' },
+    { role: 'PERSONALER', module: 'employees', action: 'clothing', access: 'write' },
+    { role: 'PERSONALER', module: 'employees', action: 'qualifications', access: 'write' },
+    { role: 'PERSONALER', module: 'vacations', action: 'view_all', access: 'write' },
+    { role: 'PERSONALER', module: 'vacations', action: 'view_own', access: 'read' },
+    { role: 'PERSONALER', module: 'vacations', action: 'approve', access: 'write' },
+    { role: 'PERSONALER', module: 'vacations', action: 'request', access: 'read' },
+    { role: 'PERSONALER', module: 'vacations', action: 'edit', access: 'write' },
+    { role: 'PERSONALER', module: 'documents', action: 'view', access: 'write' },
+    { role: 'PERSONALER', module: 'documents', action: 'upload', access: 'write' },
+    { role: 'PERSONALER', module: 'documents', action: 'download', access: 'write' },
+    { role: 'PERSONALER', module: 'documents', action: 'edit', access: 'write' },
+    { role: 'PERSONALER', module: 'documents', action: 'categories', access: 'write' },
+    { role: 'PERSONALER', module: 'clothing', action: 'view_items', access: 'write' },
+    { role: 'PERSONALER', module: 'clothing', action: 'view_orders', access: 'write' },
+    { role: 'PERSONALER', module: 'clothing', action: 'create_order', access: 'write' },
+    { role: 'PERSONALER', module: 'clothing', action: 'approve_order', access: 'write' },
+    { role: 'PERSONALER', module: 'calendar', action: 'view', access: 'write' },
+    { role: 'PERSONALER', module: 'calendar', action: 'add_absence', access: 'write' },
+    { role: 'PERSONALER', module: 'calendar', action: 'edit_absence', access: 'write' },
+    { role: 'PERSONALER', module: 'calendar', action: 'delete_absence', access: 'write' },
+    { role: 'PERSONALER', module: 'qualifications', action: 'view', access: 'write' },
+    { role: 'PERSONALER', module: 'qualifications', action: 'manage_types', access: 'write' },
+    { role: 'PERSONALER', module: 'qualifications', action: 'create', access: 'write' },
+    { role: 'PERSONALER', module: 'qualifications', action: 'edit', access: 'write' },
+    { role: 'PERSONALER', module: 'qualifications', action: 'delete', access: 'write' },
+    { role: 'PERSONALER', module: 'daily_plans', action: 'view', access: 'read' },
+
+    // GEWERBLICH — Werkstatt, Fahrzeuge, Kalender, Tagespläne
+    { role: 'GEWERBLICH', module: 'dashboard', action: 'view', access: 'read' },
+    { role: 'GEWERBLICH', module: 'calendar', action: 'view', access: 'read' },
+    { role: 'GEWERBLICH', module: 'calendar', action: 'add_absence', access: 'write' },
+    { role: 'GEWERBLICH', module: 'calendar', action: 'delete_absence', access: 'write' },
+    { role: 'GEWERBLICH', module: 'vacations', action: 'view_own', access: 'read' },
+    { role: 'GEWERBLICH', module: 'vacations', action: 'request', access: 'write' },
+    { role: 'GEWERBLICH', module: 'daily_plans', action: 'view', access: 'read' },
+    { role: 'GEWERBLICH', module: 'daily_plans', action: 'edit', access: 'write' },
+    { role: 'GEWERBLICH', module: 'vehicles', action: 'view', access: 'read' },
+
+    // USER — Basis-Zugriff
+    { role: 'USER', module: 'dashboard', action: 'view', access: 'read' },
+    { role: 'USER', module: 'calendar', action: 'view', access: 'read' },
+    { role: 'USER', module: 'calendar', action: 'add_absence', access: 'write' },
+    { role: 'USER', module: 'vacations', action: 'view_own', access: 'read' },
+    { role: 'USER', module: 'vacations', action: 'request', access: 'write' },
+    { role: 'USER', module: 'daily_plans', action: 'view', access: 'read' },
+  ];
+
+  for (const perm of permissions) {
+    await prisma.rolePermission.upsert({
+      where: { role_module_action: { role: perm.role, module: perm.module, action: perm.action } },
+      update: { access: perm.access },
+      create: perm,
+    });
+  }
+
+  console.log(`✓ Role permissions created for ADMIN, PERSONALER, GEWERBLICH, USER`);
+
+  console.log('\n✅ Database seed completed successfully!');
+  console.log('\n📝 Login credentials:');
+  console.log('   Username: admin');
+  console.log('   Password: Admin123!');
 }
 
 main()

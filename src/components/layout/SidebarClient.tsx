@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useTranslations } from 'next-intl';
@@ -21,10 +19,22 @@ import { signOut } from 'next-auth/react';
 export interface NavItem {
   name: string;
   href: string;
-  icon: React.ComponentType<{ className?: string }>;
-  adminOnly?: boolean;
-  modules?: string[]; // required modules for access
+  icon: string; // 'Calendar', 'Users', etc.
+  modules?: string[];
 }
+
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  LayoutDashboard,
+  Users,
+  FileText,
+  Calendar,
+  Settings,
+  Download,
+  ShoppingCart,
+  Package,
+  Award,
+  ClipboardList,
+};
 
 interface SidebarClientProps {
   userRole: string;
@@ -55,7 +65,7 @@ export default function SidebarClient({ userRole, navItems }: SidebarClientProps
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
-          const Icon = item.icon;
+          const Icon = iconMap[item.icon] ?? LayoutDashboard;
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 
           return (

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { requireAuth, requireAdmin } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
@@ -6,12 +7,7 @@ import prisma from '@/lib/prisma';
 export const dynamic = 'force-dynamic';
 
 function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let result = 'Tmp-';
-  for (let i = 0; i < 8; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
+  return 'Tmp-' + crypto.randomBytes(8).toString('hex');
 }
 
 function sanitizeUser(user: { id: string; username: string; email: string | null; role: string; isActive: boolean; lastLogin: Date | null; createdAt: Date }) {
@@ -31,8 +27,13 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth();
+  const { session, error } = await requireAuth();
   if (error) return error;
+
+  // ADMIN-Gate: Nur ADMIN darf Portal-Zugangsdaten sehen
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
 
   const { id } = await params;
 

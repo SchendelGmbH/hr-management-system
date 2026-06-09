@@ -360,7 +360,7 @@ export default function CalendarPage() {
               validRange={{ start: VALID_START, end: VALID_END }}
               height="auto"
               eventDisplay="block"
-              eventOrder={(a: { extendedProps: { sortOrder?: number } }, b: { extendedProps: { sortOrder?: number } }) =>
+              eventOrder={(a: any, b: any) =>
                 (a.extendedProps?.sortOrder ?? 99) - (b.extendedProps?.sortOrder ?? 99)
               }
               dayMaxEvents={5}

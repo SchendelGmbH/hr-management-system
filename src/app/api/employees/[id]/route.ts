@@ -62,12 +62,29 @@ export async function GET(
       return NextResponse.json({ error: 'Employee not found' }, { status: 404 });
     }
 
+    // IDOR-Schutz: Nur ADMIN oder der eigene Mitarbeiter darf die Daten sehen
+    if (session.user.role !== 'ADMIN' && employee.userId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Auto-Reset des Budgets bei neuem Quartal — kein zweiter DB-Fetch nötig
     const wasReset = await checkAndResetBudget(employee);
     if (wasReset) {
       // Felder direkt im Objekt aktualisieren statt erneut zu laden
       (employee as any).remainingBudget = employee.clothingBudget;
       (employee as any).lastBudgetReset = getCurrentBudgetPeriodStart(employee.startDate!);
+    }
+
+    // PII-Maskierung: Non-ADMIN sieht nur unkritische Felder
+    if (session.user.role !== 'ADMIN') {
+      const maskedEmployee = {
+        id: employee.id,
+        firstName: employee.firstName,
+        lastName: employee.lastName,
+        employeeNumber: employee.employeeNumber,
+        department: employee.department,
+      };
+      return NextResponse.json(maskedEmployee);
     }
 
     return NextResponse.json(employee);
@@ -96,15 +113,12 @@ const updateEmployeeSchema = z.object({
     (val) => (typeof val === 'string' ? parseFloat(val) : val),
     z.number().min(0).optional()
   ),
-  // Adresse
   street: emptyToNull,
   zipCode: emptyToNull,
   city: emptyToNull,
-  // Steuern & Sozialversicherung
   socialSecurityNumber: emptyToNull,
   taxId: emptyToNull,
   healthInsurance: emptyToNull,
-  // Vertrag & Vergütung
   isFixedTerm: z.boolean().optional(),
   fixedTermEndDate: emptyToNull,
   probationEndDate: emptyToNull,
@@ -117,10 +131,8 @@ const updateEmployeeSchema = z.object({
     (val) => (val === '' || val === null ? null : typeof val === 'string' ? parseInt(val) : val),
     z.number().int().min(0).optional().nullable()
   ),
-  // Zugang & Identifikation
   keyNumber: emptyToNull,
   chipNumber: emptyToNull,
-  // Qualifikationen & Lizenzen
   driversLicenseClass: emptyToNull,
   forkliftLicense: z.boolean().optional(),
 });
@@ -132,6 +144,11 @@ export async function PUT(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // RBAC: Only ADMIN can update employees
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { id } = await params;
@@ -214,6 +231,11 @@ export async function DELETE(
   const session = await auth();
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // RBAC: Only ADMIN can delete employees
+  if (session.user.role !== 'ADMIN') {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   const { id } = await params;

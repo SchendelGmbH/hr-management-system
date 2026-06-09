@@ -48,6 +48,11 @@ export async function POST(
 
   const { id: employeeId } = await params;
 
+  // IDOR-Schutz: Nur ADMIN oder der eigene Mitarbeiter darf Qualifikationen verwalten
+  if (session.user.role !== 'ADMIN' && employeeId !== session.user.id) {
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  }
+
   try {
     const body = await request.json();
     const data = schema.parse(body);

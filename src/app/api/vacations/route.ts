@@ -12,11 +12,19 @@ const vacationSchema = z.object({
 });
 
 export async function GET(_request: NextRequest) {
-  const { error } = await requireAuth();
+  const { session, error } = await requireAuth();
   if (error) return error;
 
   try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const where: any = {};
+    // Non-admin darf nur eigene Urlaube sehen
+    if (session.user.role !== 'ADMIN') {
+      where.employeeId = session.user.id;
+    }
+
     const vacations = await prisma.vacation.findMany({
+      where,
       include: {
         employee: {
           select: {
@@ -49,6 +57,11 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const data = vacationSchema.parse(body);
+
+    // IDOR-Schutz: Nur ADMIN darf Urlaub für andere Mitarbeiter anlegen
+    if (session.user.role !== 'ADMIN' && data.employeeId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     const start = new Date(data.startDate);
     const end = new Date(data.endDate);

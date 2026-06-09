@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { requireAdmin } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
+import { checkLoginRateLimit } from '@/lib/rateLimit';
 
 export const dynamic = 'force-dynamic';
 
 function generateTempPassword(): string {
-  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789';
-  let result = 'Tmp-';
-  for (let i = 0; i < 8; i++) {
-    result += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return result;
+  return 'Tmp-' + crypto.randomBytes(8).toString('hex');
 }
 
 export async function POST(
@@ -20,6 +17,14 @@ export async function POST(
 ) {
   const { session, error } = await requireAdmin();
   if (error) return error;
+
+  // Rate-Limit nach Admin-Benutzer-ID (verhindert Brute-Force gegen festes Ziel)
+  if (!(await checkLoginRateLimit(session!.user.id))) {
+    return NextResponse.json(
+      { error: 'Zu viele Versuche. Bitte warten Sie.' },
+      { status: 429 }
+    );
+  }
 
   const { id } = await params;
 
@@ -52,5 +57,8 @@ export async function POST(
   // TODO: E-Mail-Versand hier ergänzen, sobald E-Mail-System integriert ist
   // await sendPasswordResetEmail({ to: user.email, tempPassword });
 
-  return NextResponse.json({ tempPassword });
+  return NextResponse.json({
+    success: true,
+    message: 'Neues Passwort wurde gesetzt. Bitte teilen Sie es dem Mitarbeiter mit.',
+  });
 }

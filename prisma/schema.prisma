@@ -648,3 +648,39 @@ model Vehicle {
   @@index([isActive])
   @@map("vehicles")
 }
+
+// ============================================================================
+// RATE LIMITING
+// ============================================================================
+
+// ============================================================================
+// ROLE PERMISSIONS
+// ============================================================================
+
+model RolePermission {
+  id        String   @id @default(cuid())
+  role      String   // 'ADMIN' or 'USER'
+  module    String   // e.g. 'employees', 'vacations', 'dashboard'
+  action    String   // e.g. 'view', 'create', 'edit', 'delete'
+  access    String   // 'none', 'read', 'write'
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, module, action])
+  @@map("role_permissions")
+}
+
+// ============================================================================
+// RATE LIMITING
+// ============================================================================
+
+model RateLimit {
+  identifier   String
+  endpoint     String
+  windowStart  DateTime
+  attemptCount Int      @default(1)
+  lastAttempt  DateTime @default(now())
+
+  @@id([identifier, endpoint])
+  @@map("rate_limits")
+}

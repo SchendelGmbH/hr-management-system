@@ -39,6 +39,12 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File;
     const employeeId = formData.get('employeeId') as string;
     const title = formData.get('title') as string;
+
+    // H2: IDOR-Schutz – Mitarbeiter darf nur eigene Dokumente hochladen (ADMIN darf alle)
+    if (session.user.role !== 'ADMIN' && session.user.id !== employeeId) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const description = formData.get('description') as string;
     const validFrom = formData.get('validFrom') as string;
     const expirationDate = formData.get('expirationDate') as string;

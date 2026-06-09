@@ -52,6 +52,10 @@ export async function PUT(
       return NextResponse.json({ error: 'Qualifikation nicht gefunden' }, { status: 404 });
     }
 
+    if (existing.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const updated = await prisma.qualification.update({
       where: { id },
       data: {
@@ -100,6 +104,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Qualifikation nicht gefunden' }, { status: 404 });
     }
 
+    if (qualification.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Delete file if exists
     if (qualification.filePath) {
       try {
@@ -141,6 +149,10 @@ export async function POST(
     const qualification = await prisma.qualification.findUnique({ where: { id } });
     if (!qualification) {
       return NextResponse.json({ error: 'Qualifikation nicht gefunden' }, { status: 404 });
+    }
+
+    if (qualification.employeeId !== session.user.id && session.user.role !== 'ADMIN') {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     const formData = await request.formData();

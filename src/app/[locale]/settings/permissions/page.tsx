@@ -140,16 +140,21 @@ function AccessSwitch({
 }) {
   const idx = ACCESS_ORDER.indexOf(access);
   const safeIdx = idx < 0 ? 0 : idx;
-  const thumbWidth = 20;
-  const currentLeft = SWITCH_POSITIONS[safeIdx];
-  const centerX = currentLeft + thumbWidth / 2;
 
   function handleClick(e: React.MouseEvent<HTMLButtonElement>) {
     const rect = e.currentTarget.querySelector('.switch-track')?.getBoundingClientRect();
-    if (!rect) { onChange('right'); return; }
+    if (!rect) return;
     const clickX = e.clientX - rect.left;
-    if (clickX < centerX) onChange('left');
-    else onChange('right');
+    // Find nearest segment
+    let nearestIdx = 0;
+    let nearestDist = Infinity;
+    for (let i = 0; i < SWITCH_POSITIONS.length; i++) {
+      const centerX = SWITCH_POSITIONS[i] + 10; // thumb center
+      const dist = Math.abs(clickX - centerX);
+      if (dist < nearestDist) { nearestDist = dist; nearestIdx = i; }
+    }
+    const nearest = ACCESS_ORDER[nearestIdx];
+    if (nearest !== access) onChange(nearest);
   }
 
   return (

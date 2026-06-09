@@ -299,19 +299,17 @@ function RoleCard({
       ? ACCESS_ORDER[(safeIdx + 1) % ACCESS_ORDER.length]
       : ACCESS_ORDER[(safeIdx + ACCESS_ORDER.length - 1) % ACCESS_ORDER.length];
 
-    // If master is set, update master instead
     const masterKey = `${role}:${module}`;
-    if (masterSwitches[masterKey] !== null && masterSwitches[masterKey] !== undefined) {
-      // Update all actions to the new value (making them uniform but still master-controlled)
-      const moduleActions = MODULES.find(m => m.key === module)?.actions ?? [];
-      setPermissions(prev => {
-        const updated = { ...prev };
-        for (const act of moduleActions) {
-          updated[`${role}:${module}:${act.action}`] = next;
-        }
-        return updated;
+    const hasMaster = masterSwitches[masterKey] !== null && masterSwitches[masterKey] !== undefined;
+
+    if (hasMaster) {
+      // Break out of master: clear master switch, set only this action
+      setMasterSwitches(prev => {
+        const next2 = { ...prev };
+        delete next2[masterKey];
+        return next2;
       });
-      setMasterSwitches(prev => ({ ...prev, [masterKey]: next }));
+      setPermissions(prev => ({ ...prev, [key]: next }));
     } else {
       setPermissions(prev => ({ ...prev, [key]: next }));
     }

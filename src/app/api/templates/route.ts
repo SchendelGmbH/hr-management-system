@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 // GET /api/templates – alle aktiven Templates abrufen (alle Benutzer)
-export async function GET() {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'documents', 'templates');
+  if (authResult.error) return authResult.error;
 
   try {
     const templates = await prisma.documentTemplate.findMany({
@@ -20,8 +20,9 @@ export async function GET() {
 
 // POST /api/templates – neues Template erstellen (nur Admin)
 export async function POST(request: NextRequest) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'documents', 'templates');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const body = await request.json();

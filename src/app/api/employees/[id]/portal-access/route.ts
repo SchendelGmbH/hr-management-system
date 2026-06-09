@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { requireAuth, requireAdmin, requirePermission } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -63,8 +63,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'employees', 'portal');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 
@@ -122,8 +123,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'employees', 'portal');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 
@@ -176,11 +178,12 @@ export async function PUT(
 
 // DELETE — revoke portal access (unlink + delete user)
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'employees', 'portal');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 

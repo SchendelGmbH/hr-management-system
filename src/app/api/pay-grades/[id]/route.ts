@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
@@ -14,8 +14,8 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'pay_grades', 'manage');
+  if (authResult.error) return authResult.error;
 
   const { id } = await params;
 
@@ -36,11 +36,11 @@ export async function PUT(
 
 // DELETE /api/pay-grades/[id]
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'pay_grades', 'manage');
+  if (authResult.error) return authResult.error;
 
   const { id } = await params;
 

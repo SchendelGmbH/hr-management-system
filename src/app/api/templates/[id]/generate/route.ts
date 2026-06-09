@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -13,13 +13,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  // H1: IDOR-Schutz – nur ADMIN darf Vorlagen zur Dokumentgenerierung nutzen
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const authResult = await requirePermission(request, 'documents', 'generate');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 

@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 const EXPIRY_DAYS = 30;
 
-export async function GET() {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'daily_plans', 'view');
+  if (authResult.error) return authResult.error;
 
   try {
     const cutoff = new Date();

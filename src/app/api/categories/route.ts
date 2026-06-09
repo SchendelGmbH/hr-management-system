@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { getNextColor } from '@/lib/categoryColors';
@@ -10,9 +10,9 @@ const categorySchema = z.object({
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).optional().nullable(),
 });
 
-export async function GET(_request: NextRequest) {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'documents', 'categories');
+  if (authResult.error) return authResult.error;
 
   try {
     const categories = await prisma.category.findMany({
@@ -32,8 +32,8 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'documents', 'categories');
+  if (authResult.error) return authResult.error;
 
   try {
     const body = await request.json();

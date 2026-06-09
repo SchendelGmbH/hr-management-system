@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
-export async function GET(_request: NextRequest) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'settings', 'audit_log');
+  if (authResult.error) return authResult.error;
 
   try {
     const logs = await prisma.auditLog.findMany({

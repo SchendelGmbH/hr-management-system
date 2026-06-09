@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
@@ -10,9 +10,9 @@ const payGradeSchema = z.object({
 });
 
 // GET /api/pay-grades
-export async function GET() {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'pay_grades', 'view');
+  if (authResult.error) return authResult.error;
 
   const payGrades = await prisma.payGrade.findMany({
     orderBy: { name: 'asc' },
@@ -24,8 +24,8 @@ export async function GET() {
 
 // POST /api/pay-grades
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'pay_grades', 'create');
+  if (authResult.error) return authResult.error;
 
   try {
     const body = await request.json();

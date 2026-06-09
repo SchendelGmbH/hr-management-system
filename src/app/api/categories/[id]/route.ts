@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 // GET /api/categories/[id] - Get single category with document count
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authResult = await requirePermission(request, 'documents', 'categories');
+  if (authResult.error) return authResult.error;
 
   const { id } = await params;
 
@@ -40,15 +38,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // RBAC: Only ADMIN can update categories
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const authResult = await requirePermission(request, 'documents', 'categories');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 
@@ -109,18 +101,12 @@ export async function PUT(
 
 // DELETE /api/categories/[id] - Delete category
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  // RBAC: Only ADMIN can delete categories
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const authResult = await requirePermission(request, 'documents', 'categories');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 

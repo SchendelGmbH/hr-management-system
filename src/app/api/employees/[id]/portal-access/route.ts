@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { requireAuth, requireAdmin, requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -24,16 +24,12 @@ function sanitizeUser(user: { id: string; username: string; email: string | null
 
 // GET — return linked user for employee (no passwordHash)
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
-
-  // ADMIN-Gate: Nur ADMIN darf Portal-Zugangsdaten sehen
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const authResult = await requirePermission(request, 'employees', 'portal');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 
@@ -110,7 +106,7 @@ export async function POST(
 
   await prisma.auditLog.create({
     data: {
-      userId: session!.user.id,
+      userId: session.user.id,
       action: 'CREATE_PORTAL_ACCESS',
       entityType: 'Employee',
       entityId: id,
@@ -167,7 +163,7 @@ export async function PUT(
 
   await prisma.auditLog.create({
     data: {
-      userId: session!.user.id,
+      userId: session.user.id,
       action: 'UPDATE_PORTAL_ACCESS',
       entityType: 'Employee',
       entityId: id,
@@ -202,7 +198,7 @@ export async function DELETE(
 
   await prisma.auditLog.create({
     data: {
-      userId: session!.user.id,
+      userId: session.user.id,
       action: 'REVOKE_PORTAL_ACCESS',
       entityType: 'Employee',
       entityId: id,

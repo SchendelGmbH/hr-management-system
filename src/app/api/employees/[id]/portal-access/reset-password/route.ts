@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { requireAdmin } from '@/lib/rbac';
+import { requireAdmin, requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { checkLoginRateLimit } from '@/lib/rateLimit';
 
@@ -12,14 +12,15 @@ function generateTempPassword(): string {
 }
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'employees', 'password');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   // Rate-Limit nach Admin-Benutzer-ID (verhindert Brute-Force gegen festes Ziel)
-  if (!(await checkLoginRateLimit(session!.user.id))) {
+  if (!(await checkLoginRateLimit(session.user.id))) {
     return NextResponse.json(
       { error: 'Zu viele Versuche. Bitte warten Sie.' },
       { status: 429 }
@@ -47,7 +48,7 @@ export async function POST(
 
   await prisma.auditLog.create({
     data: {
-      userId: session!.user.id,
+      userId: session.user.id,
       action: 'RESET_PASSWORD',
       entityType: 'Employee',
       entityId: id,

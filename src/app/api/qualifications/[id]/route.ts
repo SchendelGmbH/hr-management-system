@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 import { unlink, writeFile, mkdir } from 'fs/promises';
@@ -38,8 +38,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'qualifications', 'edit');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 
@@ -90,11 +91,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'qualifications', 'delete');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 
@@ -140,8 +142,9 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'qualifications', 'upload');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 

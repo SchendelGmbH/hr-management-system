@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -8,8 +8,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'vacations', 'edit');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
   const body = await request.json();
@@ -62,11 +63,12 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'vacations', 'delete');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 

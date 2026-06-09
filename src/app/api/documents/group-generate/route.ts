@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -11,9 +11,9 @@ import { PDFDocument } from 'pdf-lib';
 
 // POST /api/documents/group-generate – Mehrere Vorlagen zu einer Dokumentengruppe zusammenführen
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  if (session.user.role !== 'ADMIN') return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+  const authResult = await requirePermission(request, 'documents', 'group_generate');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const body = await request.json();

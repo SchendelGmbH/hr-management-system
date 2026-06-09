@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -31,8 +31,9 @@ function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  const { session, error: authError } = await requireAuth();
-  if (authError) return authError;
+  const authResult = await requirePermission(request, 'documents', 'upload');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const formData = await request.formData();

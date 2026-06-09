@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { z } from 'zod';
 
 // GET /api/clothing/items - Alle Artikel abrufen
 export async function GET(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const authResult = await requirePermission(request, 'clothing', 'view_items');
+  if (authResult.error) return authResult.error;
+  // session available via authResult.session if needed for audit
 
   const searchParams = request.nextUrl.searchParams;
   const category = searchParams.get('category');
@@ -51,14 +50,9 @@ const createItemSchema = z.object({
 });
 
 export async function POST(request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const authResult = await requirePermission(request, 'clothing', 'create_item');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const body = await request.json();

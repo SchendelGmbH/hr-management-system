@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { NRW_HOLIDAYS } from '@/lib/holidays';
 
@@ -22,9 +22,9 @@ function projectToYear(ref: Date, year: number): Date {
   return new Date(year, month, adjustedDay);
 }
 
-export async function GET(_request: NextRequest) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'calendar', 'view');
+  if (authResult.error) return authResult.error;
 
   try {
     // ── 1. Vacations ──────────────────────────────────────────────────────────

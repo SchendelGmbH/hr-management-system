@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
@@ -11,9 +11,9 @@ const schema = z.object({
   recurringIntervalMonths: z.number().int().min(1).max(120).nullable().optional(),
 });
 
-export async function GET(_request: NextRequest) {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'qualifications', 'view_types');
+  if (authResult.error) return authResult.error;
 
   try {
     const types = await prisma.qualificationType.findMany({
@@ -36,8 +36,9 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'qualifications', 'create_type');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const body = await request.json();

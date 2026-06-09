@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'vehicles', 'view');
+  if (authResult.error) return authResult.error;
 
   try {
     const vehicles = await prisma.vehicle.findMany({
@@ -21,13 +21,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
-
-  // ADMIN-only check
-  if (session.user.role !== 'ADMIN') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
+  const authResult = await requirePermission(req, 'vehicles', 'create');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const { plate, description } = await req.json();

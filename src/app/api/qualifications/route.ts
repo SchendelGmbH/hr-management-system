@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'qualifications', 'view');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { searchParams } = request.nextUrl;
   const group      = searchParams.get('group');      // INSTRUCTION | CERTIFICATE | TRAINING

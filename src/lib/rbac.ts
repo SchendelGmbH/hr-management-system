@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/prisma';
 import type { Session } from 'next-auth';
@@ -110,4 +110,28 @@ export async function canRead(role: string, module: string, action: string) {
  */
 export async function canWrite(role: string, module: string, action: string) {
   return checkPermission(role, module, action, 'POST');
+}
+/**
+ * Wrapper: Auth-Check + Permission-Check in einem.
+ * Nutzt die HTTP-Methode automatic für action mapping.
+ */
+export async function requirePermission(
+  request: NextRequest,
+  module: string,
+  actionOverride?: string
+): Promise<AuthResult> {
+  const session = await auth();
+  if (!session) {
+    return { session: null, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) };
+  }
+
+  const method = request.method as 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
+  const action = actionOverride || (method === 'GET' ? 'view' : 'create');
+
+  const result = await checkPermission(session.user.role, module, action, method);
+  if (!result.allowed) {
+    return { session: null, error: result.error };
+  }
+
+  return { session, error: null };
 }

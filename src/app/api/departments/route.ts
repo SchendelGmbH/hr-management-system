@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
@@ -8,9 +8,9 @@ const departmentSchema = z.object({
   description: z.string().max(500).optional().nullable(),
 });
 
-export async function GET(_request: NextRequest) {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'departments', 'view');
+  if (authResult.error) return authResult.error;
 
   try {
     const departments = await prisma.department.findMany({
@@ -30,8 +30,9 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'departments', 'create');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const body = await request.json();

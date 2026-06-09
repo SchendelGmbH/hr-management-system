@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requireAuth, requirePermission } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
@@ -15,11 +15,11 @@ const schema = z.object({
 });
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'employees', 'qualifications');
+  if (authResult.error) return authResult.error;
 
   const { id: employeeId } = await params;
 
@@ -43,15 +43,11 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'employees', 'qualifications');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id: employeeId } = await params;
-
-  // IDOR-Schutz: Nur ADMIN oder der eigene Mitarbeiter darf Qualifikationen verwalten
-  if (session.user.role !== 'ADMIN' && employeeId !== session.user.id) {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-  }
 
   try {
     const body = await request.json();

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/rbac';
+import { requireAuth, requirePermission } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
@@ -11,9 +11,15 @@ const vacationSchema = z.object({
   notes: z.string().max(1000).optional().nullable(),
 });
 
-export async function GET(_request: NextRequest) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  // Versuche view_all zuerst (ADMIN), dann view_own (USER)
+  let authResult = await requirePermission(request, 'vacations', 'view_all');
+  if (authResult.error) {
+    const fallback = await requirePermission(request, 'vacations', 'view_own');
+    if (fallback.error) return authResult.error;
+    authResult = fallback;
+  }
+  const { session } = authResult;
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -51,8 +57,9 @@ export async function GET(_request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const { session, error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'vacations', 'request');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const body = await request.json();

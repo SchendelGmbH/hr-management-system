@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { NextRequest, NextResponse } from 'next/server';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -13,9 +13,9 @@ const KEYS = [
   'planning_weekend_mode',
 ] as const;
 
-export async function GET() {
-  const { error } = await requireAuth();
-  if (error) return error;
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'settings', 'view_planning');
+  if (authResult.error) return authResult.error;
 
   const rows = await prisma.systemSetting.findMany({
     where: { key: { in: [...KEYS] } },
@@ -34,11 +34,11 @@ export async function GET() {
   });
 }
 
-export async function PUT(req: Request) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+export async function PUT(request: NextRequest) {
+  const authResult = await requirePermission(request, 'settings', 'edit_planning');
+  if (authResult.error) return authResult.error;
 
-  const body = await req.json() as {
+  const body = await request.json() as {
     siteRetentionDays?: number;
     poolDepartments?: string[];
     defaultStartTime?: string;

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { NRW_HOLIDAYS, findLastWorkingDay, type WeekendMode } from '@/lib/holidays';
 
@@ -42,11 +42,11 @@ async function loadPlan(date: Date) {
 }
 
 export async function GET(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: Promise<{ date: string }> }
 ) {
-  const { error } = await requireAuth();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'daily_plans', 'view');
+  if (authResult.error) return authResult.error;
 
   const { date: dateStr } = await params;
 
@@ -132,8 +132,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ date: string }> }
 ) {
-  const { session, error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'daily_plans', 'edit');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { date: dateStr } = await params;
 

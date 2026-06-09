@@ -1,12 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
-export async function GET(_request: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+export async function GET(request: NextRequest) {
+  const authResult = await requirePermission(request, 'notifications', 'view');
+  if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
     const notifications = await prisma.notification.findMany({

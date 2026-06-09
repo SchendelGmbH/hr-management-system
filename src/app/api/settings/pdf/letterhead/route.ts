@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/rbac';
+import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { writeFile, mkdir, unlink } from 'fs/promises';
 import { join, resolve, normalize } from 'path';
@@ -19,8 +19,8 @@ function safeLetterheadPath(storedPath: string): string | null {
 
 // POST /api/settings/pdf/letterhead – Globales Briefpapier hochladen
 export async function POST(request: NextRequest) {
-  const { error } = await requireAdmin();
-  if (error) return error;
+  const authResult = await requirePermission(request, 'settings', 'upload_letterhead');
+  if (authResult.error) return authResult.error;
 
   try {
     const formData = await request.formData();
@@ -78,9 +78,9 @@ export async function POST(request: NextRequest) {
 }
 
 // DELETE /api/settings/pdf/letterhead – Globales Briefpapier entfernen
-export async function DELETE() {
-  const { error } = await requireAdmin();
-  if (error) return error;
+export async function DELETE(request: NextRequest) {
+  const authResult = await requirePermission(request, 'settings', 'delete_letterhead');
+  if (authResult.error) return authResult.error;
 
   try {
     const existing = await prisma.systemSetting.findUnique({ where: { key: 'letterhead_path' } });

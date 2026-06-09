@@ -17,27 +17,22 @@ import {
   ClipboardList,
 } from 'lucide-react';
 import { signOut } from 'next-auth/react';
-import type { NavItem } from '@/lib/rbac';
 
-const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
-  LayoutDashboard,
-  Users,
-  FileText,
-  Calendar,
-  Settings,
-  Download,
-  ShoppingCart,
-  Package,
-  Award,
-  ClipboardList,
-};
-
-interface SidebarProps {
-  navItems: NavItem[];
-  userRole: string;
+export interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  adminOnly?: boolean;
+  modules?: string[]; // required modules for access
 }
 
-export default function Sidebar({ navItems, userRole }: SidebarProps) {
+interface SidebarClientProps {
+  userRole: string;
+  userId: string;
+  navItems: NavItem[];
+}
+
+export default function SidebarClient({ userRole, navItems }: SidebarClientProps) {
   const pathname = usePathname();
   const t = useTranslations('nav');
 
@@ -60,7 +55,7 @@ export default function Sidebar({ navItems, userRole }: SidebarProps) {
       {/* Navigation */}
       <nav className="flex-1 space-y-1 px-3 py-4">
         {navItems.map((item) => {
-          const Icon = iconMap[item.icon] ?? LayoutDashboard;
+          const Icon = item.icon;
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
 
           return (

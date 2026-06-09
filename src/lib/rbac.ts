@@ -135,3 +135,42 @@ export async function requirePermission(
 
   return { session, error: null };
 }
+
+export interface NavItem {
+  name: string;
+  href: string;
+  icon: string;
+  modules: string[];
+}
+
+export async function getAccessibleNav(
+  userRole: string,
+  userId: string
+): Promise<NavItem[]> {
+  const allNav: NavItem[] = [
+    { name: 'dashboard', href: '/de', icon: 'LayoutDashboard', modules: [] },
+    { name: 'employees', href: '/de/employees', icon: 'Users', modules: ['employees'] },
+    { name: 'documents', href: '/de/documents', icon: 'FileText', modules: ['documents'] },
+    { name: 'orders', href: '/de/clothing/orders', icon: 'ShoppingCart', modules: ['clothing'] },
+    { name: 'items', href: '/de/clothing/items', icon: 'Package', modules: ['clothing'] },
+    { name: 'woocommerceImport', href: '/de/clothing/woocommerce-import', icon: 'Download', modules: ['clothing'] },
+    { name: 'calendar', href: '/de/calendar', icon: 'Calendar', modules: ['calendar'] },
+    { name: 'planning', href: '/de/planning', icon: 'ClipboardList', modules: ['daily_plans'] },
+    { name: 'qualifications', href: '/de/qualifications', icon: 'Award', modules: ['qualifications'] },
+    { name: 'settings', href: '/de/settings', icon: 'Settings', modules: ['settings'] },
+  ];
+
+  if (userRole === 'ADMIN') return allNav;
+
+  const allowed = await Promise.all(
+    allNav.map(async (item) => {
+      if (item.modules.length === 0) return { item, allowed: true };
+      const results = await Promise.all(
+        item.modules.map((mod) => canRead(userRole, mod, 'view'))
+      );
+      return { item, allowed: results.some((r) => r.allowed) };
+    })
+  );
+
+  return allowed.filter((a) => a.allowed).map((a) => a.item);
+}

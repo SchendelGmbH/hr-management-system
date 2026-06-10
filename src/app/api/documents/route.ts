@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
   const authResult = await requirePermission(request, 'documents', 'view');
   if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const searchParams = request.nextUrl.searchParams;
   const employeeId = searchParams.get('employeeId');
@@ -16,12 +17,17 @@ export async function GET(request: NextRequest) {
     const now = new Date();
     const in30Days = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       // Only containers (one entry per document group)
       isContainer: true,
     };
 
-    if (employeeId) {
+    // IDOR-Schutz: Non-Admin darf nur eigene Dokumente sehen
+    if (!isAdminFromSession(session)) {
+      where.employeeId = session.user.id;
+    } else if (employeeId) {
+      // ADMIN darf explizit nach Mitarbeiter filtern
       where.employeeId = employeeId;
     }
 

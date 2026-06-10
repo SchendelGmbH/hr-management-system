@@ -2,11 +2,12 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { isAdminFromSession, ADMIN_ROLE_NAME } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export async function GET() {
   const session = await auth();
-  if (!session || session.user.roleName !== 'ADMIN') {
+  if (!isAdminFromSession(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -28,7 +29,7 @@ export async function GET() {
 
 export async function PUT(req: NextRequest) {
   const session = await auth();
-  if (!session || session.user.roleName !== 'ADMIN') {
+  if (!isAdminFromSession(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -49,7 +50,7 @@ export async function PUT(req: NextRequest) {
     if (!role) {
       return NextResponse.json({ error: 'Rolle nicht gefunden' }, { status: 404 });
     }
-    if (role.name === 'ADMIN') {
+    if (role.name === ADMIN_ROLE_NAME) {
       return NextResponse.json({ error: 'ADMIN-Berechtigungen können nicht bearbeitet werden' }, { status: 403 });
     }
 
@@ -68,7 +69,7 @@ export async function PUT(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = await auth();
-  if (!session || session.user.roleName !== 'ADMIN') {
+  if (!isAdminFromSession(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

@@ -1,31 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requirePermission } from '@/lib/rbac';
+import { requireAuth, requirePermission, isAdminFromSession } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
 const vacationSchema = z.object({
   employeeId: z.string().min(1),
-  startDate: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
-  endDate: z.string().datetime({ offset: true }).or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/)),
+  startDate: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, 'Format: YYYY-MM-DD'),
+  endDate: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/, 'Format: YYYY-MM-DD'),
   vacationType: z.enum(['VACATION', 'SICK', 'SPECIAL', 'SCHOOL', 'SCHOOL_BLOCK']),
   notes: z.string().max(1000).optional().nullable(),
 });
 
 export async function GET(request: NextRequest) {
-  // Versuche view_all zuerst (ADMIN), dann view_own (USER)
-  let authResult = await requirePermission(request, 'vacations', 'view_all');
-  if (authResult.error) {
-    const fallback = await requirePermission(request, 'vacations', 'view_own');
-    if (fallback.error) return authResult.error;
-    authResult = fallback;
-  }
+  // view Permission = alle sehen, aber Non-Admin filtert eigene Daten
+  const authResult = await requirePermission(request, 'vacations', 'view');
+  if (authResult.error) return authResult.error;
   const { session } = authResult;
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
-    // Non-admin darf nur eigene Urlaube sehen
-    if (session.user.roleName !== 'ADMIN') {
+    // Non-admin darf nur eigene Urlaube sehen (ADMIN hat automatic write → alles)
+    if (!isAdminFromSession(session)) {
       where.employeeId = session.user.id;
     }
 
@@ -66,7 +62,7 @@ export async function POST(request: NextRequest) {
     const data = vacationSchema.parse(body);
 
     // IDOR-Schutz: Nur ADMIN darf Urlaub für andere Mitarbeiter anlegen
-    if (session.user.roleName !== 'ADMIN' && data.employeeId !== session.user.id) {
+    if (!isAdminFromSession(session) && data.employeeId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

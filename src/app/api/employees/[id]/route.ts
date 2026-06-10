@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { checkAndResetBudget, getCurrentBudgetPeriodStart } from '@/lib/budget';
 import { z } from 'zod';
@@ -63,7 +63,7 @@ export async function GET(
     }
 
     // IDOR-Schutz: Nur ADMIN oder der eigene Mitarbeiter darf die Daten sehen
-    if (session.user.roleName !== 'ADMIN' && employee.userId !== session.user.id) {
+    if (!isAdminFromSession(session) && employee.userId !== session.user.id) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -76,7 +76,7 @@ export async function GET(
     }
 
     // PII-Maskierung: Non-ADMIN sieht nur unkritische Felder
-    if (session.user.roleName !== 'ADMIN') {
+    if (!isAdminFromSession(session)) {
       const maskedEmployee = {
         id: employee.id,
         firstName: employee.firstName,

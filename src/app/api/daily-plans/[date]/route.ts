@@ -1,14 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { NRW_HOLIDAYS, findLastWorkingDay, type WeekendMode } from '@/lib/holidays';
 
 export const dynamic = 'force-dynamic';
 
+// Date Range: ±20 Tage zurück, max 7 Tage voraus
+const DATE_RANGE_BACK = 20;
+const DATE_RANGE_FWD = 7;
+
 function parseDate(dateStr: string): Date {
   // Parse YYYY-MM-DD as UTC midnight
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(Date.UTC(year, month - 1, day));
+}
+
+function isValidDateRange(date: Date): boolean {
+  const today = new Date();
+  today.setUTCHours(0, 0, 0, 0);
+  const minDate = new Date(today);
+  minDate.setUTCDate(minDate.getUTCDate() - DATE_RANGE_BACK);
+  const maxDate = new Date(today);
+  maxDate.setUTCDate(maxDate.getUTCDate() + DATE_RANGE_FWD);
+  return date >= minDate && date <= maxDate;
 }
 
 function prevDay(date: Date): Date {
@@ -50,6 +64,11 @@ export async function GET(
 
   const { date: dateStr } = await params;
 
+  // #7: Date Range validieren (±20 Tage, max 7 voraus)
+  if (!isValidDateRange(parseDate(dateStr))) {
+    return NextResponse.json({ error: 'Date out of range' }, { status: 400 });
+  }
+
   try {
     const date = parseDate(dateStr);
 
@@ -83,12 +102,17 @@ export async function GET(
       }
     }
 
-    // Get absences for this date
+    // Get absences for this date (gefiltert nach poolDepartments für Non-Admin)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const absenceWhere: any = {
+      startDate: { lte: date },
+      endDate: { gte: date },
+    };
+    if (poolDepartmentIds.length > 0) {
+      absenceWhere.employee = { departmentId: { in: poolDepartmentIds } };
+    }
     const absences = await prisma.vacation.findMany({
-      where: {
-        startDate: { lte: date },
-        endDate: { gte: date },
-      },
+      where: absenceWhere,
       include: {
         employee: {
           select: {
@@ -191,25 +215,28 @@ export async function PUT(
         });
       }
 
-      // Auto-upsert WorkSite (Stammbaustelle)
-      await prisma.workSite.upsert({
-        where: { name_location: { name: s.name, location: s.location ?? '' } },
-        create: {
-          name: s.name,
-          location: s.location ?? null,
-          color: s.color ?? null,
-          defaultStartTime: s.startTime ?? '06:00',
-          defaultEndTime: s.endTime ?? '16:00',
-          defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
-          lastUsedAt: new Date(),
-        },
-        update: {
-          lastUsedAt: new Date(),
-          defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
-          defaultStartTime: s.startTime ?? '06:00',
-          defaultEndTime: s.endTime ?? '16:00',
-        },
-      });
+      // Auto-upsert WorkSite (Stammbaustelle) — nur mit manage_sites Permission
+      const manageSitesResult = await requirePermission(request, 'daily_plans', 'manage_sites');
+      if (!manageSitesResult.error) {
+        await prisma.workSite.upsert({
+          where: { name_location: { name: s.name, location: s.location ?? '' } },
+          create: {
+            name: s.name,
+            location: s.location ?? null,
+            color: s.color ?? null,
+            defaultStartTime: s.startTime ?? '06:00',
+            defaultEndTime: s.endTime ?? '16:00',
+            defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
+            lastUsedAt: new Date(),
+          },
+          update: {
+            lastUsedAt: new Date(),
+            defaultVehiclePlate: s.vehiclePlates?.[0] ?? null,
+            defaultStartTime: s.startTime ?? '06:00',
+            defaultEndTime: s.endTime ?? '16:00',
+          },
+        });
+      }
     }
 
     // Cleanup stale work sites (retention days from settings, default 30)

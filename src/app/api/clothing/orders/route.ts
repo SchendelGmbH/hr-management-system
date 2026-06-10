@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export async function GET(request: NextRequest) {
@@ -9,13 +9,13 @@ export async function GET(request: NextRequest) {
 
   const searchParams = request.nextUrl.searchParams;
   const employeeId = searchParams.get('employeeId');
-  const isAdmin = session.user.roleName === 'ADMIN';
+  const isAdmin = isAdminFromSession(session);
 
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {};
     // Non-admin darf nur eigene Bestellungen sehen
-    if (session.user.roleName !== 'ADMIN') {
+    if (!isAdmin) {
       where.employeeId = session.user.id;
     }
 

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { NRW_HOLIDAYS } from '@/lib/holidays';
 
@@ -25,10 +25,17 @@ function projectToYear(ref: Date, year: number): Date {
 export async function GET(request: NextRequest) {
   const authResult = await requirePermission(request, 'calendar', 'view');
   if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   try {
-    // ── 1. Vacations ──────────────────────────────────────────────────────────
+    // ── 1. Vacations (gefiltert nach eigener ID für Non-Admin) ─────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vacationWhere: any = {};
+    if (!isAdminFromSession(session)) {
+      vacationWhere.employeeId = session.user.id;
+    }
     const vacations = await prisma.vacation.findMany({
+      where: vacationWhere,
       include: {
         employee: {
           select: {
@@ -40,9 +47,14 @@ export async function GET(request: NextRequest) {
       orderBy: { startDate: 'asc' },
     });
 
-    // ── 2. Documents with expiration date ─────────────────────────────────────
+    // ── 2. Documents with expiration date (gefiltert für Non-Admin) ─────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const docWhere: any = { isContainer: true, expirationDate: { not: null } };
+    if (!isAdminFromSession(session)) {
+      docWhere.employeeId = session.user.id;
+    }
     const documents = await prisma.document.findMany({
-      where: { isContainer: true, expirationDate: { not: null } },
+      where: docWhere,
       select: {
         id: true, title: true, expirationDate: true, notes: true,
         employee: {
@@ -55,7 +67,7 @@ export async function GET(request: NextRequest) {
       orderBy: { expirationDate: 'asc' },
     });
 
-    // ── 3. All employees (for all date-based events) ──────────────────────────
+    // ── 3. All employees (for all date-based events – birthdays/anniversaries sind öffentlich)
     const employees = await prisma.employee.findMany({
       select: {
         id: true, firstName: true, lastName: true, employeeNumber: true,
@@ -180,9 +192,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // ── Qualification expiry events ───────────────────────────────────────────
+    // ── Qualification expiry events (gefiltert für Non-Admin) ─────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const qualWhere: any = { expiresAt: { not: null } };
+    if (!isAdminFromSession(session)) {
+      qualWhere.employeeId = session.user.id;
+    }
     const qualifications = await prisma.qualification.findMany({
-      where: { expiresAt: { not: null } },
+      where: qualWhere,
       select: {
         id: true, expiresAt: true,
         type: { select: { name: true, group: true } },

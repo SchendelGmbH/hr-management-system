@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +35,7 @@ export async function PUT(
       return NextResponse.json({ error: 'Urlaub nicht gefunden' }, { status: 404 });
     }
 
-    if (vacation.employeeId !== session.user.id && session.user.roleName !== 'ADMIN') {
+    if (!isAdminFromSession(session)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
@@ -78,7 +78,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Urlaub nicht gefunden' }, { status: 404 });
     }
 
-    if (vacation.employeeId !== session.user.id && session.user.roleName !== 'ADMIN') {
+    if (!isAdminFromSession(session)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

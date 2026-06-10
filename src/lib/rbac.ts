@@ -19,10 +19,15 @@ async function getRoleName(roleId: string | null | undefined): Promise<string | 
   return role?.name ?? null;
 }
 
-/** Ist die Rolle ein ADMIN? (Role.name === 'ADMIN') */
+/** Ist die Rolle ein ADMIN? (Role.name === 'ADMIN') - nutzt DB */
 async function isAdmin(roleId: string | null | undefined): Promise<boolean> {
   const name = await getRoleName(roleId ?? null);
   return name === ADMIN_ROLE_NAME;
+}
+
+/** Ist die Session ein ADMIN? - nutzt roleName aus JWT (kein DB-Call) */
+export function isAdminFromSession(session: { roleName?: string | null } | null): boolean {
+  return session?.roleName === ADMIN_ROLE_NAME;
 }
 
 // ──────────────────────────────────────────────

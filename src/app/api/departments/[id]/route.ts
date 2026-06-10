@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
+import { isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 // DELETE /api/departments/[id]
@@ -13,7 +14,7 @@ export async function DELETE(
   }
 
   // RBAC: Only ADMIN can delete departments
-  if (session.user.roleName !== 'ADMIN') {
+  if (!isAdminFromSession(session)) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

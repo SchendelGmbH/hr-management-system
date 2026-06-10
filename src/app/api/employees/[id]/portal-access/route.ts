@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import { requirePermission } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
+import { isAdminFromSession, ADMIN_ROLE_NAME } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -99,7 +100,7 @@ export async function POST(
       return NextResponse.json({ error: 'Ungültige Rolle' }, { status: 400 });
     }
     // ADMIN role cannot be assigned via portal-access (security)
-    if (roleExists.name === 'ADMIN') {
+    if (roleExists.name === ADMIN_ROLE_NAME) {
       return NextResponse.json({ error: 'ADMIN-Rolle kann nicht zugewiesen werden' }, { status: 403 });
     }
   }
@@ -172,7 +173,7 @@ export async function PUT(
     if (!roleExists) {
       return NextResponse.json({ error: 'Ungültige Rolle' }, { status: 400 });
     }
-    if (roleExists.name === 'ADMIN') {
+    if (roleExists.name === ADMIN_ROLE_NAME) {
       return NextResponse.json({ error: 'ADMIN-Rolle kann nicht zugewiesen werden' }, { status: 403 });
     }
   }

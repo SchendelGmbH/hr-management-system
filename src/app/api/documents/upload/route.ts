@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { writeFile, mkdir } from 'fs/promises';
 import { join } from 'path';
@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
     const title = formData.get('title') as string;
 
     // H2: IDOR-Schutz – Mitarbeiter darf nur eigene Dokumente hochladen (ADMIN darf alle)
-    if (session.user.roleName !== 'ADMIN' && session.user.id !== employeeId) {
+    if (!isAdminFromSession(session) && session.user.id !== employeeId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 

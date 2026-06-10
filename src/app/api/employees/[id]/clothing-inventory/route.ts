@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, requireEmployeeAccess } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 
 export async function GET(
@@ -8,8 +8,13 @@ export async function GET(
 ) {
   const authResult = await requirePermission(request, 'employees', 'clothing');
   if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
+
+  // IDOR-Schutz: Non-Admin darf nur eigene Clothing-Daten sehen
+  const accessResult = await requireEmployeeAccess(id, session);
+  if (!accessResult.allowed) return accessResult.error;
 
   try {
     // Alle Bestellungen des Mitarbeiters mit Items laden

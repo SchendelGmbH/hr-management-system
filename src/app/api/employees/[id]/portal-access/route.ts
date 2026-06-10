@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, requireEmployeeAccess, isAdminFromSession, ADMIN_ROLE_NAME } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
-import { isAdminFromSession, ADMIN_ROLE_NAME } from '@/lib/rbac';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +33,10 @@ export async function GET(
   const { session } = authResult;
 
   const { id } = await params;
+
+  // IDOR-Schutz: Non-Admin darf nur eigene Portal-Zugriffs-Daten sehen
+  const accessResult = await requireEmployeeAccess(id, session);
+  if (!accessResult.allowed) return accessResult.error;
 
   const employee = await prisma.employee.findUnique({
     where: { id },
@@ -71,6 +74,10 @@ export async function POST(
   const { session } = authResult;
 
   const { id } = await params;
+
+  // IDOR-Schutz: Non-Admin darf nur eigene Portal-Zugriffs-Daten ändern
+  const accessResult = await requireEmployeeAccess(id, session);
+  if (!accessResult.allowed) return accessResult.error;
 
   const employee = await prisma.employee.findUnique({ where: { id }, select: { id: true, userId: true } });
   if (!employee) {
@@ -144,6 +151,10 @@ export async function PUT(
 
   const { id } = await params;
 
+  // IDOR-Schutz: Non-Admin darf nur eigene Portal-Zugriffs-Daten ändern
+  const accessResult = await requireEmployeeAccess(id, session);
+  if (!accessResult.allowed) return accessResult.error;
+
   const employee = await prisma.employee.findUnique({ where: { id }, select: { userId: true } });
   if (!employee?.userId) {
     return NextResponse.json({ error: 'Kein Portalzugang vorhanden' }, { status: 404 });
@@ -212,6 +223,10 @@ export async function DELETE(
   const { session } = authResult;
 
   const { id } = await params;
+
+  // IDOR-Schutz: Non-Admin darf nur eigene Portal-Zugriffs-Daten löschen
+  const accessResult = await requireEmployeeAccess(id, session);
+  if (!accessResult.allowed) return accessResult.error;
 
   const employee = await prisma.employee.findUnique({
     where: { id },

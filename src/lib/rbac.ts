@@ -30,6 +30,31 @@ export function isAdminFromSession(session: { roleName?: string | null } | null)
   return session?.roleName === ADMIN_ROLE_NAME;
 }
 
+/**
+ * IDOR-Schutz für Employee-Sub-Routen.
+ * ADMIN darf alle Employees sehen.
+ * Sonst darf ein User nur seinen eigenen Employee-Datensatz sehen.
+ * Gibt 403 zurück wenn verboten.
+ */
+export async function requireEmployeeAccess(
+  employeeId: string,
+  session: Session
+): Promise<{ allowed: true } | { allowed: false; error: NextResponse }> {
+  if (isAdminFromSession(session)) return { allowed: true };
+
+  const employee = await prisma.employee.findUnique({
+    where: { id: employeeId },
+    select: { userId: true },
+  });
+  if (!employee) {
+    return { allowed: false, error: NextResponse.json({ error: 'Mitarbeiter nicht gefunden' }, { status: 404 }) };
+  }
+  if (employee.userId !== session.user.id) {
+    return { allowed: false, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) };
+  }
+  return { allowed: true };
+}
+
 // ──────────────────────────────────────────────
 // Auth-Checks
 // ──────────────────────────────────────────────

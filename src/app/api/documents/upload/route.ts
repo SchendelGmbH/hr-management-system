@@ -7,6 +7,16 @@ import { existsSync } from 'fs';
 import { getNextColor } from '@/lib/categoryColors';
 import { extractText } from '@/lib/extractText';
 
+/** Entfernt HTML/Script-Tags und gefährliche Zeichen aus User-Input */
+function sanitizeString(str: string | null | undefined): string | null {
+  if (!str) return null;
+  return str
+    .replace(/<[^>]*>/g, '')        // HTML-Tags entfernen
+    .replace(/javascript:/gi, '')   // javascript:-Protocol entfernen
+    .replace(/on\w+=/gi, '')        // onEvent-Handler entfernen
+    .trim() || null;
+}
+
 /** Prüft die echten Magic-Bytes (Datei-Signatur) des Puffers. */
 function validateMagicBytes(buffer: Buffer, mimeType: string): boolean {
   if (buffer.length < 4) return false;
@@ -45,11 +55,11 @@ export async function POST(request: NextRequest) {
     if (!isAdminFromSession(session) && session.user.id !== employeeId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
-
-    const description = formData.get('description') as string;
+    const title = sanitizeString(formData.get('title') as string);
+    const description = sanitizeString(formData.get('description') as string);
     const validFrom = formData.get('validFrom') as string;
     const expirationDate = formData.get('expirationDate') as string;
-    const notes = formData.get('notes') as string;
+    const notes = sanitizeString(formData.get('notes') as string);
     const categoriesJson = formData.get('categories') as string;
     // parentDocumentId now points to the CONTAINER (not v1)
     const parentDocumentId = formData.get('parentDocumentId') as string | null;
@@ -66,6 +76,13 @@ export async function POST(request: NextRequest) {
     if (!file || !employeeId || !title) {
       return NextResponse.json(
         { error: 'Missing required fields' },
+        { status: 400 }
+      );
+    }
+
+    if (!title?.trim()) {
+      return NextResponse.json(
+        { error: 'Titel darf nicht leer sein' },
         { status: 400 }
       );
     }
@@ -147,7 +164,7 @@ export async function POST(request: NextRequest) {
 
     const categoryIds: string[] = [];
     for (const categoryName of categoryNames) {
-      const trimmedName = categoryName.trim();
+      const trimmedName = sanitizeString(categoryName)?.trim();
       if (!trimmedName) continue;
 
       let category = await prisma.category.findFirst({

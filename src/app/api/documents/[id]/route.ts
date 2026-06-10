@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requirePermission } from '@/lib/rbac';
+import { requirePermission, isAdminFromSession } from '@/lib/rbac';
 import prisma from '@/lib/prisma';
 import { getNextColor } from '@/lib/categoryColors';
 import { unlink } from 'fs/promises';
@@ -13,10 +13,23 @@ export async function GET(
 ) {
   const authResult = await requirePermission(request, 'documents', 'view');
   if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id } = await params;
 
   try {
+    // IDOR-Schutz: Document laden und Ownership prüfen
+    const container = await prisma.document.findUnique({
+      where: { id, isContainer: true },
+      select: { employeeId: true },
+    });
+    if (!container) {
+      return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 });
+    }
+    if (!isAdminFromSession(session) && container.employeeId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     // Alle Versionen laden: nur echte Versionen (keine Container)
     const versions = await prisma.document.findMany({
       where: {
@@ -59,6 +72,18 @@ export async function PUT(
   const { id } = await params;
 
   try {
+    // IDOR-Schutz: Document-Ownership prüfen
+    const container = await prisma.document.findUnique({
+      where: { id, isContainer: true },
+      select: { employeeId: true },
+    });
+    if (!container) {
+      return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 });
+    }
+    if (!isAdminFromSession(session) && container.employeeId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const { title, description, validFrom, expirationDate, notes, categories } = body;
 
@@ -161,16 +186,18 @@ export async function DELETE(
   const { id } = await params;
 
   try {
-    // Container mit allen Versionen laden
+    // IDOR-Schutz + Container mit allen Versionen laden
     const container = await prisma.document.findUnique({
       where: { id, isContainer: true },
       include: {
         versions: { select: { id: true, filePath: true } },
       },
     });
-
     if (!container) {
       return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 });
+    }
+    if (!isAdminFromSession(session) && container.employeeId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Physische Dateien von der Festplatte löschen (digitale + Druckversion)
@@ -237,6 +264,18 @@ export async function PATCH(
   const { id } = await params;
 
   try {
+    // IDOR-Schutz: Document-Ownership prüfen
+    const doc = await prisma.document.findUnique({
+      where: { id, isContainer: true },
+      select: { employeeId: true },
+    });
+    if (!doc) {
+      return NextResponse.json({ error: 'Dokument nicht gefunden' }, { status: 404 });
+    }
+    if (!isAdminFromSession(session) && doc.employeeId !== session.user.id) {
+      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
     const body = await request.json();
     const snoozedUntil = body.snoozedUntil ? new Date(body.snoozedUntil) : null;
 

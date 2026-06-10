@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth, requirePermission } from '@/lib/rbac';
+import { requireAuth, requirePermission, requireEmployeeAccess } from '@/lib/rbac';
 import { z } from 'zod';
 import prisma from '@/lib/prisma';
 
@@ -20,8 +20,13 @@ export async function GET(
 ) {
   const authResult = await requirePermission(request, 'employees', 'qualifications');
   if (authResult.error) return authResult.error;
+  const { session } = authResult;
 
   const { id: employeeId } = await params;
+
+  // IDOR-Schutz: Non-Admin darf nur eigene Employee-Daten sehen
+  const accessResult = await requireEmployeeAccess(employeeId, session);
+  if (!accessResult.allowed) return accessResult.error;
 
   try {
     const qualifications = await prisma.qualification.findMany({
@@ -48,6 +53,10 @@ export async function POST(
   const { session } = authResult;
 
   const { id: employeeId } = await params;
+
+  // IDOR-Schutz: Non-Admin darf nur eigene Employee-Daten ändern
+  const accessResult = await requireEmployeeAccess(employeeId, session);
+  if (!accessResult.allowed) return accessResult.error;
 
   try {
     const body = await request.json();
